@@ -14,6 +14,7 @@ This repository contains the specification package for Semaphore (a course atten
 - `migrations/`: per-service SQL migrations (schema + seed).
 - `services/auth-identity`: first microservice implementation (Go).
 - `services/academics`: academics microservice implementation (Go).
+- `services/attendance`: attendance microservice implementation (Go).
 
 ## Documentation
 Start with `docs/README.md` for a guided map of the specs, architecture notes, and data-model references.
@@ -24,8 +25,14 @@ The first microservice is implemented in `services/auth-identity`. It provides J
 ## Academics Service
 The academics microservice is implemented in `services/academics`. It handles schools, preferences, classrooms, courses, student groups, and assignments, plus the gRPC AcademicsQueryService. See `services/academics/README.md` for usage.
 
+## Attendance Service
+The attendance microservice is implemented in `services/attendance`. It owns signatures and the gRPC AttendanceCommandService for beacon submissions. See `services/attendance/README.md` for usage.
+
 ## Commands
-No build, test, or runtime commands are defined yet. If you add executable code, document exact commands here and in `AGENTS.md`.
+- Run a service locally from its directory (see service README files for env vars):
+  - `go run ./cmd/server`
+- Run tests for a service:
+  - `go test ./...`
 
 ## Contributing
 See `AGENTS.md` for repository guidelines, naming conventions, and PR expectations.

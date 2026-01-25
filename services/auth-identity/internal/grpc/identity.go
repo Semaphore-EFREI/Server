@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -53,4 +54,16 @@ func (s *IdentityServer) Exists(ctx context.Context, req *identityv1.ExistsReque
 		return nil, status.Error(codes.Internal, "lookup failed")
 	}
 	return &identityv1.ExistsResponse{Exists: exists}, nil
+}
+
+func (s *IdentityServer) ValidateStudentDevice(ctx context.Context, req *identityv1.ValidateStudentDeviceRequest) (*identityv1.ValidateStudentDeviceResponse, error) {
+	if req.GetStudentId() == "" || req.GetDeviceIdentifier() == "" {
+		return nil, status.Error(codes.InvalidArgument, "student_id and device_identifier required")
+	}
+	device, err := s.store.GetActiveDevice(ctx, req.GetStudentId())
+	if err != nil || device.DeviceIdentifier != req.GetDeviceIdentifier() || !device.Active {
+		return &identityv1.ValidateStudentDeviceResponse{IsValid: false}, nil
+	}
+	_ = s.store.UpdateDeviceLastSeen(ctx, device.ID, time.Now().UTC())
+	return &identityv1.ValidateStudentDeviceResponse{IsValid: true}, nil
 }

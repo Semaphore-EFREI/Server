@@ -11,12 +11,14 @@
   - `docs/database-schema.md`: per-service database documentation and enums.
   - `docs/database-implementation.md`: migration and seed instructions for dev.
 - `migrations/` stores per-service SQL migrations (schema + seed).
-- `services/` contains implementation code, starting with `services/auth-identity` and `services/academics`.
+- `services/` contains implementation code, including `services/auth-identity`, `services/academics`, and `services/attendance`.
 - There is no application source code in this repo yet; treat it as a specification package.
 
 ## Build, Test, and Development Commands
-- No build, test, or runtime commands are defined yet.
-- If you add executable code, document the exact commands here (and in `README.md`) with examples.
+- Run a service locally from its directory (see service README files for env vars):
+  - `go run ./cmd/server`
+- Run tests for a service:
+  - `go test ./...`
 
 ## Coding Style & Naming Conventions
 - Keep Markdown concise with clear headings and short bullet lists.

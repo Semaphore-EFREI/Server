@@ -22,7 +22,7 @@ All student/teacher references are UUIDs from auth-identity with **no FK constra
 
 ## Attendance DB
 Tables:
-- `signatures`: base attendance events (course_id, signed_at, status, method).
+- `signatures`: base attendance events (course_id, signed_at, status, method, soft delete).
 - `student_signatures`: links a signature to a student; may include `teacher_id` or `administrator_id` when manual overrides occur.
 - `teacher_signatures`: links a signature to a teacher (presence validation).
 
@@ -31,8 +31,8 @@ Tables:
 - `beacons`: hardware metadata, keys, optional classroom assignment, and telemetry timestamps.
 
 ## Enums
-- `signature_method`: `flash`, `qrcode`, `nfc`.
-- `signature_status`: `present`, `absent`, `late`, `excused`, `invalid`.
+- `signature_method`: `flash`, `qrcode`, `nfc`, `beacon`, `buzzLightyear`, `qrCode`, `teacher`, `web`, `self`, `admin`.
+- `signature_status`: `signed`, `present`, `absent`, `late`, `excused`, `invalid`.
 - `admin_role`: `super_admin`, `school_admin`.
 
 ## Constraints & Indexing (Highlights)

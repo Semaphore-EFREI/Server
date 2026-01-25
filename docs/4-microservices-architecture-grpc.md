@@ -275,9 +275,17 @@ message GetUserLiteResponse { UserLite user = 1; }
 message ExistsRequest { string user_id = 1; }
 message ExistsResponse { bool exists = 1; }
 
+message ValidateStudentDeviceRequest {
+  string student_id = 1;
+  string device_identifier = 2;
+}
+message ValidateStudentDeviceResponse { bool is_valid = 1; }
+
 service IdentityQueryService {
   rpc GetUserLite(GetUserLiteRequest) returns (GetUserLiteResponse);
   rpc Exists(ExistsRequest) returns (ExistsResponse);
+  rpc ValidateStudentDevice(ValidateStudentDeviceRequest)
+    returns (ValidateStudentDeviceResponse);
 }
 ```
 

@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - protoc             v6.33.1
-// source: identity/v1/identity.proto
+// source: services/auth-identity/identity/v1/identity.proto
 
 package identityv1
 
@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	IdentityQueryService_GetUserLite_FullMethodName = "/identity.api.v1.IdentityQueryService/GetUserLite"
-	IdentityQueryService_Exists_FullMethodName      = "/identity.api.v1.IdentityQueryService/Exists"
+	IdentityQueryService_GetUserLite_FullMethodName           = "/identity.api.v1.IdentityQueryService/GetUserLite"
+	IdentityQueryService_Exists_FullMethodName                = "/identity.api.v1.IdentityQueryService/Exists"
+	IdentityQueryService_ValidateStudentDevice_FullMethodName = "/identity.api.v1.IdentityQueryService/ValidateStudentDevice"
 )
 
 // IdentityQueryServiceClient is the client API for IdentityQueryService service.
@@ -29,6 +30,7 @@ const (
 type IdentityQueryServiceClient interface {
 	GetUserLite(ctx context.Context, in *GetUserLiteRequest, opts ...grpc.CallOption) (*GetUserLiteResponse, error)
 	Exists(ctx context.Context, in *ExistsRequest, opts ...grpc.CallOption) (*ExistsResponse, error)
+	ValidateStudentDevice(ctx context.Context, in *ValidateStudentDeviceRequest, opts ...grpc.CallOption) (*ValidateStudentDeviceResponse, error)
 }
 
 type identityQueryServiceClient struct {
@@ -57,12 +59,22 @@ func (c *identityQueryServiceClient) Exists(ctx context.Context, in *ExistsReque
 	return out, nil
 }
 
+func (c *identityQueryServiceClient) ValidateStudentDevice(ctx context.Context, in *ValidateStudentDeviceRequest, opts ...grpc.CallOption) (*ValidateStudentDeviceResponse, error) {
+	out := new(ValidateStudentDeviceResponse)
+	err := c.cc.Invoke(ctx, IdentityQueryService_ValidateStudentDevice_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // IdentityQueryServiceServer is the server API for IdentityQueryService service.
 // All implementations must embed UnimplementedIdentityQueryServiceServer
 // for forward compatibility
 type IdentityQueryServiceServer interface {
 	GetUserLite(context.Context, *GetUserLiteRequest) (*GetUserLiteResponse, error)
 	Exists(context.Context, *ExistsRequest) (*ExistsResponse, error)
+	ValidateStudentDevice(context.Context, *ValidateStudentDeviceRequest) (*ValidateStudentDeviceResponse, error)
 	mustEmbedUnimplementedIdentityQueryServiceServer()
 }
 
@@ -75,6 +87,9 @@ func (UnimplementedIdentityQueryServiceServer) GetUserLite(context.Context, *Get
 }
 func (UnimplementedIdentityQueryServiceServer) Exists(context.Context, *ExistsRequest) (*ExistsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Exists not implemented")
+}
+func (UnimplementedIdentityQueryServiceServer) ValidateStudentDevice(context.Context, *ValidateStudentDeviceRequest) (*ValidateStudentDeviceResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ValidateStudentDevice not implemented")
 }
 func (UnimplementedIdentityQueryServiceServer) mustEmbedUnimplementedIdentityQueryServiceServer() {}
 
@@ -125,6 +140,24 @@ func _IdentityQueryService_Exists_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _IdentityQueryService_ValidateStudentDevice_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidateStudentDeviceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IdentityQueryServiceServer).ValidateStudentDevice(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IdentityQueryService_ValidateStudentDevice_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IdentityQueryServiceServer).ValidateStudentDevice(ctx, req.(*ValidateStudentDeviceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // IdentityQueryService_ServiceDesc is the grpc.ServiceDesc for IdentityQueryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -140,7 +173,11 @@ var IdentityQueryService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "Exists",
 			Handler:    _IdentityQueryService_Exists_Handler,
 		},
+		{
+			MethodName: "ValidateStudentDevice",
+			Handler:    _IdentityQueryService_ValidateStudentDevice_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "identity/v1/identity.proto",
+	Metadata: "services/auth-identity/identity/v1/identity.proto",
 }

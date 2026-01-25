@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package attendance.api.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "semaphore/attendance/attendance/v1;attendancev1";
+
+enum SignatureMethod {
+  SIGNATURE_METHOD_UNSPECIFIED = 0;
+  SIGNATURE_METHOD_QR = 1;
+  SIGNATURE_METHOD_NFC = 2;
+  SIGNATURE_METHOD_FLASHLIGHT = 3;
+  SIGNATURE_METHOD_BEACON = 4;
+  SIGNATURE_METHOD_TEACHER = 5;
+  SIGNATURE_METHOD_ADMIN = 6;
+}
+
+enum SignatureStatus {
+  SIGNATURE_STATUS_UNSPECIFIED = 0;
+  SIGNATURE_STATUS_PENDING = 1;
+  SIGNATURE_STATUS_ACCEPTED = 2;
+  SIGNATURE_STATUS_REFUSED = 3;
+  SIGNATURE_STATUS_LATE = 4;
+}
+
+message BeaconProof {
+  string beacon_id = 1;
+  string classroom_id = 2;
+  string proof_type = 3;
+  bytes proof_payload = 4;
+  google.protobuf.Timestamp proof_time = 5;
+}
+
+message CreateSignatureAttemptRequest {
+  string course_id = 1;
+  string student_id = 2;
+  SignatureMethod method = 3;
+  string teacher_id = 4;
+  string administrator_id = 5;
+  BeaconProof beacon_proof = 6;
+  google.protobuf.Timestamp received_at = 7;
+}
+
+message CreateSignatureAttemptResponse {
+  string signature_id = 1;
+  SignatureStatus status = 2;
+  string message = 3;
+}
+
+service AttendanceCommandService {
+  rpc CreateSignatureAttempt(CreateSignatureAttemptRequest) returns (CreateSignatureAttemptResponse);
+}
