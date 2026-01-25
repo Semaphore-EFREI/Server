@@ -41,9 +41,23 @@ message ValidateClassroomCourseRequest {
 }
 message ValidateClassroomCourseResponse { bool is_linked = 1; }
 
+message SchoolPreferences {
+  string id = 1;
+  int32 default_signature_closing_delay_minutes = 2;
+  bool teacher_can_modify_closing_delay = 3;
+  bool students_can_sign_before_teacher = 4;
+  bool enable_flash = 5;
+  bool enable_qrcode = 6;
+  bool enable_nfc = 7;
+}
+
+message GetSchoolPreferencesRequest { string school_id = 1; }
+message GetSchoolPreferencesResponse { SchoolPreferences preferences = 1; }
+
 service AcademicsQueryService {
   rpc GetCourse(GetCourseRequest) returns (GetCourseResponse);
   rpc ValidateTeacherCourse(ValidateTeacherCourseRequest) returns (ValidateTeacherCourseResponse);
   rpc ValidateStudentCourse(ValidateStudentCourseRequest) returns (ValidateStudentCourseResponse);
   rpc ValidateClassroomCourse(ValidateClassroomCourseRequest) returns (ValidateClassroomCourseResponse);
+  rpc GetSchoolPreferences(GetSchoolPreferencesRequest) returns (GetSchoolPreferencesResponse);
 }

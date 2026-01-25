@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -41,6 +42,8 @@ func (s *Server) Router() http.Handler {
 	r.With(s.authMiddleware).Get("/signature/{signatureId}", s.handleGetSignature)
 	r.With(s.authMiddleware).Patch("/signature/{signatureId}", s.handlePatchSignature)
 	r.With(s.authMiddleware).Delete("/signature/{signatureId}", s.handleDeleteSignature)
+	r.With(s.authMiddleware).Get("/signatures", s.handleListSignatures)
+	r.With(s.authMiddleware).Get("/signatures/report", s.handleSignatureReport)
 
 	return r
 }
@@ -205,6 +208,29 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_method")
 		return
+	}
+
+	if claims.UserType == "student" {
+		prefs, err := s.loadSchoolPreferences(r.Context(), course.GetSchoolId())
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "preferences_not_found")
+			return
+		}
+		if !methodAllowedForStudent(methodValue, prefs) {
+			writeError(w, http.StatusForbidden, "method_not_allowed")
+			return
+		}
+		if !prefs.GetStudentsCanSignBeforeTeacher() {
+			present, err := s.store.Queries.HasTeacherPresence(r.Context(), courseID)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "server_error")
+				return
+			}
+			if !present {
+				writeError(w, http.StatusForbidden, "teacher_not_present")
+				return
+			}
+		}
 	}
 
 	timingStatus, timingErr := validateTiming(course, signedAt)
@@ -397,6 +423,275 @@ func (s *Server) handleDeleteSignature(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (s *Server) handleListSignatures(w http.ResponseWriter, r *http.Request) {
+	claims := claimsFromContext(r.Context())
+	if claims == nil {
+		writeError(w, http.StatusUnauthorized, "missing_token")
+		return
+	}
+
+	courseID := r.URL.Query().Get("courseId")
+	studentID := r.URL.Query().Get("studentId")
+	teacherID := r.URL.Query().Get("teacherId")
+	limit := parseLimit(r, 50)
+
+	var courseUUID pgtype.UUID
+	if courseID != "" {
+		parsed, err := parseUUID(courseID)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_course")
+			return
+		}
+		courseUUID = parsed
+	}
+
+	switch claims.UserType {
+	case "student":
+		if teacherID != "" {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		if studentID != "" && studentID != claims.UserID {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		studentID = claims.UserID
+		studentUUID, err := parseUUID(studentID)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_student_id")
+			return
+		}
+		if courseID != "" {
+			rows, err := s.store.Queries.ListStudentSignaturesByStudentAndCourse(r.Context(), db.ListStudentSignaturesByStudentAndCourseParams{
+				StudentID: studentUUID,
+				CourseID:  courseUUID,
+				Limit:     limit,
+			})
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "server_error")
+				return
+			}
+			resp := make([]any, 0, len(rows))
+			for _, row := range rows {
+				resp = append(resp, mapStudentSignatureFromListStudentCourse(row))
+			}
+			writeJSON(w, http.StatusOK, resp)
+			return
+		}
+		rows, err := s.store.Queries.ListStudentSignaturesByStudent(r.Context(), db.ListStudentSignaturesByStudentParams{
+			StudentID: studentUUID,
+			Limit:     limit,
+		})
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "server_error")
+			return
+		}
+		resp := make([]any, 0, len(rows))
+		for _, row := range rows {
+			resp = append(resp, mapStudentSignatureFromListStudent(row))
+		}
+		writeJSON(w, http.StatusOK, resp)
+		return
+	case "teacher":
+		if studentID != "" {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		if teacherID != "" && teacherID != claims.UserID {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		teacherID = claims.UserID
+		teacherUUID, err := parseUUID(teacherID)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_teacher_id")
+			return
+		}
+		if courseID != "" {
+			allowed, err := s.academics.ValidateTeacherCourse(r.Context(), &academicsv1.ValidateTeacherCourseRequest{
+				TeacherId: teacherID,
+				CourseId:  courseID,
+			})
+			if err != nil || !allowed.GetIsAssigned() {
+				writeError(w, http.StatusForbidden, "forbidden")
+				return
+			}
+			studentRows, err := s.store.Queries.ListStudentSignaturesByCourse(r.Context(), db.ListStudentSignaturesByCourseParams{
+				CourseID: courseUUID,
+				Limit:    limit,
+			})
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "server_error")
+				return
+			}
+			teacherRows, err := s.store.Queries.ListTeacherSignaturesByCourse(r.Context(), db.ListTeacherSignaturesByCourseParams{
+				CourseID: courseUUID,
+				Limit:    limit,
+			})
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "server_error")
+				return
+			}
+			resp := make([]any, 0, len(studentRows)+len(teacherRows))
+			for _, row := range studentRows {
+				resp = append(resp, mapStudentSignatureFromListCourse(row))
+			}
+			for _, row := range teacherRows {
+				resp = append(resp, mapTeacherSignatureFromListCourse(row))
+			}
+			writeJSON(w, http.StatusOK, resp)
+			return
+		}
+		rows, err := s.store.Queries.ListTeacherSignaturesByTeacher(r.Context(), db.ListTeacherSignaturesByTeacherParams{
+			TeacherID: teacherUUID,
+			Limit:     limit,
+		})
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "server_error")
+			return
+		}
+		resp := make([]any, 0, len(rows))
+		for _, row := range rows {
+			resp = append(resp, mapTeacherSignatureFromListTeacher(row))
+		}
+		writeJSON(w, http.StatusOK, resp)
+		return
+	case "admin", "dev":
+		if courseID != "" {
+			studentRows, err := s.store.Queries.ListStudentSignaturesByCourse(r.Context(), db.ListStudentSignaturesByCourseParams{
+				CourseID: courseUUID,
+				Limit:    limit,
+			})
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "server_error")
+				return
+			}
+			teacherRows, err := s.store.Queries.ListTeacherSignaturesByCourse(r.Context(), db.ListTeacherSignaturesByCourseParams{
+				CourseID: courseUUID,
+				Limit:    limit,
+			})
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "server_error")
+				return
+			}
+			resp := make([]any, 0, len(studentRows)+len(teacherRows))
+			for _, row := range studentRows {
+				resp = append(resp, mapStudentSignatureFromListCourse(row))
+			}
+			for _, row := range teacherRows {
+				resp = append(resp, mapTeacherSignatureFromListCourse(row))
+			}
+			writeJSON(w, http.StatusOK, resp)
+			return
+		}
+		if studentID != "" {
+			studentUUID, err := parseUUID(studentID)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "invalid_student_id")
+				return
+			}
+			rows, err := s.store.Queries.ListStudentSignaturesByStudent(r.Context(), db.ListStudentSignaturesByStudentParams{
+				StudentID: studentUUID,
+				Limit:     limit,
+			})
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "server_error")
+				return
+			}
+			resp := make([]any, 0, len(rows))
+			for _, row := range rows {
+				resp = append(resp, mapStudentSignatureFromListStudent(row))
+			}
+			writeJSON(w, http.StatusOK, resp)
+			return
+		}
+		if teacherID != "" {
+			teacherUUID, err := parseUUID(teacherID)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "invalid_teacher_id")
+				return
+			}
+			rows, err := s.store.Queries.ListTeacherSignaturesByTeacher(r.Context(), db.ListTeacherSignaturesByTeacherParams{
+				TeacherID: teacherUUID,
+				Limit:     limit,
+			})
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "server_error")
+				return
+			}
+			resp := make([]any, 0, len(rows))
+			for _, row := range rows {
+				resp = append(resp, mapTeacherSignatureFromListTeacher(row))
+			}
+			writeJSON(w, http.StatusOK, resp)
+			return
+		}
+		writeError(w, http.StatusBadRequest, "missing_filter")
+		return
+	default:
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+}
+
+type signatureReportResponse struct {
+	Course        string           `json:"course"`
+	StudentCounts map[string]int64 `json:"studentCounts"`
+	TeacherCount  int64            `json:"teacherCount"`
+}
+
+func (s *Server) handleSignatureReport(w http.ResponseWriter, r *http.Request) {
+	claims := claimsFromContext(r.Context())
+	if claims == nil {
+		writeError(w, http.StatusUnauthorized, "missing_token")
+		return
+	}
+	courseID := r.URL.Query().Get("courseId")
+	if courseID == "" {
+		writeError(w, http.StatusBadRequest, "missing_course")
+		return
+	}
+	courseUUID, err := parseUUID(courseID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_course")
+		return
+	}
+	if claims.UserType == "teacher" {
+		allowed, err := s.academics.ValidateTeacherCourse(r.Context(), &academicsv1.ValidateTeacherCourseRequest{
+			TeacherId: claims.UserID,
+			CourseId:  courseID,
+		})
+		if err != nil || !allowed.GetIsAssigned() {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+	}
+	if claims.UserType == "student" {
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+
+	rows, err := s.store.Queries.CountStudentSignatureStatusByCourse(r.Context(), courseUUID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+	counts := make(map[string]int64)
+	for _, row := range rows {
+		counts[string(row.Status)] = row.Total
+	}
+	teacherCount, err := s.store.Queries.CountTeacherSignaturesByCourse(r.Context(), courseUUID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+	writeJSON(w, http.StatusOK, signatureReportResponse{
+		Course:        courseID,
+		StudentCounts: counts,
+		TeacherCount:  teacherCount,
+	})
+}
+
 // Patch helpers
 
 type patchError struct {
@@ -565,37 +860,65 @@ func (s *Server) canAccessTeacherSignature(ctx context.Context, claims *auth.Cla
 // Mapping helpers
 
 func mapStudentSignature(sig db.GetStudentSignatureRow) studentSignatureResponse {
+	return mapStudentSignatureValues(sig.ID, sig.CourseID, sig.SignedAt, sig.Status, sig.Method, sig.ImageUrl, sig.StudentID, sig.TeacherID, sig.AdministratorID)
+}
+
+func mapStudentSignatureFromListStudent(sig db.ListStudentSignaturesByStudentRow) studentSignatureResponse {
+	return mapStudentSignatureValues(sig.ID, sig.CourseID, sig.SignedAt, sig.Status, sig.Method, sig.ImageUrl, sig.StudentID, sig.TeacherID, sig.AdministratorID)
+}
+
+func mapStudentSignatureFromListStudentCourse(sig db.ListStudentSignaturesByStudentAndCourseRow) studentSignatureResponse {
+	return mapStudentSignatureValues(sig.ID, sig.CourseID, sig.SignedAt, sig.Status, sig.Method, sig.ImageUrl, sig.StudentID, sig.TeacherID, sig.AdministratorID)
+}
+
+func mapStudentSignatureFromListCourse(sig db.ListStudentSignaturesByCourseRow) studentSignatureResponse {
+	return mapStudentSignatureValues(sig.ID, sig.CourseID, sig.SignedAt, sig.Status, sig.Method, sig.ImageUrl, sig.StudentID, sig.TeacherID, sig.AdministratorID)
+}
+
+func mapStudentSignatureValues(id, courseID pgtype.UUID, signedAt pgtype.Timestamptz, status db.SignatureStatus, method db.SignatureMethod, image pgtype.Text, studentID, teacherID, adminID pgtype.UUID) studentSignatureResponse {
 	resp := studentSignatureResponse{
 		signatureBaseResponse: signatureBaseResponse{
-			ID:     uuidString(sig.ID),
-			Date:   sig.SignedAt.Time.Unix(),
-			Course: uuidString(sig.CourseID),
-			Status: string(sig.Status),
-			Method: string(sig.Method),
+			ID:     uuidString(id),
+			Date:   signedAt.Time.Unix(),
+			Course: uuidString(courseID),
+			Status: string(status),
+			Method: string(method),
 		},
-		Student:       uuidString(sig.StudentID),
-		Teacher:       uuidString(sig.TeacherID),
-		Administrator: uuidString(sig.AdministratorID),
+		Student:       uuidString(studentID),
+		Teacher:       uuidString(teacherID),
+		Administrator: uuidString(adminID),
 	}
-	if sig.ImageUrl.Valid {
-		resp.Image = sig.ImageUrl.String
+	if image.Valid {
+		resp.Image = image.String
 	}
 	return resp
 }
 
 func mapTeacherSignature(sig db.GetTeacherSignatureRow) teacherSignatureResponse {
+	return mapTeacherSignatureValues(sig.ID, sig.CourseID, sig.SignedAt, sig.Status, sig.Method, sig.ImageUrl, sig.TeacherID)
+}
+
+func mapTeacherSignatureFromListTeacher(sig db.ListTeacherSignaturesByTeacherRow) teacherSignatureResponse {
+	return mapTeacherSignatureValues(sig.ID, sig.CourseID, sig.SignedAt, sig.Status, sig.Method, sig.ImageUrl, sig.TeacherID)
+}
+
+func mapTeacherSignatureFromListCourse(sig db.ListTeacherSignaturesByCourseRow) teacherSignatureResponse {
+	return mapTeacherSignatureValues(sig.ID, sig.CourseID, sig.SignedAt, sig.Status, sig.Method, sig.ImageUrl, sig.TeacherID)
+}
+
+func mapTeacherSignatureValues(id, courseID pgtype.UUID, signedAt pgtype.Timestamptz, status db.SignatureStatus, method db.SignatureMethod, image pgtype.Text, teacherID pgtype.UUID) teacherSignatureResponse {
 	resp := teacherSignatureResponse{
 		signatureBaseResponse: signatureBaseResponse{
-			ID:     uuidString(sig.ID),
-			Date:   sig.SignedAt.Time.Unix(),
-			Course: uuidString(sig.CourseID),
-			Status: string(sig.Status),
-			Method: string(sig.Method),
+			ID:     uuidString(id),
+			Date:   signedAt.Time.Unix(),
+			Course: uuidString(courseID),
+			Status: string(status),
+			Method: string(method),
 		},
-		Teacher: uuidString(sig.TeacherID),
+		Teacher: uuidString(teacherID),
 	}
-	if sig.ImageUrl.Valid {
-		resp.Image = sig.ImageUrl.String
+	if image.Valid {
+		resp.Image = image.String
 	}
 	return resp
 }
@@ -660,6 +983,39 @@ func (s *Server) validateStudentDevice(ctx context.Context, studentID, deviceID 
 		return false
 	}
 	return resp.GetIsValid()
+}
+
+func (s *Server) loadSchoolPreferences(ctx context.Context, schoolID string) (*academicsv1.SchoolPreferences, error) {
+	if schoolID == "" {
+		return nil, errors.New("missing school_id")
+	}
+	resp, err := s.academics.GetSchoolPreferences(ctx, &academicsv1.GetSchoolPreferencesRequest{SchoolId: schoolID})
+	if err != nil || resp.GetPreferences() == nil {
+		return nil, errors.New("preferences_not_found")
+	}
+	return resp.GetPreferences(), nil
+}
+
+func methodAllowedForStudent(method db.SignatureMethod, prefs *academicsv1.SchoolPreferences) bool {
+	switch string(method) {
+	case "buzzLightyear", "flash", "beacon":
+		return prefs.GetEnableFlash()
+	case "qrCode", "qrcode":
+		return prefs.GetEnableQrcode()
+	case "nfc":
+		return prefs.GetEnableNfc()
+	default:
+		return true
+	}
+}
+
+func parseLimit(r *http.Request, fallback int32) int32 {
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			return int32(parsed)
+		}
+	}
+	return fallback
 }
 
 // Utilities

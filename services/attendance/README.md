@@ -30,6 +30,13 @@ HTTP listens on `:8083`, gRPC on `:9093`.
 - `GET /signature/{signatureId}`
 - `PATCH /signature/{signatureId}`
 - `DELETE /signature/{signatureId}`
+- `GET /signatures`
+- `GET /signatures/report`
+
+### Reporting
+- `GET /signatures?courseId=...` returns student + teacher signatures for the course.
+- `GET /signatures?studentId=...` or `teacherId=...` lists signatures for that user (admin/dev only).
+- `GET /signatures/report?courseId=...` returns counts per status and total teacher signatures.
 
 ### Device binding
 Student signature creation requires `X-Device-ID` to match the active student device in auth-identity.

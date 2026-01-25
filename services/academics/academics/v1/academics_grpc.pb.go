@@ -23,6 +23,7 @@ const (
 	AcademicsQueryService_ValidateTeacherCourse_FullMethodName   = "/academics.api.v1.AcademicsQueryService/ValidateTeacherCourse"
 	AcademicsQueryService_ValidateStudentCourse_FullMethodName   = "/academics.api.v1.AcademicsQueryService/ValidateStudentCourse"
 	AcademicsQueryService_ValidateClassroomCourse_FullMethodName = "/academics.api.v1.AcademicsQueryService/ValidateClassroomCourse"
+	AcademicsQueryService_GetSchoolPreferences_FullMethodName    = "/academics.api.v1.AcademicsQueryService/GetSchoolPreferences"
 )
 
 // AcademicsQueryServiceClient is the client API for AcademicsQueryService service.
@@ -33,6 +34,7 @@ type AcademicsQueryServiceClient interface {
 	ValidateTeacherCourse(ctx context.Context, in *ValidateTeacherCourseRequest, opts ...grpc.CallOption) (*ValidateTeacherCourseResponse, error)
 	ValidateStudentCourse(ctx context.Context, in *ValidateStudentCourseRequest, opts ...grpc.CallOption) (*ValidateStudentCourseResponse, error)
 	ValidateClassroomCourse(ctx context.Context, in *ValidateClassroomCourseRequest, opts ...grpc.CallOption) (*ValidateClassroomCourseResponse, error)
+	GetSchoolPreferences(ctx context.Context, in *GetSchoolPreferencesRequest, opts ...grpc.CallOption) (*GetSchoolPreferencesResponse, error)
 }
 
 type academicsQueryServiceClient struct {
@@ -79,6 +81,15 @@ func (c *academicsQueryServiceClient) ValidateClassroomCourse(ctx context.Contex
 	return out, nil
 }
 
+func (c *academicsQueryServiceClient) GetSchoolPreferences(ctx context.Context, in *GetSchoolPreferencesRequest, opts ...grpc.CallOption) (*GetSchoolPreferencesResponse, error) {
+	out := new(GetSchoolPreferencesResponse)
+	err := c.cc.Invoke(ctx, AcademicsQueryService_GetSchoolPreferences_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AcademicsQueryServiceServer is the server API for AcademicsQueryService service.
 // All implementations must embed UnimplementedAcademicsQueryServiceServer
 // for forward compatibility
@@ -87,6 +98,7 @@ type AcademicsQueryServiceServer interface {
 	ValidateTeacherCourse(context.Context, *ValidateTeacherCourseRequest) (*ValidateTeacherCourseResponse, error)
 	ValidateStudentCourse(context.Context, *ValidateStudentCourseRequest) (*ValidateStudentCourseResponse, error)
 	ValidateClassroomCourse(context.Context, *ValidateClassroomCourseRequest) (*ValidateClassroomCourseResponse, error)
+	GetSchoolPreferences(context.Context, *GetSchoolPreferencesRequest) (*GetSchoolPreferencesResponse, error)
 	mustEmbedUnimplementedAcademicsQueryServiceServer()
 }
 
@@ -105,6 +117,9 @@ func (UnimplementedAcademicsQueryServiceServer) ValidateStudentCourse(context.Co
 }
 func (UnimplementedAcademicsQueryServiceServer) ValidateClassroomCourse(context.Context, *ValidateClassroomCourseRequest) (*ValidateClassroomCourseResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ValidateClassroomCourse not implemented")
+}
+func (UnimplementedAcademicsQueryServiceServer) GetSchoolPreferences(context.Context, *GetSchoolPreferencesRequest) (*GetSchoolPreferencesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSchoolPreferences not implemented")
 }
 func (UnimplementedAcademicsQueryServiceServer) mustEmbedUnimplementedAcademicsQueryServiceServer() {}
 
@@ -191,6 +206,24 @@ func _AcademicsQueryService_ValidateClassroomCourse_Handler(srv interface{}, ctx
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AcademicsQueryService_GetSchoolPreferences_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSchoolPreferencesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AcademicsQueryServiceServer).GetSchoolPreferences(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AcademicsQueryService_GetSchoolPreferences_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AcademicsQueryServiceServer).GetSchoolPreferences(ctx, req.(*GetSchoolPreferencesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AcademicsQueryService_ServiceDesc is the grpc.ServiceDesc for AcademicsQueryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -213,6 +246,10 @@ var AcademicsQueryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ValidateClassroomCourse",
 			Handler:    _AcademicsQueryService_ValidateClassroomCourse_Handler,
+		},
+		{
+			MethodName: "GetSchoolPreferences",
+			Handler:    _AcademicsQueryService_GetSchoolPreferences_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

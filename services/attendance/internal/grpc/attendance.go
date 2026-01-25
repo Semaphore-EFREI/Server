@@ -65,6 +65,31 @@ func (s *AttendanceServer) CreateSignatureAttempt(ctx context.Context, req *atte
 		return nil, status.Error(codes.InvalidArgument, "invalid method")
 	}
 
+	prefsResp, err := s.academics.GetSchoolPreferences(ctx, &academicsv1.GetSchoolPreferencesRequest{SchoolId: course.GetSchoolId()})
+	if err != nil || prefsResp.GetPreferences() == nil {
+		return nil, status.Error(codes.Internal, "preferences lookup failed")
+	}
+	if !methodAllowedForStudent(methodValue, prefsResp.GetPreferences()) {
+		return &attendancev1.CreateSignatureAttemptResponse{
+			SignatureId: "",
+			Status:      attendancev1.SignatureStatus_SIGNATURE_STATUS_REFUSED,
+			Message:     "method_not_allowed",
+		}, nil
+	}
+	if !prefsResp.GetPreferences().GetStudentsCanSignBeforeTeacher() {
+		present, err := s.store.Queries.HasTeacherPresence(ctx, pgUUID(courseUUID))
+		if err != nil {
+			return nil, status.Error(codes.Internal, "teacher presence lookup failed")
+		}
+		if !present {
+			return &attendancev1.CreateSignatureAttemptResponse{
+				SignatureId: "",
+				Status:      attendancev1.SignatureStatus_SIGNATURE_STATUS_REFUSED,
+				Message:     "teacher_not_present",
+			}, nil
+		}
+	}
+
 	signatureID := uuid.New()
 	err = s.store.WithTx(ctx, func(q *db.Queries) error {
 		_, err := q.CreateSignature(ctx, db.CreateSignatureParams{
@@ -151,6 +176,19 @@ func statusToGRPC(statusValue db.SignatureStatus) attendancev1.SignatureStatus {
 		return attendancev1.SignatureStatus_SIGNATURE_STATUS_LATE
 	default:
 		return attendancev1.SignatureStatus_SIGNATURE_STATUS_UNSPECIFIED
+	}
+}
+
+func methodAllowedForStudent(method db.SignatureMethod, prefs *academicsv1.SchoolPreferences) bool {
+	switch string(method) {
+	case "buzzLightyear", "flash", "beacon":
+		return prefs.GetEnableFlash()
+	case "qrCode", "qrcode":
+		return prefs.GetEnableQrcode()
+	case "nfc":
+		return prefs.GetEnableNfc()
+	default:
+		return true
 	}
 }
 

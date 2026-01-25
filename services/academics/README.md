@@ -64,5 +64,6 @@ HTTP listens on `:8082`, gRPC on `:9092`.
 - `AcademicsQueryService.ValidateTeacherCourse`
 - `AcademicsQueryService.ValidateStudentCourse`
 - `AcademicsQueryService.ValidateClassroomCourse`
+- `AcademicsQueryService.GetSchoolPreferences`
 
 Proto: `services/academics/academics/v1/academics.proto`

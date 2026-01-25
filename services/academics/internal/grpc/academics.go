@@ -118,3 +118,32 @@ func (s *AcademicsServer) ValidateClassroomCourse(ctx context.Context, req *acad
 
 	return &academicsv1.ValidateClassroomCourseResponse{IsLinked: row}, nil
 }
+
+func (s *AcademicsServer) GetSchoolPreferences(ctx context.Context, req *academicsv1.GetSchoolPreferencesRequest) (*academicsv1.GetSchoolPreferencesResponse, error) {
+	if req.GetSchoolId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "school_id required")
+	}
+	schoolID, err := parseUUID(req.GetSchoolId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid school_id")
+	}
+	school, err := s.queries.GetSchool(ctx, schoolID)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, "school not found")
+	}
+	prefs, err := s.queries.GetSchoolPreferences(ctx, school.PreferencesID)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, "preferences not found")
+	}
+	return &academicsv1.GetSchoolPreferencesResponse{
+		Preferences: &academicsv1.SchoolPreferences{
+			Id:                                  uuidString(prefs.ID),
+			DefaultSignatureClosingDelayMinutes: prefs.DefaultSignatureClosingDelayMinutes,
+			TeacherCanModifyClosingDelay:        prefs.TeacherCanModifyClosingDelay,
+			StudentsCanSignBeforeTeacher:        prefs.StudentsCanSignBeforeTeacher,
+			EnableFlash:                         prefs.EnableFlash,
+			EnableQrcode:                        prefs.EnableQrcode,
+			EnableNfc:                           prefs.EnableNfc,
+		},
+	}, nil
+}

@@ -38,8 +38,20 @@ func TestStudentSignatureRules(t *testing.T) {
 	authURL := getenv("AUTH_HTTP_ADDR", "http://127.0.0.1:8081")
 
 	token := login(t, authURL, "student@demo.local", "dev-password")
+	teacherToken := login(t, authURL, "teacher@demo.local", "dev-password")
 	courseID := "11111111-1111-1111-1111-111111111114"
 	studentID := "22222222-2222-2222-2222-222222222223"
+	teacherID := "22222222-2222-2222-2222-222222222222"
+
+	// Ensure teacher presence before student signatures.
+	_ = createTeacherSignature(t, attendanceURL, teacherToken, map[string]interface{}{
+		"date":    time.Date(2026, 1, 25, 9, 0, 0, 0, time.UTC).Unix(),
+		"course":  courseID,
+		"status":  "present",
+		"method":  "self",
+		"teacher": teacherID,
+		"image":   "dGVzdC1pbWFnZQ==",
+	})
 
 	onTime := time.Date(2026, 1, 25, 9, 5, 0, 0, time.UTC).Unix()
 	late := time.Date(2026, 1, 25, 9, 20, 0, 0, time.UTC).Unix()
