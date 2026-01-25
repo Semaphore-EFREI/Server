@@ -7,6 +7,7 @@
   - `docs/4-microservices-architecture_gateway.md`: Envoy edge responsibilities and public REST exposure.
   - `docs/openapi.json`: REST API contract (OpenAPI 3.0.4).
   - `docs/ChartDB.json`: database diagram export.
+  - `docs/technical-stack.md`: proposed implementation stack and tooling.
 - There is no application source code in this repo yet; treat it as a specification package.
 
 ## Build, Test, and Development Commands

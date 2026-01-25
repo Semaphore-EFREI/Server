@@ -8,6 +8,7 @@ This repository contains the specification package for Semaphore (a course atten
 - `docs/4-microservices-architecture_gateway.md`: Envoy edge architecture and public REST routing.
 - `docs/openapi.json`: REST API contract (OpenAPI 3.0.4).
 - `docs/ChartDB.json`: database diagram export.
+- `docs/technical-stack.md`: proposed implementation stack and tooling.
 
 ## Commands
 No build, test, or runtime commands are defined yet. If you add executable code, document exact commands here and in `AGENTS.md`.
