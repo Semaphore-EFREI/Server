@@ -7,8 +7,9 @@ This repository contains the specification package for Semaphore (a course atten
 - `docs/4-microservices-architecture-grpc.md`: service boundaries and gRPC contracts.
 - `docs/4-microservices-architecture_gateway.md`: Envoy edge architecture and public REST routing.
 - `docs/openapi.json`: REST API contract (OpenAPI 3.0.4).
-- `docs/ChartDB.json`: database diagram export.
 - `docs/technical-stack.md`: proposed implementation stack and tooling.
+- `docs/ChartDB_per_service.json`: per-service database diagram export.
+- `docs/database-schema.md`: per-service database documentation and enums.
 
 ## Commands
 No build, test, or runtime commands are defined yet. If you add executable code, document exact commands here and in `AGENTS.md`.

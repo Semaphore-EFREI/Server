@@ -6,8 +6,9 @@
   - `docs/4-microservices-architecture-grpc.md`: service boundaries and gRPC contracts.
   - `docs/4-microservices-architecture_gateway.md`: Envoy edge responsibilities and public REST exposure.
   - `docs/openapi.json`: REST API contract (OpenAPI 3.0.4).
-  - `docs/ChartDB.json`: database diagram export.
   - `docs/technical-stack.md`: proposed implementation stack and tooling.
+  - `docs/ChartDB_per_service.json`: per-service database diagram export.
+  - `docs/database-schema.md`: per-service database documentation and enums.
 - There is no application source code in this repo yet; treat it as a specification package.
 
 ## Build, Test, and Development Commands

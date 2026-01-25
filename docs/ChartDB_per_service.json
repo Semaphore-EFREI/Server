@@ -1,0 +1,2108 @@
+{
+  "id": "0",
+  "name": "Semaphore - Per Service Databases",
+  "createdAt": "2026-01-25T14:11:33.260Z",
+  "updatedAt": "2026-01-25T14:11:33.260Z",
+  "databaseType": "postgresql",
+  "tables": [
+    {
+      "id": "1",
+      "name": "users",
+      "x": 0,
+      "y": 0,
+      "fields": [
+        {
+          "id": "1",
+          "name": "id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "2",
+          "name": "school_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "3",
+          "name": "email",
+          "type": {
+            "id": "text",
+            "name": "text"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "4",
+          "name": "password_hash",
+          "type": {
+            "id": "text",
+            "name": "text"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "5",
+          "name": "first_name",
+          "type": {
+            "id": "text",
+            "name": "text"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "6",
+          "name": "last_name",
+          "type": {
+            "id": "text",
+            "name": "text"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "7",
+          "name": "created_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "8",
+          "name": "updated_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        }
+      ],
+      "indexes": [
+        {
+          "id": "1",
+          "name": "pk_users",
+          "fieldIds": [
+            "1"
+          ],
+          "unique": true,
+          "isPrimaryKey": true,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "2",
+          "name": "ux_users_email",
+          "fieldIds": [
+            "3"
+          ],
+          "unique": true,
+          "isPrimaryKey": false,
+          "createdAt": 1769350293260
+        }
+      ],
+      "color": "#ff6363",
+      "isView": false,
+      "createdAt": 1769350293260,
+      "order": 0,
+      "diagramId": "per-service",
+      "width": 240
+    },
+    {
+      "id": "2",
+      "name": "students",
+      "x": 360,
+      "y": 0,
+      "fields": [
+        {
+          "id": "9",
+          "name": "user_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "10",
+          "name": "student_number",
+          "type": {
+            "id": "text",
+            "name": "text"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "11",
+          "name": "created_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        }
+      ],
+      "indexes": [
+        {
+          "id": "3",
+          "name": "pk_students",
+          "fieldIds": [
+            "9"
+          ],
+          "unique": true,
+          "isPrimaryKey": true,
+          "createdAt": 1769350293260
+        }
+      ],
+      "color": "#ff6b8a",
+      "isView": false,
+      "createdAt": 1769350293260,
+      "order": 1,
+      "diagramId": "per-service",
+      "width": 240
+    },
+    {
+      "id": "3",
+      "name": "teachers",
+      "x": 720,
+      "y": 0,
+      "fields": [
+        {
+          "id": "12",
+          "name": "user_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "13",
+          "name": "created_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        }
+      ],
+      "indexes": [
+        {
+          "id": "4",
+          "name": "pk_teachers",
+          "fieldIds": [
+            "12"
+          ],
+          "unique": true,
+          "isPrimaryKey": true,
+          "createdAt": 1769350293260
+        }
+      ],
+      "color": "#ff9f74",
+      "isView": false,
+      "createdAt": 1769350293260,
+      "order": 2,
+      "diagramId": "per-service",
+      "width": 240
+    },
+    {
+      "id": "4",
+      "name": "administrators",
+      "x": 1080,
+      "y": 0,
+      "fields": [
+        {
+          "id": "14",
+          "name": "user_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "15",
+          "name": "role",
+          "type": {
+            "id": "enum",
+            "name": "enum"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "16",
+          "name": "created_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        }
+      ],
+      "indexes": [
+        {
+          "id": "5",
+          "name": "pk_administrators",
+          "fieldIds": [
+            "14"
+          ],
+          "unique": true,
+          "isPrimaryKey": true,
+          "createdAt": 1769350293260
+        }
+      ],
+      "color": "#ffe374",
+      "isView": false,
+      "createdAt": 1769350293260,
+      "order": 3,
+      "diagramId": "per-service",
+      "width": 240
+    },
+    {
+      "id": "5",
+      "name": "developers",
+      "x": 1440,
+      "y": 0,
+      "fields": [
+        {
+          "id": "17",
+          "name": "user_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "18",
+          "name": "created_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        }
+      ],
+      "indexes": [
+        {
+          "id": "6",
+          "name": "pk_developers",
+          "fieldIds": [
+            "17"
+          ],
+          "unique": true,
+          "isPrimaryKey": true,
+          "createdAt": 1769350293260
+        }
+      ],
+      "color": "#7175fa",
+      "isView": false,
+      "createdAt": 1769350293260,
+      "order": 4,
+      "diagramId": "per-service",
+      "width": 240
+    },
+    {
+      "id": "6",
+      "name": "refresh_token_sessions",
+      "x": 0,
+      "y": 280,
+      "fields": [
+        {
+          "id": "19",
+          "name": "id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "20",
+          "name": "user_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "21",
+          "name": "token_hash",
+          "type": {
+            "id": "text",
+            "name": "text"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "22",
+          "name": "created_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "23",
+          "name": "expires_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "24",
+          "name": "revoked_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "25",
+          "name": "user_agent",
+          "type": {
+            "id": "text",
+            "name": "text"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "26",
+          "name": "ip_address",
+          "type": {
+            "id": "text",
+            "name": "text"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "createdAt": 1769350293260
+        }
+      ],
+      "indexes": [
+        {
+          "id": "7",
+          "name": "pk_refresh_token_sessions",
+          "fieldIds": [
+            "19"
+          ],
+          "unique": true,
+          "isPrimaryKey": true,
+          "createdAt": 1769350293260
+        }
+      ],
+      "color": "#ff6363",
+      "isView": false,
+      "createdAt": 1769350293260,
+      "order": 5,
+      "diagramId": "per-service",
+      "width": 240
+    },
+    {
+      "id": "7",
+      "name": "student_devices",
+      "x": 360,
+      "y": 280,
+      "fields": [
+        {
+          "id": "27",
+          "name": "id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "28",
+          "name": "student_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "29",
+          "name": "device_identifier",
+          "type": {
+            "id": "text",
+            "name": "text"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "30",
+          "name": "public_key",
+          "type": {
+            "id": "text",
+            "name": "text"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "31",
+          "name": "registered_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "32",
+          "name": "last_seen_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "33",
+          "name": "revoked_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "34",
+          "name": "active",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        }
+      ],
+      "indexes": [
+        {
+          "id": "8",
+          "name": "pk_student_devices",
+          "fieldIds": [
+            "27"
+          ],
+          "unique": true,
+          "isPrimaryKey": true,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "9",
+          "name": "ux_student_devices_device_identifier",
+          "fieldIds": [
+            "29"
+          ],
+          "unique": true,
+          "isPrimaryKey": false,
+          "createdAt": 1769350293260
+        }
+      ],
+      "color": "#ff6363",
+      "isView": false,
+      "createdAt": 1769350293260,
+      "order": 6,
+      "diagramId": "per-service",
+      "width": 240
+    },
+    {
+      "id": "8",
+      "name": "school_preferences",
+      "x": 720,
+      "y": 280,
+      "fields": [
+        {
+          "id": "35",
+          "name": "id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "36",
+          "name": "default_signature_closing_delay_minutes",
+          "type": {
+            "id": "integer",
+            "name": "integer"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "37",
+          "name": "teacher_can_modify_closing_delay",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "38",
+          "name": "students_can_sign_before_teacher",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "39",
+          "name": "enable_flash",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "40",
+          "name": "enable_qrcode",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "41",
+          "name": "enable_nfc",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "42",
+          "name": "created_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "43",
+          "name": "updated_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        }
+      ],
+      "indexes": [
+        {
+          "id": "10",
+          "name": "pk_school_preferences",
+          "fieldIds": [
+            "35"
+          ],
+          "unique": true,
+          "isPrimaryKey": true,
+          "createdAt": 1769350293260
+        }
+      ],
+      "color": "#b067e9",
+      "isView": false,
+      "createdAt": 1769350293260,
+      "order": 7,
+      "diagramId": "per-service",
+      "width": 240
+    },
+    {
+      "id": "9",
+      "name": "schools",
+      "x": 1080,
+      "y": 280,
+      "fields": [
+        {
+          "id": "44",
+          "name": "id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "45",
+          "name": "name",
+          "type": {
+            "id": "text",
+            "name": "text"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "46",
+          "name": "preferences_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "47",
+          "name": "created_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "48",
+          "name": "updated_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        }
+      ],
+      "indexes": [
+        {
+          "id": "11",
+          "name": "pk_schools",
+          "fieldIds": [
+            "44"
+          ],
+          "unique": true,
+          "isPrimaryKey": true,
+          "createdAt": 1769350293260
+        }
+      ],
+      "color": "#b067e9",
+      "isView": false,
+      "createdAt": 1769350293260,
+      "order": 8,
+      "diagramId": "per-service",
+      "width": 240
+    },
+    {
+      "id": "10",
+      "name": "classrooms",
+      "x": 1440,
+      "y": 280,
+      "fields": [
+        {
+          "id": "49",
+          "name": "id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "50",
+          "name": "school_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "51",
+          "name": "name",
+          "type": {
+            "id": "text",
+            "name": "text"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "52",
+          "name": "created_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "53",
+          "name": "updated_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        }
+      ],
+      "indexes": [
+        {
+          "id": "12",
+          "name": "pk_classrooms",
+          "fieldIds": [
+            "49"
+          ],
+          "unique": true,
+          "isPrimaryKey": true,
+          "createdAt": 1769350293260
+        }
+      ],
+      "color": "#b067e9",
+      "isView": false,
+      "createdAt": 1769350293260,
+      "order": 9,
+      "diagramId": "per-service",
+      "width": 240
+    },
+    {
+      "id": "11",
+      "name": "courses",
+      "x": 0,
+      "y": 560,
+      "fields": [
+        {
+          "id": "54",
+          "name": "id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "55",
+          "name": "school_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "56",
+          "name": "name",
+          "type": {
+            "id": "text",
+            "name": "text"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "57",
+          "name": "start_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "58",
+          "name": "end_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "59",
+          "name": "is_online",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "60",
+          "name": "signature_closing_delay_minutes",
+          "type": {
+            "id": "integer",
+            "name": "integer"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "61",
+          "name": "signature_closed",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "62",
+          "name": "created_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "63",
+          "name": "updated_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        }
+      ],
+      "indexes": [
+        {
+          "id": "13",
+          "name": "pk_courses",
+          "fieldIds": [
+            "54"
+          ],
+          "unique": true,
+          "isPrimaryKey": true,
+          "createdAt": 1769350293260
+        }
+      ],
+      "color": "#42e0c0",
+      "isView": false,
+      "createdAt": 1769350293260,
+      "order": 10,
+      "diagramId": "per-service",
+      "width": 240
+    },
+    {
+      "id": "12",
+      "name": "student_groups",
+      "x": 360,
+      "y": 560,
+      "fields": [
+        {
+          "id": "64",
+          "name": "id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "65",
+          "name": "school_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "66",
+          "name": "name",
+          "type": {
+            "id": "text",
+            "name": "text"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "67",
+          "name": "single_student_group",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "68",
+          "name": "created_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "69",
+          "name": "updated_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        }
+      ],
+      "indexes": [
+        {
+          "id": "14",
+          "name": "pk_student_groups",
+          "fieldIds": [
+            "64"
+          ],
+          "unique": true,
+          "isPrimaryKey": true,
+          "createdAt": 1769350293260
+        }
+      ],
+      "color": "#ff6b8a",
+      "isView": false,
+      "createdAt": 1769350293260,
+      "order": 11,
+      "diagramId": "per-service",
+      "width": 240
+    },
+    {
+      "id": "13",
+      "name": "students_groups",
+      "x": 720,
+      "y": 560,
+      "fields": [
+        {
+          "id": "70",
+          "name": "id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "71",
+          "name": "student_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "72",
+          "name": "student_group_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "73",
+          "name": "created_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        }
+      ],
+      "indexes": [
+        {
+          "id": "15",
+          "name": "pk_students_groups",
+          "fieldIds": [
+            "70"
+          ],
+          "unique": true,
+          "isPrimaryKey": true,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "16",
+          "name": "ux_students_groups_unique",
+          "fieldIds": [
+            "71",
+            "72"
+          ],
+          "unique": true,
+          "isPrimaryKey": false,
+          "createdAt": 1769350293260
+        }
+      ],
+      "color": "#ff6b8a",
+      "isView": false,
+      "createdAt": 1769350293260,
+      "order": 12,
+      "diagramId": "per-service",
+      "width": 240
+    },
+    {
+      "id": "14",
+      "name": "teachers_courses",
+      "x": 1080,
+      "y": 560,
+      "fields": [
+        {
+          "id": "74",
+          "name": "id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "75",
+          "name": "teacher_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "76",
+          "name": "course_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "77",
+          "name": "created_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        }
+      ],
+      "indexes": [
+        {
+          "id": "17",
+          "name": "pk_teachers_courses",
+          "fieldIds": [
+            "74"
+          ],
+          "unique": true,
+          "isPrimaryKey": true,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "18",
+          "name": "ux_teachers_courses_unique",
+          "fieldIds": [
+            "75",
+            "76"
+          ],
+          "unique": true,
+          "isPrimaryKey": false,
+          "createdAt": 1769350293260
+        }
+      ],
+      "color": "#ff9f74",
+      "isView": false,
+      "createdAt": 1769350293260,
+      "order": 13,
+      "diagramId": "per-service",
+      "width": 240
+    },
+    {
+      "id": "15",
+      "name": "courses_student_groups",
+      "x": 1440,
+      "y": 560,
+      "fields": [
+        {
+          "id": "78",
+          "name": "id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "79",
+          "name": "course_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "80",
+          "name": "student_group_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "81",
+          "name": "created_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        }
+      ],
+      "indexes": [
+        {
+          "id": "19",
+          "name": "pk_courses_student_groups",
+          "fieldIds": [
+            "78"
+          ],
+          "unique": true,
+          "isPrimaryKey": true,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "20",
+          "name": "ux_courses_student_groups_unique",
+          "fieldIds": [
+            "79",
+            "80"
+          ],
+          "unique": true,
+          "isPrimaryKey": false,
+          "createdAt": 1769350293260
+        }
+      ],
+      "color": "#ff6b8a",
+      "isView": false,
+      "createdAt": 1769350293260,
+      "order": 14,
+      "diagramId": "per-service",
+      "width": 240
+    },
+    {
+      "id": "16",
+      "name": "courses_classrooms",
+      "x": 0,
+      "y": 840,
+      "fields": [
+        {
+          "id": "82",
+          "name": "id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "83",
+          "name": "course_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "84",
+          "name": "classroom_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "85",
+          "name": "created_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        }
+      ],
+      "indexes": [
+        {
+          "id": "21",
+          "name": "pk_courses_classrooms",
+          "fieldIds": [
+            "82"
+          ],
+          "unique": true,
+          "isPrimaryKey": true,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "22",
+          "name": "ux_courses_classrooms_unique",
+          "fieldIds": [
+            "83",
+            "84"
+          ],
+          "unique": true,
+          "isPrimaryKey": false,
+          "createdAt": 1769350293260
+        }
+      ],
+      "color": "#42e0c0",
+      "isView": false,
+      "createdAt": 1769350293260,
+      "order": 15,
+      "diagramId": "per-service",
+      "width": 240
+    },
+    {
+      "id": "17",
+      "name": "signatures",
+      "x": 360,
+      "y": 840,
+      "fields": [
+        {
+          "id": "86",
+          "name": "id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "87",
+          "name": "course_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "88",
+          "name": "signed_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "89",
+          "name": "status",
+          "type": {
+            "id": "enum",
+            "name": "enum"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "90",
+          "name": "method",
+          "type": {
+            "id": "enum",
+            "name": "enum"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "91",
+          "name": "image_url",
+          "type": {
+            "id": "text",
+            "name": "text"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "92",
+          "name": "created_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        }
+      ],
+      "indexes": [
+        {
+          "id": "23",
+          "name": "pk_signatures",
+          "fieldIds": [
+            "86"
+          ],
+          "unique": true,
+          "isPrimaryKey": true,
+          "createdAt": 1769350293260
+        }
+      ],
+      "color": "#9ef07a",
+      "isView": false,
+      "createdAt": 1769350293260,
+      "order": 16,
+      "diagramId": "per-service",
+      "width": 240
+    },
+    {
+      "id": "18",
+      "name": "student_signatures",
+      "x": 720,
+      "y": 840,
+      "fields": [
+        {
+          "id": "93",
+          "name": "signature_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "94",
+          "name": "student_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "95",
+          "name": "teacher_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "96",
+          "name": "administrator_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "createdAt": 1769350293260
+        }
+      ],
+      "indexes": [
+        {
+          "id": "24",
+          "name": "pk_student_signatures",
+          "fieldIds": [
+            "93"
+          ],
+          "unique": true,
+          "isPrimaryKey": true,
+          "createdAt": 1769350293260
+        }
+      ],
+      "color": "#9ef07a",
+      "isView": false,
+      "createdAt": 1769350293260,
+      "order": 17,
+      "diagramId": "per-service",
+      "width": 240
+    },
+    {
+      "id": "19",
+      "name": "teacher_signatures",
+      "x": 1080,
+      "y": 840,
+      "fields": [
+        {
+          "id": "97",
+          "name": "signature_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "98",
+          "name": "teacher_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        }
+      ],
+      "indexes": [
+        {
+          "id": "25",
+          "name": "pk_teacher_signatures",
+          "fieldIds": [
+            "97"
+          ],
+          "unique": true,
+          "isPrimaryKey": true,
+          "createdAt": 1769350293260
+        }
+      ],
+      "color": "#9ef07a",
+      "isView": false,
+      "createdAt": 1769350293260,
+      "order": 18,
+      "diagramId": "per-service",
+      "width": 240
+    },
+    {
+      "id": "20",
+      "name": "beacons",
+      "x": 1440,
+      "y": 840,
+      "fields": [
+        {
+          "id": "99",
+          "name": "id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "100",
+          "name": "serial_number",
+          "type": {
+            "id": "text",
+            "name": "text"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "101",
+          "name": "signature_key",
+          "type": {
+            "id": "text",
+            "name": "text"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "102",
+          "name": "totp_key",
+          "type": {
+            "id": "text",
+            "name": "text"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "103",
+          "name": "classroom_id",
+          "type": {
+            "id": "uuid",
+            "name": "uuid"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "104",
+          "name": "program_version",
+          "type": {
+            "id": "text",
+            "name": "text"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "105",
+          "name": "created_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "106",
+          "name": "updated_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "107",
+          "name": "last_seen_at",
+          "type": {
+            "id": "timestamp",
+            "name": "timestamp"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "createdAt": 1769350293260
+        }
+      ],
+      "indexes": [
+        {
+          "id": "26",
+          "name": "pk_beacons",
+          "fieldIds": [
+            "99"
+          ],
+          "unique": true,
+          "isPrimaryKey": true,
+          "createdAt": 1769350293260
+        },
+        {
+          "id": "27",
+          "name": "ux_beacons_serial_number",
+          "fieldIds": [
+            "100"
+          ],
+          "unique": true,
+          "isPrimaryKey": false,
+          "createdAt": 1769350293260
+        }
+      ],
+      "color": "#b067e9",
+      "isView": false,
+      "createdAt": 1769350293260,
+      "order": 19,
+      "diagramId": "per-service",
+      "width": 240
+    }
+  ],
+  "relationships": [
+    {
+      "id": "1",
+      "name": "students_user_id_fk",
+      "sourceTableId": "2",
+      "targetTableId": "1",
+      "sourceFieldId": "9",
+      "targetFieldId": "1",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 1769350293260,
+      "diagramId": "per-service"
+    },
+    {
+      "id": "2",
+      "name": "teachers_user_id_fk",
+      "sourceTableId": "3",
+      "targetTableId": "1",
+      "sourceFieldId": "12",
+      "targetFieldId": "1",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 1769350293260,
+      "diagramId": "per-service"
+    },
+    {
+      "id": "3",
+      "name": "administrators_user_id_fk",
+      "sourceTableId": "4",
+      "targetTableId": "1",
+      "sourceFieldId": "14",
+      "targetFieldId": "1",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 1769350293260,
+      "diagramId": "per-service"
+    },
+    {
+      "id": "4",
+      "name": "developers_user_id_fk",
+      "sourceTableId": "5",
+      "targetTableId": "1",
+      "sourceFieldId": "17",
+      "targetFieldId": "1",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 1769350293260,
+      "diagramId": "per-service"
+    },
+    {
+      "id": "5",
+      "name": "refresh_token_sessions_user_id_fk",
+      "sourceTableId": "6",
+      "targetTableId": "1",
+      "sourceFieldId": "20",
+      "targetFieldId": "1",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 1769350293260,
+      "diagramId": "per-service"
+    },
+    {
+      "id": "6",
+      "name": "student_devices_student_id_fk",
+      "sourceTableId": "7",
+      "targetTableId": "2",
+      "sourceFieldId": "28",
+      "targetFieldId": "9",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 1769350293260,
+      "diagramId": "per-service"
+    },
+    {
+      "id": "7",
+      "name": "schools_preferences_id_fk",
+      "sourceTableId": "9",
+      "targetTableId": "8",
+      "sourceFieldId": "46",
+      "targetFieldId": "35",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 1769350293260,
+      "diagramId": "per-service"
+    },
+    {
+      "id": "8",
+      "name": "classrooms_school_id_fk",
+      "sourceTableId": "10",
+      "targetTableId": "9",
+      "sourceFieldId": "50",
+      "targetFieldId": "44",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 1769350293260,
+      "diagramId": "per-service"
+    },
+    {
+      "id": "9",
+      "name": "courses_school_id_fk",
+      "sourceTableId": "11",
+      "targetTableId": "9",
+      "sourceFieldId": "55",
+      "targetFieldId": "44",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 1769350293260,
+      "diagramId": "per-service"
+    },
+    {
+      "id": "10",
+      "name": "student_groups_school_id_fk",
+      "sourceTableId": "12",
+      "targetTableId": "9",
+      "sourceFieldId": "65",
+      "targetFieldId": "44",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 1769350293260,
+      "diagramId": "per-service"
+    },
+    {
+      "id": "11",
+      "name": "courses_classrooms_classroom_id_fk",
+      "sourceTableId": "16",
+      "targetTableId": "10",
+      "sourceFieldId": "84",
+      "targetFieldId": "49",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 1769350293260,
+      "diagramId": "per-service"
+    },
+    {
+      "id": "12",
+      "name": "courses_classrooms_course_id_fk",
+      "sourceTableId": "16",
+      "targetTableId": "11",
+      "sourceFieldId": "83",
+      "targetFieldId": "54",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 1769350293260,
+      "diagramId": "per-service"
+    },
+    {
+      "id": "13",
+      "name": "courses_student_groups_course_id_fk",
+      "sourceTableId": "15",
+      "targetTableId": "11",
+      "sourceFieldId": "79",
+      "targetFieldId": "54",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 1769350293260,
+      "diagramId": "per-service"
+    },
+    {
+      "id": "14",
+      "name": "courses_student_groups_student_group_id_fk",
+      "sourceTableId": "15",
+      "targetTableId": "12",
+      "sourceFieldId": "80",
+      "targetFieldId": "64",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 1769350293260,
+      "diagramId": "per-service"
+    },
+    {
+      "id": "15",
+      "name": "students_groups_student_group_id_fk",
+      "sourceTableId": "13",
+      "targetTableId": "12",
+      "sourceFieldId": "72",
+      "targetFieldId": "64",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 1769350293260,
+      "diagramId": "per-service"
+    },
+    {
+      "id": "16",
+      "name": "teachers_courses_course_id_fk",
+      "sourceTableId": "14",
+      "targetTableId": "11",
+      "sourceFieldId": "76",
+      "targetFieldId": "54",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 1769350293260,
+      "diagramId": "per-service"
+    },
+    {
+      "id": "17",
+      "name": "student_signatures_signature_id_fk",
+      "sourceTableId": "18",
+      "targetTableId": "17",
+      "sourceFieldId": "93",
+      "targetFieldId": "86",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 1769350293260,
+      "diagramId": "per-service"
+    },
+    {
+      "id": "18",
+      "name": "teacher_signatures_signature_id_fk",
+      "sourceTableId": "19",
+      "targetTableId": "17",
+      "sourceFieldId": "97",
+      "targetFieldId": "86",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 1769350293260,
+      "diagramId": "per-service"
+    }
+  ],
+  "dependencies": [],
+  "areas": [],
+  "customTypes": []
+}
