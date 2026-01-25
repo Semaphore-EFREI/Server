@@ -15,6 +15,9 @@ This repository contains the specification package for Semaphore (a course atten
 - `services/auth-identity`: first microservice implementation (Go).
 - `services/academics`: academics microservice implementation (Go).
 
+## Documentation
+Start with `docs/README.md` for a guided map of the specs, architecture notes, and data-model references.
+
 ## Auth-Identity Service
 The first microservice is implemented in `services/auth-identity`. It provides JWT auth, refresh tokens, user CRUD, student/teacher endpoints aligned with OpenAPI, device binding, and a gRPC IdentityQueryService for internal lookups. See `services/auth-identity/README.md` for usage.
 

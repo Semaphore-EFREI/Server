@@ -631,6 +631,14 @@ type createCourseRequest struct {
 	School   string `json:"school"`
 }
 
+type patchCourseRequest struct {
+	Name                  *string `json:"name"`
+	Date                  *int64  `json:"date"`
+	IsOnline              *bool   `json:"isOnline"`
+	SignatureClosingDelay *int32  `json:"signatureClosingDelay"`
+	SignatureClosed       *bool   `json:"signatureClosed"`
+}
+
 func (s *Server) handleGetCourses(w http.ResponseWriter, r *http.Request) {
 	claims := claimsFromContext(r.Context())
 	if claims == nil {
@@ -929,7 +937,7 @@ func (s *Server) handlePatchCourse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req createCourseRequest
+	var req patchCourseRequest
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request")
 		return
@@ -947,13 +955,22 @@ func (s *Server) handlePatchCourse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	name := course.Name
-	if strings.TrimSpace(req.Name) != "" {
-		name = strings.TrimSpace(req.Name)
+	if req.Name != nil {
+		trimmed := strings.TrimSpace(*req.Name)
+		if trimmed == "" {
+			writeError(w, http.StatusBadRequest, "missing_name")
+			return
+		}
+		name = trimmed
 	}
 	startAt := course.StartAt.Time
 	endAt := course.EndAt.Time
-	if req.Date != 0 {
-		startAt = time.Unix(req.Date, 0).UTC()
+	if req.Date != nil {
+		if *req.Date == 0 {
+			writeError(w, http.StatusBadRequest, "missing_date")
+			return
+		}
+		startAt = time.Unix(*req.Date, 0).UTC()
 		duration := s.cfg.CourseDuration
 		if duration <= 0 {
 			duration = time.Hour
@@ -961,8 +978,16 @@ func (s *Server) handlePatchCourse(w http.ResponseWriter, r *http.Request) {
 		endAt = startAt.Add(duration)
 	}
 	isOnline := course.IsOnline
-	if req.IsOnline != course.IsOnline {
-		isOnline = req.IsOnline
+	if req.IsOnline != nil {
+		isOnline = *req.IsOnline
+	}
+	signatureClosingDelay := course.SignatureClosingDelayMinutes
+	if req.SignatureClosingDelay != nil {
+		signatureClosingDelay = *req.SignatureClosingDelay
+	}
+	signatureClosed := course.SignatureClosed
+	if req.SignatureClosed != nil {
+		signatureClosed = *req.SignatureClosed
 	}
 
 	updated, err := s.store.Queries.UpdateCourse(r.Context(), db.UpdateCourseParams{
@@ -971,8 +996,8 @@ func (s *Server) handlePatchCourse(w http.ResponseWriter, r *http.Request) {
 		StartAt:                      pgTime(startAt),
 		EndAt:                        pgTime(endAt),
 		IsOnline:                     isOnline,
-		SignatureClosingDelayMinutes: course.SignatureClosingDelayMinutes,
-		SignatureClosed:              course.SignatureClosed,
+		SignatureClosingDelayMinutes: signatureClosingDelay,
+		SignatureClosed:              signatureClosed,
 		UpdatedAt:                    nowPgTime(),
 	})
 	if err != nil {

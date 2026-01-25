@@ -284,6 +284,12 @@ SELECT EXISTS (
   WHERE sg.student_id = $1 AND csg.course_id = $2
 ) AS is_allowed;
 
+-- name: ListMatchedStudentCourseGroups :many
+SELECT csg.student_group_id
+FROM courses_student_groups csg
+INNER JOIN students_groups sg ON sg.student_group_id = csg.student_group_id
+WHERE sg.student_id = $1 AND csg.course_id = $2;
+
 -- name: ValidateClassroomCourse :one
 SELECT EXISTS (
   SELECT 1

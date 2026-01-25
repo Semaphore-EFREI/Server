@@ -30,7 +30,10 @@ message ValidateStudentCourseRequest {
   string student_id = 1;
   string course_id = 2;
 }
-message ValidateStudentCourseResponse { bool is_allowed = 1; }
+message ValidateStudentCourseResponse {
+  bool is_allowed = 1;
+  repeated string matched_group_ids = 2;
+}
 
 message ValidateClassroomCourseRequest {
   string classroom_id = 1;

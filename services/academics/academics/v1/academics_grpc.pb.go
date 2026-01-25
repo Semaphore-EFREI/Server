@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - protoc             v6.33.1
-// source: academics/v1/academics.proto
+// source: services/academics/academics/v1/academics.proto
 
 package academicsv1
 
@@ -216,5 +216,5 @@ var AcademicsQueryService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "academics/v1/academics.proto",
+	Metadata: "services/academics/academics/v1/academics.proto",
 }

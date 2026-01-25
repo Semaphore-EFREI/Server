@@ -80,7 +80,25 @@ func (s *AcademicsServer) ValidateStudentCourse(ctx context.Context, req *academ
 		return nil, status.Error(codes.Internal, "validation failed")
 	}
 
-	return &academicsv1.ValidateStudentCourseResponse{IsAllowed: row}, nil
+	var matched []string
+	if row {
+		groupIDs, err := s.queries.ListMatchedStudentCourseGroups(ctx, db.ListMatchedStudentCourseGroupsParams{
+			StudentID: studentID,
+			CourseID:  courseID,
+		})
+		if err != nil {
+			return nil, status.Error(codes.Internal, "validation failed")
+		}
+		matched = make([]string, 0, len(groupIDs))
+		for _, id := range groupIDs {
+			matched = append(matched, uuidString(id))
+		}
+	}
+
+	return &academicsv1.ValidateStudentCourseResponse{
+		IsAllowed:       row,
+		MatchedGroupIds: matched,
+	}, nil
 }
 
 func (s *AcademicsServer) ValidateClassroomCourse(ctx context.Context, req *academicsv1.ValidateClassroomCourseRequest) (*academicsv1.ValidateClassroomCourseResponse, error) {

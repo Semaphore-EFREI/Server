@@ -870,6 +870,38 @@ func (q *Queries) ListCoursesByTeacherWithinRange(ctx context.Context, arg ListC
 	return items, nil
 }
 
+const listMatchedStudentCourseGroups = `-- name: ListMatchedStudentCourseGroups :many
+SELECT csg.student_group_id
+FROM courses_student_groups csg
+INNER JOIN students_groups sg ON sg.student_group_id = csg.student_group_id
+WHERE sg.student_id = $1 AND csg.course_id = $2
+`
+
+type ListMatchedStudentCourseGroupsParams struct {
+	StudentID pgtype.UUID `db:"student_id" json:"student_id"`
+	CourseID  pgtype.UUID `db:"course_id" json:"course_id"`
+}
+
+func (q *Queries) ListMatchedStudentCourseGroups(ctx context.Context, arg ListMatchedStudentCourseGroupsParams) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, listMatchedStudentCourseGroups, arg.StudentID, arg.CourseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []pgtype.UUID
+	for rows.Next() {
+		var student_group_id pgtype.UUID
+		if err := rows.Scan(&student_group_id); err != nil {
+			return nil, err
+		}
+		items = append(items, student_group_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSchools = `-- name: ListSchools :many
 SELECT id, name, preferences_id, created_at, updated_at, deleted_at
 FROM schools
