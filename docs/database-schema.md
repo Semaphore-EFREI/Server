@@ -42,3 +42,6 @@ Tables:
 
 ## ChartDB Export
 The per-service schema is available at `docs/ChartDB_per_service.json`.
+
+## Migrations
+Schema and seed migrations live under `migrations/` and are applied per service database.

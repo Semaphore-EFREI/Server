@@ -17,7 +17,7 @@ This document captures the technical solutions discussed so far. It is a working
 - **SQLC:** SQL-first, type-safe query generation for Go. Fast to iterate without ORM magic.
 
 ## Migrations
-- **Migration tooling (TBD):** Use the explicit migration tool golang-migrate to keep schema changes versioned.
+- **golang-migrate:** Versioned schema and seed migrations per service.
 
 ## Infrastructure & Deployment (Later Phase)
 - **Kubernetes:** Target deployment platform for services.

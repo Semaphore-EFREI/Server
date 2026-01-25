@@ -1,0 +1,4 @@
+CREATE DATABASE auth_identity;
+CREATE DATABASE academics;
+CREATE DATABASE attendance;
+CREATE DATABASE beacon;

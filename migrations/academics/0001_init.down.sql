@@ -1,0 +1,9 @@
+DROP TABLE IF EXISTS courses_classrooms;
+DROP TABLE IF EXISTS courses_student_groups;
+DROP TABLE IF EXISTS teachers_courses;
+DROP TABLE IF EXISTS students_groups;
+DROP TABLE IF EXISTS student_groups;
+DROP TABLE IF EXISTS courses;
+DROP TABLE IF EXISTS classrooms;
+DROP TABLE IF EXISTS schools;
+DROP TABLE IF EXISTS school_preferences;
