@@ -30,7 +30,7 @@ Each service owns its data (its tables). No cross-service joins, no shared table
 Services reference external entities by UUID only (e.g., `course_id`, `student_id`, `school_id`).
 
 ### 3) Internal communication via gRPC
-All service-to-service calls are gRPC. Public APIs can be REST/GraphQL via an API Gateway/BFF.
+All service-to-service calls are gRPC. Public APIs are REST (JSON) via the Envoy API Gateway.
 
 ### 4) Authorization: JWT everywhere (humans), service identity for internal calls
 - Human requests use **JWT** issued by auth-identity.
@@ -40,7 +40,7 @@ All service-to-service calls are gRPC. Public APIs can be REST/GraphQL via an AP
 
 ## High-level dependency graph
 
-- Public clients → **API Gateway/BFF** → (REST/GraphQL) → services
+- Public clients → **Envoy API Gateway** → (REST) → services
 - **attendance** → gRPC → **academics** (validation)
 - **beacon** → gRPC → **attendance** (submit verified sign attempts)
 - Optional (rare): **academics** → gRPC → **auth-identity** (user display lookups)
@@ -335,13 +335,16 @@ Start with strict checks and log the rejection reason for audit.
 
 ---
 
-## Public API routing (API Gateway/BFF)
+## Public API routing (Envoy gateway)
+
+Envoy exposes REST endpoints for each service and routes by prefix to the owning microservice.
+Gateway responsibilities and edge concerns are defined in `docs/4-microservices-architecture_gateway.md`.
 
 Route by prefix:
 
-- `/auth/*`, `/student/*`, `/teacher/*`, `/admin/*`, `/dev/* (users)` → auth-identity
-- `/school/*`, `/schools/*`, `/classroom*`, `/studentGroup*`, `/courses*` → academics
-- `/signature*` → attendance
+- `/auth/*`, `/users/*` → auth-identity
+- `/schools/*`, `/school/*`, `/courses/*`, `/classrooms/*`, `/groups/*` → academics
+- `/signatures/*`, `/signature/*` → attendance
 - `/beacon/*`, `/dev/beacon*` → beacon
 
 ---
@@ -351,7 +354,7 @@ Route by prefix:
 ### Service template (Go)
 Each service includes:
 - gRPC server + health check
-- HTTP server (optional) for public routes if no gateway
+- HTTP server for REST endpoints behind Envoy
 - Postgres client + migrations
 - Structured logs + request id propagation
 - OpenTelemetry tracing (recommended)
