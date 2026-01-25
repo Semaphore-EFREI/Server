@@ -42,6 +42,33 @@ func (s *Server) Router() http.Handler {
 
 	r.With(s.authMiddleware).Post("/students/me/devices", s.handleRegisterDevice)
 
+	r.Route("/students", func(r chi.Router) {
+		r.With(s.authMiddleware, s.requireAdminOrDev).Get("/{schoolId}", s.handleGetStudentsBySchool)
+	})
+
+	r.With(s.authMiddleware, s.requireAdminOrDev).Post("/student", s.handleCreateStudent)
+	r.With(s.authMiddleware).Get("/student/{studentId}", s.handleGetStudent)
+	r.With(s.authMiddleware, s.requireAdminOrDev).Patch("/student/{studentId}", s.handlePatchStudent)
+	r.With(s.authMiddleware, s.requireAdminOrDev).Delete("/student/{studentId}", s.handleDeleteStudent)
+
+	r.Route("/teachers", func(r chi.Router) {
+		r.With(s.authMiddleware, s.requireAdminOrDev).Get("/{schoolId}", s.handleGetTeachersBySchool)
+	})
+
+	r.With(s.authMiddleware, s.requireAdminOrDev).Post("/teacher", s.handleCreateTeacher)
+	r.With(s.authMiddleware).Get("/teacher/{teacherId}", s.handleGetTeacher)
+	r.With(s.authMiddleware, s.requireAdminOrDev).Patch("/teacher/{teacherId}", s.handlePatchTeacher)
+	r.With(s.authMiddleware, s.requireAdminOrDev).Delete("/teacher/{teacherId}", s.handleDeleteTeacher)
+
+	r.Route("/admins", func(r chi.Router) {
+		r.With(s.authMiddleware, s.requireAdminOrDev).Get("/{schoolId}", s.handleGetAdminsBySchool)
+	})
+
+	r.With(s.authMiddleware, s.requireAdminOrDev).Post("/admin", s.handleCreateAdmin)
+	r.With(s.authMiddleware, s.requireAdminOrDev).Get("/admin/{adminId}", s.handleGetAdmin)
+	r.With(s.authMiddleware, s.requireAdminOrDev).Patch("/admin/{adminId}", s.handlePatchAdmin)
+	r.With(s.authMiddleware, s.requireAdminOrDev).Delete("/admin/{adminId}", s.handleDeleteAdmin)
+
 	r.Route("/users", func(r chi.Router) {
 		r.With(s.authMiddleware, s.requireAdminOrDev).Get("/", s.handleListUsers)
 		r.With(s.authMiddleware, s.requireAdminOrDev).Post("/", s.handleCreateUser)
@@ -66,12 +93,42 @@ type authResponse struct {
 
 type userSummary struct {
 	ID        string  `json:"id"`
-	SchoolID  string  `json:"school_id"`
+	SchoolID  string  `json:"schoolId"`
 	Email     string  `json:"email"`
-	FirstName string  `json:"first_name"`
-	LastName  string  `json:"last_name"`
-	UserType  string  `json:"user_type"`
-	AdminRole *string `json:"admin_role,omitempty"`
+	FirstName string  `json:"firstName"`
+	LastName  string  `json:"lastName"`
+	UserType  string  `json:"userType"`
+	AdminRole *string `json:"adminRole,omitempty"`
+	StudentNo *string `json:"studentNumber,omitempty"`
+}
+
+type studentSummary struct {
+	ID            string `json:"id"`
+	FirstName     string `json:"firstname"`
+	LastName      string `json:"lastname"`
+	Email         string `json:"email"`
+	CreatedOn     int64  `json:"createdOn"`
+	StudentNumber int64  `json:"studentNumber"`
+	SchoolID      string `json:"school,omitempty"`
+}
+
+type teacherSummary struct {
+	ID        string `json:"id"`
+	FirstName string `json:"firstname"`
+	LastName  string `json:"lastname"`
+	Email     string `json:"email"`
+	CreatedOn int64  `json:"createdOn"`
+	SchoolID  string `json:"school,omitempty"`
+}
+
+type adminSummary struct {
+	ID        string `json:"id"`
+	FirstName string `json:"firstname"`
+	LastName  string `json:"lastname"`
+	Email     string `json:"email"`
+	CreatedOn int64  `json:"createdOn"`
+	Role      string `json:"role"`
+	SchoolID  string `json:"school,omitempty"`
 }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -288,12 +345,12 @@ func (s *Server) handleRegisterDevice(w http.ResponseWriter, r *http.Request) {
 type createUserRequest struct {
 	Email         string  `json:"email"`
 	Password      string  `json:"password"`
-	FirstName     string  `json:"first_name"`
-	LastName      string  `json:"last_name"`
-	SchoolID      string  `json:"school_id"`
-	UserType      string  `json:"user_type"`
-	AdminRole     *string `json:"admin_role,omitempty"`
-	StudentNumber *string `json:"student_number,omitempty"`
+	FirstName     string  `json:"firstName"`
+	LastName      string  `json:"lastName"`
+	SchoolID      string  `json:"schoolId"`
+	UserType      string  `json:"userType"`
+	AdminRole     *string `json:"adminRole,omitempty"`
+	StudentNumber *string `json:"studentNumber,omitempty"`
 }
 
 func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
@@ -352,6 +409,12 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	if req.UserType == "admin" {
 		resp.AdminRole = req.AdminRole
 	}
+	if req.UserType == "student" && req.StudentNumber != nil {
+		studentNumber := strings.TrimSpace(*req.StudentNumber)
+		if studentNumber != "" {
+			resp.StudentNo = &studentNumber
+		}
+	}
 
 	writeJSON(w, http.StatusCreated, resp)
 }
@@ -376,7 +439,7 @@ func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			continue
 		}
-		summaries = append(summaries, userSummary{
+		summary := userSummary{
 			ID:        user.ID,
 			SchoolID:  user.SchoolID,
 			Email:     user.Email,
@@ -384,7 +447,14 @@ func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 			LastName:  user.LastName,
 			UserType:  role.UserType,
 			AdminRole: role.AdminRole,
-		})
+		}
+		if role.UserType == "student" {
+			if profile, err := s.store.GetStudentProfile(r.Context(), user.ID); err == nil {
+				studentNumber := profile.StudentNumber
+				summary.StudentNo = &studentNumber
+			}
+		}
+		summaries = append(summaries, summary)
 	}
 
 	writeJSON(w, http.StatusOK, summaries)
@@ -417,7 +487,7 @@ func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, userSummary{
+	summary := userSummary{
 		ID:        user.ID,
 		SchoolID:  user.SchoolID,
 		Email:     user.Email,
@@ -425,15 +495,22 @@ func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {
 		LastName:  user.LastName,
 		UserType:  role.UserType,
 		AdminRole: role.AdminRole,
-	})
+	}
+	if role.UserType == "student" {
+		if profile, err := s.store.GetStudentProfile(r.Context(), user.ID); err == nil {
+			studentNumber := profile.StudentNumber
+			summary.StudentNo = &studentNumber
+		}
+	}
+	writeJSON(w, http.StatusOK, summary)
 }
 
 type updateUserRequest struct {
 	Email     *string `json:"email,omitempty"`
 	Password  *string `json:"password,omitempty"`
-	FirstName *string `json:"first_name,omitempty"`
-	LastName  *string `json:"last_name,omitempty"`
-	SchoolID  *string `json:"school_id,omitempty"`
+	FirstName *string `json:"firstName,omitempty"`
+	LastName  *string `json:"lastName,omitempty"`
+	SchoolID  *string `json:"schoolId,omitempty"`
 }
 
 func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
@@ -506,7 +583,7 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, userSummary{
+	summary := userSummary{
 		ID:        user.ID,
 		SchoolID:  user.SchoolID,
 		Email:     user.Email,
@@ -514,7 +591,14 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		LastName:  user.LastName,
 		UserType:  role.UserType,
 		AdminRole: role.AdminRole,
-	})
+	}
+	if role.UserType == "student" {
+		if profile, err := s.store.GetStudentProfile(r.Context(), user.ID); err == nil {
+			studentNumber := profile.StudentNumber
+			summary.StudentNo = &studentNumber
+		}
+	}
+	writeJSON(w, http.StatusOK, summary)
 }
 
 func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
@@ -535,6 +619,744 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+type createStudentRequest struct {
+	Email         string `json:"email"`
+	Password      string `json:"password"`
+	FirstName     string `json:"firstname"`
+	LastName      string `json:"lastname"`
+	CreatedOn     int64  `json:"createdOn"`
+	StudentNumber int64  `json:"studentNumber"`
+	SchoolID      string `json:"school"`
+}
+
+func (s *Server) handleCreateStudent(w http.ResponseWriter, r *http.Request) {
+	var req createStudentRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request")
+		return
+	}
+
+	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
+	if req.Email == "" || req.Password == "" || req.FirstName == "" || req.LastName == "" || req.StudentNumber == 0 || req.SchoolID == "" {
+		writeError(w, http.StatusBadRequest, "missing_fields")
+		return
+	}
+	if req.CreatedOn == 0 {
+		writeError(w, http.StatusBadRequest, "missing_created_on")
+		return
+	}
+
+	hash, err := crypto.HashPassword(req.Password)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "password_hash_failed")
+		return
+	}
+
+	createdAt := time.Unix(req.CreatedOn, 0).UTC()
+
+	user := model.User{
+		ID:           uuid.NewString(),
+		SchoolID:     req.SchoolID,
+		Email:        req.Email,
+		PasswordHash: hash,
+		FirstName:    req.FirstName,
+		LastName:     req.LastName,
+		CreatedAt:    createdAt,
+		UpdatedAt:    time.Now().UTC(),
+	}
+	studentNumber := strconv.FormatInt(req.StudentNumber, 10)
+	if err := s.store.CreateUserWithRole(r.Context(), user, "student", nil, &studentNumber); err != nil {
+		writeError(w, http.StatusBadRequest, "student_create_failed")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, studentSummary{
+		ID:            user.ID,
+		FirstName:     user.FirstName,
+		LastName:      user.LastName,
+		Email:         user.Email,
+		CreatedOn:     user.CreatedAt.Unix(),
+		StudentNumber: req.StudentNumber,
+		SchoolID:      user.SchoolID,
+	})
+}
+
+func (s *Server) handleGetStudent(w http.ResponseWriter, r *http.Request) {
+	claims := claimsFromContext(r.Context())
+	if claims == nil {
+		writeError(w, http.StatusUnauthorized, "missing_token")
+		return
+	}
+	studentID := chi.URLParam(r, "studentId")
+	if studentID == "" {
+		writeError(w, http.StatusBadRequest, "missing_student_id")
+		return
+	}
+	if claims.UserType == "student" && claims.UserID != studentID {
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+
+	profile, err := s.store.GetStudentProfile(r.Context(), studentID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "student_not_found")
+		return
+	}
+
+	studentNumber, _ := strconv.ParseInt(profile.StudentNumber, 10, 64)
+	writeJSON(w, http.StatusOK, studentSummary{
+		ID:            profile.User.ID,
+		FirstName:     profile.User.FirstName,
+		LastName:      profile.User.LastName,
+		Email:         profile.User.Email,
+		CreatedOn:     profile.User.CreatedAt.Unix(),
+		StudentNumber: studentNumber,
+		SchoolID:      profile.User.SchoolID,
+	})
+}
+
+type patchStudentRequest struct {
+	Email         *string `json:"email,omitempty"`
+	Password      *string `json:"password,omitempty"`
+	FirstName     *string `json:"firstname,omitempty"`
+	LastName      *string `json:"lastname,omitempty"`
+	SchoolID      *string `json:"school,omitempty"`
+	StudentNumber *int64  `json:"studentNumber,omitempty"`
+}
+
+func (s *Server) handlePatchStudent(w http.ResponseWriter, r *http.Request) {
+	studentID := chi.URLParam(r, "studentId")
+	if studentID == "" {
+		writeError(w, http.StatusBadRequest, "missing_student_id")
+		return
+	}
+
+	var req patchStudentRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request")
+		return
+	}
+
+	update := repository.UserUpdate{}
+	if req.Email != nil {
+		email := strings.TrimSpace(strings.ToLower(*req.Email))
+		if email != "" {
+			update.Email = &email
+		}
+	}
+	if req.FirstName != nil {
+		first := strings.TrimSpace(*req.FirstName)
+		if first != "" {
+			update.FirstName = &first
+		}
+	}
+	if req.LastName != nil {
+		last := strings.TrimSpace(*req.LastName)
+		if last != "" {
+			update.LastName = &last
+		}
+	}
+	if req.Password != nil && strings.TrimSpace(*req.Password) != "" {
+		hash, err := crypto.HashPassword(*req.Password)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "password_hash_failed")
+			return
+		}
+		update.PasswordHash = &hash
+	}
+	if req.SchoolID != nil {
+		school := strings.TrimSpace(*req.SchoolID)
+		if school != "" {
+			update.SchoolID = &school
+		}
+	}
+
+	user, err := s.store.UpdateUser(r.Context(), studentID, update)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "update_failed")
+		return
+	}
+
+	if req.StudentNumber != nil && *req.StudentNumber > 0 {
+		if err := s.store.UpdateStudentNumber(r.Context(), studentID, strconv.FormatInt(*req.StudentNumber, 10)); err != nil {
+			writeError(w, http.StatusInternalServerError, "update_failed")
+			return
+		}
+	}
+
+	profile, err := s.store.GetStudentProfile(r.Context(), user.ID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "student_not_found")
+		return
+	}
+
+	studentNumber, _ := strconv.ParseInt(profile.StudentNumber, 10, 64)
+	writeJSON(w, http.StatusOK, studentSummary{
+		ID:            profile.User.ID,
+		FirstName:     profile.User.FirstName,
+		LastName:      profile.User.LastName,
+		Email:         profile.User.Email,
+		CreatedOn:     profile.User.CreatedAt.Unix(),
+		StudentNumber: studentNumber,
+		SchoolID:      profile.User.SchoolID,
+	})
+}
+
+func (s *Server) handleDeleteStudent(w http.ResponseWriter, r *http.Request) {
+	studentID := chi.URLParam(r, "studentId")
+	if studentID == "" {
+		writeError(w, http.StatusBadRequest, "missing_student_id")
+		return
+	}
+
+	_, err := s.store.GetStudentProfile(r.Context(), studentID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "student_not_found")
+		return
+	}
+
+	deleted, err := s.store.DeleteUser(r.Context(), studentID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+	if !deleted {
+		writeError(w, http.StatusNotFound, "student_not_found")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+func (s *Server) handleGetStudentsBySchool(w http.ResponseWriter, r *http.Request) {
+	schoolID := chi.URLParam(r, "schoolId")
+	if schoolID == "" {
+		writeError(w, http.StatusBadRequest, "missing_school_id")
+		return
+	}
+
+	limit := 200
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+
+	students, err := s.store.ListStudentsBySchool(r.Context(), schoolID, limit)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+
+	resp := make([]studentSummary, 0, len(students))
+	for _, student := range students {
+		studentNumber, _ := strconv.ParseInt(student.StudentNumber, 10, 64)
+		resp = append(resp, studentSummary{
+			ID:            student.User.ID,
+			FirstName:     student.User.FirstName,
+			LastName:      student.User.LastName,
+			Email:         student.User.Email,
+			CreatedOn:     student.User.CreatedAt.Unix(),
+			StudentNumber: studentNumber,
+		})
+	}
+
+	writeJSON(w, http.StatusOK, resp)
+}
+
+type createTeacherRequest struct {
+	Email     string `json:"email"`
+	Password  string `json:"password"`
+	FirstName string `json:"firstname"`
+	LastName  string `json:"lastname"`
+	CreatedOn int64  `json:"createdOn"`
+	SchoolID  string `json:"school"`
+}
+
+func (s *Server) handleCreateTeacher(w http.ResponseWriter, r *http.Request) {
+	var req createTeacherRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request")
+		return
+	}
+
+	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
+	if req.Email == "" || req.Password == "" || req.FirstName == "" || req.LastName == "" || req.SchoolID == "" {
+		writeError(w, http.StatusBadRequest, "missing_fields")
+		return
+	}
+	if req.CreatedOn == 0 {
+		writeError(w, http.StatusBadRequest, "missing_created_on")
+		return
+	}
+
+	hash, err := crypto.HashPassword(req.Password)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "password_hash_failed")
+		return
+	}
+
+	createdAt := time.Unix(req.CreatedOn, 0).UTC()
+
+	user := model.User{
+		ID:           uuid.NewString(),
+		SchoolID:     req.SchoolID,
+		Email:        req.Email,
+		PasswordHash: hash,
+		FirstName:    req.FirstName,
+		LastName:     req.LastName,
+		CreatedAt:    createdAt,
+		UpdatedAt:    time.Now().UTC(),
+	}
+
+	if err := s.store.CreateUserWithRole(r.Context(), user, "teacher", nil, nil); err != nil {
+		writeError(w, http.StatusBadRequest, "teacher_create_failed")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, teacherSummary{
+		ID:        user.ID,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		Email:     user.Email,
+		CreatedOn: user.CreatedAt.Unix(),
+		SchoolID:  user.SchoolID,
+	})
+}
+
+func (s *Server) handleGetTeacher(w http.ResponseWriter, r *http.Request) {
+	claims := claimsFromContext(r.Context())
+	if claims == nil {
+		writeError(w, http.StatusUnauthorized, "missing_token")
+		return
+	}
+	teacherID := chi.URLParam(r, "teacherId")
+	if teacherID == "" {
+		writeError(w, http.StatusBadRequest, "missing_teacher_id")
+		return
+	}
+	if claims.UserType == "student" {
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+	if claims.UserType == "teacher" && claims.UserID != teacherID {
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+
+	profile, err := s.store.GetTeacherProfile(r.Context(), teacherID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "teacher_not_found")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, teacherSummary{
+		ID:        profile.User.ID,
+		FirstName: profile.User.FirstName,
+		LastName:  profile.User.LastName,
+		Email:     profile.User.Email,
+		CreatedOn: profile.User.CreatedAt.Unix(),
+		SchoolID:  profile.User.SchoolID,
+	})
+}
+
+type patchTeacherRequest struct {
+	Email     *string `json:"email,omitempty"`
+	Password  *string `json:"password,omitempty"`
+	FirstName *string `json:"firstname,omitempty"`
+	LastName  *string `json:"lastname,omitempty"`
+	SchoolID  *string `json:"school,omitempty"`
+}
+
+func (s *Server) handlePatchTeacher(w http.ResponseWriter, r *http.Request) {
+	teacherID := chi.URLParam(r, "teacherId")
+	if teacherID == "" {
+		writeError(w, http.StatusBadRequest, "missing_teacher_id")
+		return
+	}
+
+	var req patchTeacherRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request")
+		return
+	}
+
+	update := repository.UserUpdate{}
+	if req.Email != nil {
+		email := strings.TrimSpace(strings.ToLower(*req.Email))
+		if email != "" {
+			update.Email = &email
+		}
+	}
+	if req.FirstName != nil {
+		first := strings.TrimSpace(*req.FirstName)
+		if first != "" {
+			update.FirstName = &first
+		}
+	}
+	if req.LastName != nil {
+		last := strings.TrimSpace(*req.LastName)
+		if last != "" {
+			update.LastName = &last
+		}
+	}
+	if req.Password != nil && strings.TrimSpace(*req.Password) != "" {
+		hash, err := crypto.HashPassword(*req.Password)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "password_hash_failed")
+			return
+		}
+		update.PasswordHash = &hash
+	}
+	if req.SchoolID != nil {
+		school := strings.TrimSpace(*req.SchoolID)
+		if school != "" {
+			update.SchoolID = &school
+		}
+	}
+
+	user, err := s.store.UpdateUser(r.Context(), teacherID, update)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "update_failed")
+		return
+	}
+
+	profile, err := s.store.GetTeacherProfile(r.Context(), user.ID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "teacher_not_found")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, teacherSummary{
+		ID:        profile.User.ID,
+		FirstName: profile.User.FirstName,
+		LastName:  profile.User.LastName,
+		Email:     profile.User.Email,
+		CreatedOn: profile.User.CreatedAt.Unix(),
+		SchoolID:  profile.User.SchoolID,
+	})
+}
+
+func (s *Server) handleDeleteTeacher(w http.ResponseWriter, r *http.Request) {
+	teacherID := chi.URLParam(r, "teacherId")
+	if teacherID == "" {
+		writeError(w, http.StatusBadRequest, "missing_teacher_id")
+		return
+	}
+
+	_, err := s.store.GetTeacherProfile(r.Context(), teacherID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "teacher_not_found")
+		return
+	}
+
+	deleted, err := s.store.DeleteUser(r.Context(), teacherID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+	if !deleted {
+		writeError(w, http.StatusNotFound, "teacher_not_found")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+func (s *Server) handleGetTeachersBySchool(w http.ResponseWriter, r *http.Request) {
+	schoolID := chi.URLParam(r, "schoolId")
+	if schoolID == "" {
+		writeError(w, http.StatusBadRequest, "missing_school_id")
+		return
+	}
+
+	limit := 200
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+
+	teachers, err := s.store.ListTeachersBySchool(r.Context(), schoolID, limit)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+
+	resp := make([]teacherSummary, 0, len(teachers))
+	for _, teacher := range teachers {
+		resp = append(resp, teacherSummary{
+			ID:        teacher.User.ID,
+			FirstName: teacher.User.FirstName,
+			LastName:  teacher.User.LastName,
+			Email:     teacher.User.Email,
+			CreatedOn: teacher.User.CreatedAt.Unix(),
+		})
+	}
+
+	writeJSON(w, http.StatusOK, resp)
+}
+
+type createAdminRequest struct {
+	Email     string `json:"email"`
+	Password  string `json:"password"`
+	FirstName string `json:"firstname"`
+	LastName  string `json:"lastname"`
+	CreatedOn int64  `json:"createdOn"`
+	Role      string `json:"role"`
+	SchoolID  string `json:"school"`
+}
+
+func (s *Server) handleCreateAdmin(w http.ResponseWriter, r *http.Request) {
+	claims := claimsFromContext(r.Context())
+	if claims == nil {
+		writeError(w, http.StatusUnauthorized, "missing_token")
+		return
+	}
+
+	var req createAdminRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request")
+		return
+	}
+
+	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
+	req.Role = strings.TrimSpace(strings.ToLower(req.Role))
+	if req.Email == "" || req.Password == "" || req.FirstName == "" || req.LastName == "" || req.Role == "" {
+		writeError(w, http.StatusBadRequest, "missing_fields")
+		return
+	}
+	if req.CreatedOn == 0 {
+		writeError(w, http.StatusBadRequest, "missing_created_on")
+		return
+	}
+	if !isValidAdminRole(req.Role) {
+		writeError(w, http.StatusBadRequest, "invalid_admin_role")
+		return
+	}
+
+	schoolID := strings.TrimSpace(req.SchoolID)
+	if schoolID == "" {
+		if claims.UserType == "admin" {
+			schoolID = claims.SchoolID
+		}
+	}
+	if schoolID == "" {
+		writeError(w, http.StatusBadRequest, "missing_school")
+		return
+	}
+
+	hash, err := crypto.HashPassword(req.Password)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "password_hash_failed")
+		return
+	}
+
+	createdAt := time.Unix(req.CreatedOn, 0).UTC()
+	user := model.User{
+		ID:           uuid.NewString(),
+		SchoolID:     schoolID,
+		Email:        req.Email,
+		PasswordHash: hash,
+		FirstName:    req.FirstName,
+		LastName:     req.LastName,
+		CreatedAt:    createdAt,
+		UpdatedAt:    time.Now().UTC(),
+	}
+
+	role := req.Role
+	if err := s.store.CreateUserWithRole(r.Context(), user, "admin", &role, nil); err != nil {
+		writeError(w, http.StatusBadRequest, "admin_create_failed")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, adminSummary{
+		ID:        user.ID,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		Email:     user.Email,
+		CreatedOn: user.CreatedAt.Unix(),
+		Role:      role,
+		SchoolID:  user.SchoolID,
+	})
+}
+
+func (s *Server) handleGetAdmin(w http.ResponseWriter, r *http.Request) {
+	adminID := chi.URLParam(r, "adminId")
+	if adminID == "" {
+		writeError(w, http.StatusBadRequest, "missing_admin_id")
+		return
+	}
+
+	profile, err := s.store.GetAdminProfile(r.Context(), adminID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "admin_not_found")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, adminSummary{
+		ID:        profile.User.ID,
+		FirstName: profile.User.FirstName,
+		LastName:  profile.User.LastName,
+		Email:     profile.User.Email,
+		CreatedOn: profile.User.CreatedAt.Unix(),
+		Role:      profile.Role,
+		SchoolID:  profile.User.SchoolID,
+	})
+}
+
+type patchAdminRequest struct {
+	Email     *string `json:"email,omitempty"`
+	Password  *string `json:"password,omitempty"`
+	FirstName *string `json:"firstname,omitempty"`
+	LastName  *string `json:"lastname,omitempty"`
+	SchoolID  *string `json:"school,omitempty"`
+	Role      *string `json:"role,omitempty"`
+}
+
+func (s *Server) handlePatchAdmin(w http.ResponseWriter, r *http.Request) {
+	adminID := chi.URLParam(r, "adminId")
+	if adminID == "" {
+		writeError(w, http.StatusBadRequest, "missing_admin_id")
+		return
+	}
+
+	var req patchAdminRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request")
+		return
+	}
+
+	update := repository.UserUpdate{}
+	if req.Email != nil {
+		email := strings.TrimSpace(strings.ToLower(*req.Email))
+		if email != "" {
+			update.Email = &email
+		}
+	}
+	if req.FirstName != nil {
+		first := strings.TrimSpace(*req.FirstName)
+		if first != "" {
+			update.FirstName = &first
+		}
+	}
+	if req.LastName != nil {
+		last := strings.TrimSpace(*req.LastName)
+		if last != "" {
+			update.LastName = &last
+		}
+	}
+	if req.Password != nil && strings.TrimSpace(*req.Password) != "" {
+		hash, err := crypto.HashPassword(*req.Password)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "password_hash_failed")
+			return
+		}
+		update.PasswordHash = &hash
+	}
+	if req.SchoolID != nil {
+		school := strings.TrimSpace(*req.SchoolID)
+		if school != "" {
+			update.SchoolID = &school
+		}
+	}
+
+	user, err := s.store.UpdateUser(r.Context(), adminID, update)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "update_failed")
+		return
+	}
+
+	if req.Role != nil {
+		role := strings.TrimSpace(strings.ToLower(*req.Role))
+		if !isValidAdminRole(role) {
+			writeError(w, http.StatusBadRequest, "invalid_admin_role")
+			return
+		}
+		if err := s.store.UpdateAdminRole(r.Context(), adminID, role); err != nil {
+			writeError(w, http.StatusInternalServerError, "update_failed")
+			return
+		}
+	}
+
+	profile, err := s.store.GetAdminProfile(r.Context(), user.ID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "admin_not_found")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, adminSummary{
+		ID:        profile.User.ID,
+		FirstName: profile.User.FirstName,
+		LastName:  profile.User.LastName,
+		Email:     profile.User.Email,
+		CreatedOn: profile.User.CreatedAt.Unix(),
+		Role:      profile.Role,
+		SchoolID:  profile.User.SchoolID,
+	})
+}
+
+func (s *Server) handleDeleteAdmin(w http.ResponseWriter, r *http.Request) {
+	adminID := chi.URLParam(r, "adminId")
+	if adminID == "" {
+		writeError(w, http.StatusBadRequest, "missing_admin_id")
+		return
+	}
+
+	_, err := s.store.GetAdminProfile(r.Context(), adminID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "admin_not_found")
+		return
+	}
+
+	deleted, err := s.store.DeleteUser(r.Context(), adminID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+	if !deleted {
+		writeError(w, http.StatusNotFound, "admin_not_found")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+func (s *Server) handleGetAdminsBySchool(w http.ResponseWriter, r *http.Request) {
+	schoolID := chi.URLParam(r, "schoolId")
+	if schoolID == "" {
+		writeError(w, http.StatusBadRequest, "missing_school_id")
+		return
+	}
+
+	limit := 200
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+
+	admins, err := s.store.ListAdminsBySchool(r.Context(), schoolID, limit)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+
+	resp := make([]adminSummary, 0, len(admins))
+	for _, admin := range admins {
+		resp = append(resp, adminSummary{
+			ID:        admin.User.ID,
+			FirstName: admin.User.FirstName,
+			LastName:  admin.User.LastName,
+			Email:     admin.User.Email,
+			CreatedOn: admin.User.CreatedAt.Unix(),
+			Role:      admin.Role,
+		})
+	}
+
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (s *Server) issueTokens(ctx context.Context, user model.User, role model.Role, userAgent, ip string) (string, string, error) {

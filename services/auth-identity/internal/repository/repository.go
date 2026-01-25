@@ -214,6 +214,146 @@ func (s *Store) ListUsers(ctx context.Context, limit int) ([]model.User, error) 
 	return users, rows.Err()
 }
 
+func (s *Store) GetStudentProfile(ctx context.Context, userID string) (model.StudentProfile, error) {
+	var user model.User
+	var studentNumber string
+	row := s.pool.QueryRow(ctx, `
+		SELECT u.id, u.school_id, u.email, u.password_hash, u.first_name, u.last_name, u.created_at, u.updated_at, s.student_number
+		FROM users u
+		INNER JOIN students s ON s.user_id = u.id
+		WHERE u.id = $1
+	`, userID)
+	if err := row.Scan(&user.ID, &user.SchoolID, &user.Email, &user.PasswordHash, &user.FirstName, &user.LastName, &user.CreatedAt, &user.UpdatedAt, &studentNumber); err != nil {
+		return model.StudentProfile{}, err
+	}
+	return model.StudentProfile{User: user, StudentNumber: studentNumber}, nil
+}
+
+func (s *Store) GetTeacherProfile(ctx context.Context, userID string) (model.TeacherProfile, error) {
+	var user model.User
+	row := s.pool.QueryRow(ctx, `
+		SELECT u.id, u.school_id, u.email, u.password_hash, u.first_name, u.last_name, u.created_at, u.updated_at
+		FROM users u
+		INNER JOIN teachers t ON t.user_id = u.id
+		WHERE u.id = $1
+	`, userID)
+	if err := row.Scan(&user.ID, &user.SchoolID, &user.Email, &user.PasswordHash, &user.FirstName, &user.LastName, &user.CreatedAt, &user.UpdatedAt); err != nil {
+		return model.TeacherProfile{}, err
+	}
+	return model.TeacherProfile{User: user}, nil
+}
+
+func (s *Store) ListStudentsBySchool(ctx context.Context, schoolID string, limit int) ([]model.StudentProfile, error) {
+	if limit <= 0 {
+		limit = 200
+	}
+	rows, err := s.pool.Query(ctx, `
+		SELECT u.id, u.school_id, u.email, u.password_hash, u.first_name, u.last_name, u.created_at, u.updated_at, s.student_number
+		FROM users u
+		INNER JOIN students s ON s.user_id = u.id
+		WHERE u.school_id = $1
+		ORDER BY u.created_at DESC
+		LIMIT $2
+	`, schoolID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []model.StudentProfile
+	for rows.Next() {
+		var user model.User
+		var studentNumber string
+		if err := rows.Scan(&user.ID, &user.SchoolID, &user.Email, &user.PasswordHash, &user.FirstName, &user.LastName, &user.CreatedAt, &user.UpdatedAt, &studentNumber); err != nil {
+			return nil, err
+		}
+		results = append(results, model.StudentProfile{User: user, StudentNumber: studentNumber})
+	}
+	return results, rows.Err()
+}
+
+func (s *Store) ListTeachersBySchool(ctx context.Context, schoolID string, limit int) ([]model.TeacherProfile, error) {
+	if limit <= 0 {
+		limit = 200
+	}
+	rows, err := s.pool.Query(ctx, `
+		SELECT u.id, u.school_id, u.email, u.password_hash, u.first_name, u.last_name, u.created_at, u.updated_at
+		FROM users u
+		INNER JOIN teachers t ON t.user_id = u.id
+		WHERE u.school_id = $1
+		ORDER BY u.created_at DESC
+		LIMIT $2
+	`, schoolID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []model.TeacherProfile
+	for rows.Next() {
+		var user model.User
+		if err := rows.Scan(&user.ID, &user.SchoolID, &user.Email, &user.PasswordHash, &user.FirstName, &user.LastName, &user.CreatedAt, &user.UpdatedAt); err != nil {
+			return nil, err
+		}
+		results = append(results, model.TeacherProfile{User: user})
+	}
+	return results, rows.Err()
+}
+
+func (s *Store) UpdateStudentNumber(ctx context.Context, userID, studentNumber string) error {
+	_, err := s.pool.Exec(ctx, `UPDATE students SET student_number = $1 WHERE user_id = $2`, studentNumber, userID)
+	return err
+}
+
+func (s *Store) GetAdminProfile(ctx context.Context, userID string) (model.AdminProfile, error) {
+	var user model.User
+	var role string
+	row := s.pool.QueryRow(ctx, `
+		SELECT u.id, u.school_id, u.email, u.password_hash, u.first_name, u.last_name, u.created_at, u.updated_at, a.role
+		FROM users u
+		INNER JOIN administrators a ON a.user_id = u.id
+		WHERE u.id = $1
+	`, userID)
+	if err := row.Scan(&user.ID, &user.SchoolID, &user.Email, &user.PasswordHash, &user.FirstName, &user.LastName, &user.CreatedAt, &user.UpdatedAt, &role); err != nil {
+		return model.AdminProfile{}, err
+	}
+	return model.AdminProfile{User: user, Role: role}, nil
+}
+
+func (s *Store) ListAdminsBySchool(ctx context.Context, schoolID string, limit int) ([]model.AdminProfile, error) {
+	if limit <= 0 {
+		limit = 200
+	}
+	rows, err := s.pool.Query(ctx, `
+		SELECT u.id, u.school_id, u.email, u.password_hash, u.first_name, u.last_name, u.created_at, u.updated_at, a.role
+		FROM users u
+		INNER JOIN administrators a ON a.user_id = u.id
+		WHERE u.school_id = $1
+		ORDER BY u.created_at DESC
+		LIMIT $2
+	`, schoolID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []model.AdminProfile
+	for rows.Next() {
+		var user model.User
+		var role string
+		if err := rows.Scan(&user.ID, &user.SchoolID, &user.Email, &user.PasswordHash, &user.FirstName, &user.LastName, &user.CreatedAt, &user.UpdatedAt, &role); err != nil {
+			return nil, err
+		}
+		results = append(results, model.AdminProfile{User: user, Role: role})
+	}
+	return results, rows.Err()
+}
+
+func (s *Store) UpdateAdminRole(ctx context.Context, userID, role string) error {
+	_, err := s.pool.Exec(ctx, `UPDATE administrators SET role = $1 WHERE user_id = $2`, role, userID)
+	return err
+}
+
 func (s *Store) GetRole(ctx context.Context, userID string) (model.Role, error) {
 	role := model.Role{UserID: userID}
 

@@ -40,3 +40,17 @@ type Device struct {
 	RevokedAt        *time.Time
 	Active           bool
 }
+
+type StudentProfile struct {
+	User          User
+	StudentNumber string
+}
+
+type TeacherProfile struct {
+	User User
+}
+
+type AdminProfile struct {
+	User User
+	Role string
+}

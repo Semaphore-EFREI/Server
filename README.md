@@ -14,6 +14,9 @@ This repository contains the specification package for Semaphore (a course atten
 - `migrations/`: per-service SQL migrations (schema + seed).
 - `services/auth-identity`: first microservice implementation (Go).
 
+## Auth-Identity Service
+The first microservice is implemented in `services/auth-identity`. It provides JWT auth, refresh tokens, user CRUD, student/teacher endpoints aligned with OpenAPI, device binding, and a gRPC IdentityQueryService for internal lookups. See `services/auth-identity/README.md` for usage.
+
 ## Commands
 No build, test, or runtime commands are defined yet. If you add executable code, document exact commands here and in `AGENTS.md`.
 
