@@ -39,6 +39,7 @@ Tables:
 - Unique: `users.email`, `beacons.serial_number`, device identifiers.
 - Join tables enforce uniqueness on pairs (e.g., `teachers_courses(teacher_id, course_id)`).
 - Timestamps are stored as **UTC** (`timestamptz` recommended).
+- Academics entities use **soft delete** via `deleted_at` columns.
 
 ## ChartDB Export
 The per-service schema is available at `docs/ChartDB_per_service.json`.

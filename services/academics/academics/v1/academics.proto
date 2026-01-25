@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package academics.api.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "semaphore/academics/academics/v1;academicsv1";
+
+message Course {
+  string id = 1;
+  string school_id = 2;
+  string name = 3;
+  google.protobuf.Timestamp start_at = 4;
+  google.protobuf.Timestamp end_at = 5;
+  bool is_online = 6;
+  int32 signature_closing_delay_minutes = 7;
+  bool signature_closed = 8;
+}
+
+message GetCourseRequest { string course_id = 1; }
+message GetCourseResponse { Course course = 1; }
+
+message ValidateTeacherCourseRequest {
+  string teacher_id = 1;
+  string course_id = 2;
+}
+message ValidateTeacherCourseResponse { bool is_assigned = 1; }
+
+message ValidateStudentCourseRequest {
+  string student_id = 1;
+  string course_id = 2;
+}
+message ValidateStudentCourseResponse { bool is_allowed = 1; }
+
+message ValidateClassroomCourseRequest {
+  string classroom_id = 1;
+  string course_id = 2;
+}
+message ValidateClassroomCourseResponse { bool is_linked = 1; }
+
+service AcademicsQueryService {
+  rpc GetCourse(GetCourseRequest) returns (GetCourseResponse);
+  rpc ValidateTeacherCourse(ValidateTeacherCourseRequest) returns (ValidateTeacherCourseResponse);
+  rpc ValidateStudentCourse(ValidateStudentCourseRequest) returns (ValidateStudentCourseResponse);
+  rpc ValidateClassroomCourse(ValidateClassroomCourseRequest) returns (ValidateClassroomCourseResponse);
+}
