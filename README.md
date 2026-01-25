@@ -12,6 +12,7 @@ This repository contains the specification package for Semaphore (a course atten
 - `docs/database-schema.md`: per-service database documentation and enums.
 - `docs/database-implementation.md`: migration and seed instructions for dev.
 - `migrations/`: per-service SQL migrations (schema + seed).
+- `services/auth-identity`: first microservice implementation (Go).
 
 ## Commands
 No build, test, or runtime commands are defined yet. If you add executable code, document exact commands here and in `AGENTS.md`.

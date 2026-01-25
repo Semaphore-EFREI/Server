@@ -43,7 +43,7 @@ migrate -path migrations/beacon \
 ```
 
 ## Seed data
-Seed data is applied by the `0002_seed` migration in each service. IDs are fixed so demo entities line up across services (school, users, course, group, etc.).
+Seed data is applied by the `0002_seed` migration in each service. IDs are fixed so demo entities line up across services (school, users, course, group, etc.).\n+\n+Auth seed credentials (bcrypt):\n+- `admin@demo.local` / `dev-password`\n+- `teacher@demo.local` / `dev-password`\n+- `student@demo.local` / `dev-password`\n+- `dev@demo.local` / `dev-password`
 
 If you want schema-only migrations for a clean environment, migrate to version 1:
 ```
