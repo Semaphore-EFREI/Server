@@ -1,15 +1,15 @@
 package db
 
 import (
-  "context"
+	"context"
 
-  "github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func NewPool(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
-  cfg, err := pgxpool.ParseConfig(databaseURL)
-  if err != nil {
-    return nil, err
-  }
-  return pgxpool.NewWithConfig(ctx, cfg)
+	cfg, err := pgxpool.ParseConfig(databaseURL)
+	if err != nil {
+		return nil, err
+	}
+	return pgxpool.NewWithConfig(ctx, cfg)
 }

@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package identity.api.v1;
+
+option go_package = "semaphore/auth-identity/identity/v1;identityv1";
+
+message UserLite {
+  string id = 1;
+  string school_id = 2;
+  string email = 3;
+  string firstname = 4;
+  string lastname = 5;
+  string user_type = 6; // student/teacher/admin/dev
+}
+
+message GetUserLiteRequest { string user_id = 1; }
+message GetUserLiteResponse { UserLite user = 1; }
+
+message ExistsRequest { string user_id = 1; }
+message ExistsResponse { bool exists = 1; }
+
+service IdentityQueryService {
+  rpc GetUserLite(GetUserLiteRequest) returns (GetUserLiteResponse);
+  rpc Exists(ExistsRequest) returns (ExistsResponse);
+}
