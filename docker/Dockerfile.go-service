@@ -4,11 +4,12 @@ ARG SERVICE_DIR
 
 WORKDIR /src
 
-# Pre-cache dependencies.
-COPY ${SERVICE_DIR}/go.mod ${SERVICE_DIR}/go.sum ./
-RUN go mod download
+# Copy all services to satisfy local replace directives across modules.
+COPY services ./services
 
-COPY ${SERVICE_DIR} ./
+WORKDIR /src/${SERVICE_DIR}
+
+RUN go mod download
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/server ./cmd/server
 
