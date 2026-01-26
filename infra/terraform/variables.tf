@@ -25,7 +25,7 @@ variable "jenkins_service_account" {
 variable "semaphore_gateway_domain" {
   type        = string
   description = "Public hostname for the Semaphore Envoy gateway"
-  default     = "api.burrito.deway.fr"
+  default     = "semaphore.deway.fr"
 }
 
 variable "tls_cluster_issuer" {

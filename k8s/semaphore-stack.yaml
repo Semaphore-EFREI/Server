@@ -380,7 +380,7 @@ metadata:
   name: envoy-gateway
   namespace: semaphore
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
     app: envoy
   ports:
@@ -564,7 +564,7 @@ metadata:
   name: attendance
   namespace: semaphore
 spec:
-  replicas: 3
+  replicas: 2
   selector:
     matchLabels:
       app: attendance
