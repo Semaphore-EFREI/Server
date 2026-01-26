@@ -111,39 +111,44 @@ pipeline {
     stage('Deploy') {
       steps {
         container('builder') {
-          withCredentials([file(credentialsId: params.KUBECONFIG_CREDENTIALS_ID, variable: 'KUBECONFIG')]) {
-            sh '''
-              set -e
-              kubectl apply -f k8s/semaphore-stack.yaml
-            '''
-
+          withCredentials([string(credentialsId: params.KUBECONFIG_CREDENTIALS_ID, variable: 'KUBECONFIG_CONTENT')]) {
             script {
-              def services = (env.SERVICES ?: '').tokenize(' ')
-              def updateImage = { String deployment, String image ->
-                sh """
-                  kubectl set image deployment/${deployment} \
-                    ${deployment}=${env.REGISTRY_HOST}/${image}:${env.BUILD_NUMBER} \
-                    -n "${params.K8S_NAMESPACE}"
-                """
-              }
-              def restart = { String deployment ->
-                sh """
-                  kubectl rollout restart deployment/${deployment} -n "${params.K8S_NAMESPACE}"
-                """
-              }
-              def rollout = { String deployment ->
-                sh """
-                  kubectl rollout status deployment/${deployment} -n "${params.K8S_NAMESPACE}" --timeout=5m
-                """
-              }
+              writeFile file: 'kubeconfig', text: env.KUBECONFIG_CONTENT
+            }
+            withEnv(["KUBECONFIG=${pwd()}/kubeconfig"]) {
+              sh '''
+                set -e
+                kubectl apply -f k8s/semaphore-stack.yaml
+              '''
 
-              services.each { svc ->
-                updateImage(svc, "semaphore-${svc}")
-                restart(svc)
-              }
+              script {
+                def services = (env.SERVICES ?: '').tokenize(' ')
+                def updateImage = { String deployment, String image ->
+                  sh """
+                    kubectl set image deployment/${deployment} \
+                      ${deployment}=${env.REGISTRY_HOST}/${image}:${env.BUILD_NUMBER} \
+                      -n "${params.K8S_NAMESPACE}"
+                  """
+                }
+                def restart = { String deployment ->
+                  sh """
+                    kubectl rollout restart deployment/${deployment} -n "${params.K8S_NAMESPACE}"
+                  """
+                }
+                def rollout = { String deployment ->
+                  sh """
+                    kubectl rollout status deployment/${deployment} -n "${params.K8S_NAMESPACE}" --timeout=5m
+                  """
+                }
 
-              services.each { svc ->
-                rollout(svc)
+                services.each { svc ->
+                  updateImage(svc, "semaphore-${svc}")
+                  restart(svc)
+                }
+
+                services.each { svc ->
+                  rollout(svc)
+                }
               }
             }
           }
