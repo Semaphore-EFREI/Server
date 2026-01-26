@@ -69,12 +69,12 @@ INNER JOIN teacher_signatures ts ON ts.signature_id = s.id
 WHERE s.id = $1 AND s.deleted_at IS NULL;
 
 -- name: CreateStudentSignature :exec
-INSERT INTO student_signatures (signature_id, student_id, teacher_id, administrator_id)
-VALUES ($1, $2, $3, $4);
+INSERT INTO student_signatures (signature_id, student_id, teacher_id, administrator_id, course_id)
+VALUES ($1, $2, $3, $4, $5);
 
 -- name: CreateTeacherSignature :exec
-INSERT INTO teacher_signatures (signature_id, teacher_id)
-VALUES ($1, $2);
+INSERT INTO teacher_signatures (signature_id, teacher_id, course_id)
+VALUES ($1, $2, $3);
 
 -- name: UpdateStudentSignature :exec
 UPDATE student_signatures

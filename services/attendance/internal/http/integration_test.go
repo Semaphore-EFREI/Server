@@ -40,6 +40,7 @@ func TestStudentSignatureRules(t *testing.T) {
 	token := login(t, authURL, "student@demo.local", "dev-password")
 	teacherToken := login(t, authURL, "teacher@demo.local", "dev-password")
 	courseID := "11111111-1111-1111-1111-111111111114"
+	course2ID := "11111111-1111-1111-1111-111111111116"
 	studentID := "22222222-2222-2222-2222-222222222223"
 	teacherID := "22222222-2222-2222-2222-222222222222"
 
@@ -52,34 +53,18 @@ func TestStudentSignatureRules(t *testing.T) {
 		"teacher": teacherID,
 		"image":   "dGVzdC1pbWFnZQ==",
 	})
+	_ = createTeacherSignature(t, attendanceURL, teacherToken, map[string]interface{}{
+		"date":    time.Date(2026, 1, 25, 11, 0, 0, 0, time.UTC).Unix(),
+		"course":  course2ID,
+		"status":  "present",
+		"method":  "self",
+		"teacher": teacherID,
+		"image":   "dGVzdC1pbWFnZQ==",
+	})
 
-	onTime := time.Date(2026, 1, 25, 9, 5, 0, 0, time.UTC).Unix()
+	onTime := time.Date(2026, 1, 25, 11, 5, 0, 0, time.UTC).Unix()
 	late := time.Date(2026, 1, 25, 9, 20, 0, 0, time.UTC).Unix()
 	tooEarly := time.Date(2026, 1, 25, 8, 50, 0, 0, time.UTC).Unix()
-
-	// On-time signature should be accepted with provided status.
-	onTimeResp := createSignature(t, attendanceURL, token, "demo-device-1", map[string]interface{}{
-		"date":    onTime,
-		"course":  courseID,
-		"status":  "signed",
-		"method":  "qrCode",
-		"student": studentID,
-	})
-	if onTimeResp.Status != "signed" {
-		t.Fatalf("expected status signed, got %s", onTimeResp.Status)
-	}
-
-	// Late signature should return late.
-	lateResp := createSignature(t, attendanceURL, token, "demo-device-1", map[string]interface{}{
-		"date":    late,
-		"course":  courseID,
-		"status":  "signed",
-		"method":  "qrCode",
-		"student": studentID,
-	})
-	if lateResp.Status != "late" {
-		t.Fatalf("expected status late, got %s", lateResp.Status)
-	}
 
 	// Too early signature should be rejected.
 	reqBody := map[string]interface{}{
@@ -101,14 +86,38 @@ func TestStudentSignatureRules(t *testing.T) {
 		t.Fatalf("expected error too_early, got %s", errResp.Error)
 	}
 
+	// On-time signature should be accepted with provided status (second course).
+	onTimeResp := createSignature(t, attendanceURL, token, "demo-device-1", map[string]interface{}{
+		"date":    onTime,
+		"course":  course2ID,
+		"status":  "signed",
+		"method":  "qrCode",
+		"student": studentID,
+	})
+	if onTimeResp.Status != "signed" {
+		t.Fatalf("expected status signed, got %s", onTimeResp.Status)
+	}
+
+	// Late signature should be accepted with status late.
+	lateResp := createSignature(t, attendanceURL, token, "demo-device-1", map[string]interface{}{
+		"date":    late,
+		"course":  courseID,
+		"status":  "signed",
+		"method":  "qrCode",
+		"student": studentID,
+	})
+	if lateResp.Status != "late" {
+		t.Fatalf("expected status late, got %s", lateResp.Status)
+	}
+
 	// Patch status to present and verify.
 	patchBody := map[string]interface{}{"status": "present"}
-	patchResp, _ := doRequestWithMethod(t, http.MethodPatch, attendanceURL+"/signature/"+onTimeResp.ID, token, "demo-device-1", patchBody)
+	patchResp, _ := doRequestWithMethod(t, http.MethodPatch, attendanceURL+"/signature/"+lateResp.ID, token, "demo-device-1", patchBody)
 	if patchResp.StatusCode != http.StatusNoContent {
 		t.Fatalf("expected 204, got %d", patchResp.StatusCode)
 	}
 
-	getResp, getBody := doRequestWithMethod(t, http.MethodGet, attendanceURL+"/signature/"+onTimeResp.ID, token, "demo-device-1", nil)
+	getResp, getBody := doRequestWithMethod(t, http.MethodGet, attendanceURL+"/signature/"+lateResp.ID, token, "demo-device-1", nil)
 	if getResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200, got %d", getResp.StatusCode)
 	}

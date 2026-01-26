@@ -72,8 +72,8 @@ func (q *Queries) CreateSignature(ctx context.Context, arg CreateSignatureParams
 }
 
 const createStudentSignature = `-- name: CreateStudentSignature :exec
-INSERT INTO student_signatures (signature_id, student_id, teacher_id, administrator_id)
-VALUES ($1, $2, $3, $4)
+INSERT INTO student_signatures (signature_id, student_id, teacher_id, administrator_id, course_id)
+VALUES ($1, $2, $3, $4, $5)
 `
 
 type CreateStudentSignatureParams struct {
@@ -81,6 +81,7 @@ type CreateStudentSignatureParams struct {
 	StudentID       pgtype.UUID `db:"student_id" json:"student_id"`
 	TeacherID       pgtype.UUID `db:"teacher_id" json:"teacher_id"`
 	AdministratorID pgtype.UUID `db:"administrator_id" json:"administrator_id"`
+	CourseID        pgtype.UUID `db:"course_id" json:"course_id"`
 }
 
 func (q *Queries) CreateStudentSignature(ctx context.Context, arg CreateStudentSignatureParams) error {
@@ -89,22 +90,24 @@ func (q *Queries) CreateStudentSignature(ctx context.Context, arg CreateStudentS
 		arg.StudentID,
 		arg.TeacherID,
 		arg.AdministratorID,
+		arg.CourseID,
 	)
 	return err
 }
 
 const createTeacherSignature = `-- name: CreateTeacherSignature :exec
-INSERT INTO teacher_signatures (signature_id, teacher_id)
-VALUES ($1, $2)
+INSERT INTO teacher_signatures (signature_id, teacher_id, course_id)
+VALUES ($1, $2, $3)
 `
 
 type CreateTeacherSignatureParams struct {
 	SignatureID pgtype.UUID `db:"signature_id" json:"signature_id"`
 	TeacherID   pgtype.UUID `db:"teacher_id" json:"teacher_id"`
+	CourseID    pgtype.UUID `db:"course_id" json:"course_id"`
 }
 
 func (q *Queries) CreateTeacherSignature(ctx context.Context, arg CreateTeacherSignatureParams) error {
-	_, err := q.db.Exec(ctx, createTeacherSignature, arg.SignatureID, arg.TeacherID)
+	_, err := q.db.Exec(ctx, createTeacherSignature, arg.SignatureID, arg.TeacherID, arg.CourseID)
 	return err
 }
 

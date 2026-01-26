@@ -150,6 +150,7 @@ static_resources:
                       providers:
                         semaphore_jwt:
                           issuer: "semaphore-auth-identity"
+                          forward: true
                           remote_jwks:
                             http_uri:
                               uri: http://auth-identity:8081/.well-known/jwks.json

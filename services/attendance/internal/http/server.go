@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"net/http"
 	"strconv"
@@ -14,7 +15,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/redis/go-redis/v9"
 
 	academicsv1 "semaphore/academics/academics/v1"
 	"semaphore/attendance/internal/auth"
@@ -29,14 +32,24 @@ type Server struct {
 	academics    academicsv1.AcademicsQueryServiceClient
 	identity     identityv1.IdentityQueryServiceClient
 	jwtPublicKey *rsa.PublicKey
+	redis        *redis.Client
+	buzzTTL      time.Duration
 }
 
-func NewServer(cfg config.Config, store *db.Store, academics academicsv1.AcademicsQueryServiceClient, identity identityv1.IdentityQueryServiceClient) (*Server, error) {
+func NewServer(cfg config.Config, store *db.Store, academics academicsv1.AcademicsQueryServiceClient, identity identityv1.IdentityQueryServiceClient, redisClient *redis.Client) (*Server, error) {
 	publicKey, err := auth.ParseRSAPublicKey(cfg.JWTPublicKey)
 	if err != nil {
 		return nil, err
 	}
-	return &Server{cfg: cfg, store: store, academics: academics, identity: identity, jwtPublicKey: publicKey}, nil
+	return &Server{
+		cfg:          cfg,
+		store:        store,
+		academics:    academics,
+		identity:     identity,
+		jwtPublicKey: publicKey,
+		redis:        redisClient,
+		buzzTTL:      cfg.BuzzLightyearTTL,
+	}, nil
 }
 
 func (s *Server) Router() http.Handler {
@@ -252,6 +265,46 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 		statusValue = db.SignatureStatus(timingStatus)
 	}
 
+	if claims.UserType == "student" {
+		studentUUID, err := parseUUID(req.Student)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_student_id")
+			return
+		}
+		rows, err := s.store.Queries.ListStudentSignaturesByStudentAndCourse(r.Context(), db.ListStudentSignaturesByStudentAndCourseParams{
+			StudentID: studentUUID,
+			CourseID:  courseID,
+			Limit:     1,
+		})
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "server_error")
+			return
+		}
+		if len(rows) > 0 {
+			writeError(w, http.StatusConflict, "signature_exists")
+			return
+		}
+	} else {
+		teacherUUID, err := parseUUID(req.Teacher)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_teacher_id")
+			return
+		}
+		rows, err := s.store.Queries.ListTeacherSignaturesByTeacherAndCourse(r.Context(), db.ListTeacherSignaturesByTeacherAndCourseParams{
+			TeacherID: teacherUUID,
+			CourseID:  courseID,
+			Limit:     1,
+		})
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "server_error")
+			return
+		}
+		if len(rows) > 0 {
+			writeError(w, http.StatusConflict, "signature_exists")
+			return
+		}
+	}
+
 	signatureID := uuid.New()
 	if err := s.store.WithTx(r.Context(), func(q *db.Queries) error {
 		_, err := q.CreateSignature(r.Context(), db.CreateSignatureParams{
@@ -273,13 +326,20 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 				StudentID:       pgUUIDFromString(req.Student),
 				TeacherID:       pgUUIDFromString(req.Teacher),
 				AdministratorID: pgUUIDFromString(req.Administrator),
+				CourseID:        courseID,
 			})
 		}
 		return q.CreateTeacherSignature(r.Context(), db.CreateTeacherSignatureParams{
 			SignatureID: pgUUID(signatureID),
 			TeacherID:   pgUUIDFromString(req.Teacher),
+			CourseID:    courseID,
 		})
 	}); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			writeError(w, http.StatusConflict, "signature_exists")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "server_error")
 		return
 	}
@@ -457,6 +517,10 @@ func (s *Server) handleGetBuzzlightyear(w http.ResponseWriter, r *http.Request) 
 
 	code, err := randomBuzzLightyearCode()
 	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+	if err := s.storeBuzzLightyearCode(r.Context(), code); err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error")
 		return
 	}
@@ -1149,6 +1213,14 @@ func randomBuzzLightyearCode() (int32, error) {
 		return 0, err
 	}
 	return int32(value.Int64()), nil
+}
+
+func (s *Server) storeBuzzLightyearCode(ctx context.Context, code int32) error {
+	if s.redis == nil {
+		return nil
+	}
+	key := fmt.Sprintf("buzzlightyear:%d", code)
+	return s.redis.Set(ctx, key, "1", s.buzzTTL).Err()
 }
 
 // Utilities

@@ -21,6 +21,9 @@ JWT_PUBLIC_KEY_FILE="/path/to/public.pem" \
 JWT_ISSUER="semaphore-auth-identity" \
 ACADEMICS_GRPC_ADDR="127.0.0.1:9092" \
 IDENTITY_GRPC_ADDR="127.0.0.1:9091" \
+REDIS_ADDR="127.0.0.1:6379" \
+REDIS_PASSWORD="your_redis_password" \
+BUZZLIGHTYEAR_TTL="45s" \
 go run ./cmd/server
 ```
 

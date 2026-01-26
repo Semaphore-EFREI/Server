@@ -615,6 +615,8 @@ spec:
                   key: redis-password
             - name: GRPC_DIAL_TIMEOUT
               value: 5s
+            - name: BUZZLIGHTYEAR_TTL
+              value: 45s
           readinessProbe:
             httpGet:
               path: /health

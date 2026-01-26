@@ -16,6 +16,9 @@ type Config struct {
 	AcademicsGRPCAddr string
 	IdentityGRPCAddr  string
 	GRPCDialTimeout   time.Duration
+	RedisAddr         string
+	RedisPassword     string
+	BuzzLightyearTTL  time.Duration
 }
 
 func Load() Config {
@@ -28,6 +31,9 @@ func Load() Config {
 		AcademicsGRPCAddr: getenv("ACADEMICS_GRPC_ADDR", "127.0.0.1:9092"),
 		IdentityGRPCAddr:  getenv("IDENTITY_GRPC_ADDR", "127.0.0.1:9091"),
 		GRPCDialTimeout:   getenvDuration("GRPC_DIAL_TIMEOUT", 5*time.Second),
+		RedisAddr:         getenv("REDIS_ADDR", ""),
+		RedisPassword:     getenv("REDIS_PASSWORD", ""),
+		BuzzLightyearTTL:  getenvDuration("BUZZLIGHTYEAR_TTL", 45*time.Second),
 	}
 }
 

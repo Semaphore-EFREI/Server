@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 
 	attendancev1 "semaphore/attendance/attendance/v1"
@@ -39,7 +40,26 @@ func main() {
 	}
 	defer clients.Close()
 
-	server, err := internalhttp.NewServer(cfg, store, clients.Academics, clients.Identity)
+	var redisClient *redis.Client
+	if cfg.RedisAddr != "" {
+		redisClient = redis.NewClient(&redis.Options{
+			Addr:     cfg.RedisAddr,
+			Password: cfg.RedisPassword,
+		})
+		pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		if err := redisClient.Ping(pingCtx).Err(); err != nil {
+			cancel()
+			log.Fatalf("redis ping failed: %v", err)
+		}
+		cancel()
+		defer func() {
+			if err := redisClient.Close(); err != nil {
+				log.Printf("redis close error: %v", err)
+			}
+		}()
+	}
+
+	server, err := internalhttp.NewServer(cfg, store, clients.Academics, clients.Identity, redisClient)
 	if err != nil {
 		log.Fatalf("server init failed: %v", err)
 	}
