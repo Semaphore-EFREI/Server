@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -10,7 +11,8 @@ type Config struct {
 	HTTPAddr          string
 	GRPCAddr          string
 	DatabaseURL       string
-	JWTSecret         string
+	JWTPrivateKey     string
+	JWTPublicKey      string
 	JWTIssuer         string
 	AccessTokenTTL    time.Duration
 	RefreshTokenTTL   time.Duration
@@ -22,7 +24,8 @@ func Load() Config {
 		HTTPAddr:          getenv("HTTP_ADDR", ":8081"),
 		GRPCAddr:          getenv("GRPC_ADDR", ":9091"),
 		DatabaseURL:       getenv("DATABASE_URL", "postgres://postgres:postgres@127.0.0.1:5432/auth_identity?sslmode=disable"),
-		JWTSecret:         getenv("JWT_SECRET", "dev-secret"),
+		JWTPrivateKey:     getenvKey("JWT_PRIVATE_KEY", ""),
+		JWTPublicKey:      getenvKey("JWT_PUBLIC_KEY", ""),
 		JWTIssuer:         getenv("JWT_ISSUER", "semaphore-auth-identity"),
 		AccessTokenTTL:    getenvDuration("ACCESS_TOKEN_TTL", 15*time.Minute),
 		RefreshTokenTTL:   getenvDuration("REFRESH_TOKEN_TTL", 30*24*time.Hour),
@@ -49,4 +52,24 @@ func getenvDuration(key string, fallback time.Duration) time.Duration {
 		}
 	}
 	return fallback
+}
+
+func getenvKey(key, fallback string) string {
+	if file := os.Getenv(key + "_FILE"); file != "" {
+		if data, err := os.ReadFile(file); err == nil {
+			return normalizePEM(string(data))
+		}
+	}
+	if val := os.Getenv(key); val != "" {
+		return normalizePEM(val)
+	}
+	return fallback
+}
+
+func normalizePEM(value string) string {
+	value = strings.TrimSpace(value)
+	if strings.Contains(value, "\\n") && !strings.Contains(value, "\n") {
+		value = strings.ReplaceAll(value, "\\n", "\n")
+	}
+	return value
 }

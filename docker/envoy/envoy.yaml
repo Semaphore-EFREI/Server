@@ -1,0 +1,246 @@
+static_resources:
+  listeners:
+    - name: listener_0
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 8080
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: ingress_http
+                access_log:
+                  - name: envoy.access_loggers.stdout
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
+                route_config:
+                  name: local_route
+                  virtual_hosts:
+                    - name: semaphore
+                      domains: ["*"]
+                      cors:
+                        allow_origin_string_match:
+                          - prefix: "*"
+                        allow_methods: "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+                        allow_headers: "authorization,content-type,x-device-id,x-student-id,x-course-id,idempotency-key"
+                        expose_headers: "content-length"
+                        max_age: "86400"
+                      routes:
+                        - match:
+                            prefix: "/.well-known"
+                          route:
+                            cluster: auth-identity
+                            timeout: 15s
+                        - match:
+                            safe_regex:
+                              regex: "^/course/[^/]+/status$"
+                          route:
+                            cluster: attendance
+                            timeout: 15s
+                        - match:
+                            prefix: "/signature"
+                          route:
+                            cluster: attendance
+                            timeout: 15s
+                        - match:
+                            prefix: "/signatures"
+                          route:
+                            cluster: attendance
+                            timeout: 15s
+                        - match:
+                            prefix: "/beacon"
+                          route:
+                            cluster: beacon
+                            timeout: 15s
+                        - match:
+                            prefix: "/dev/beacon"
+                          route:
+                            cluster: beacon
+                            timeout: 15s
+                        - match:
+                            prefix: "/auth"
+                          route:
+                            cluster: auth-identity
+                            timeout: 15s
+                        - match:
+                            prefix: "/users"
+                          route:
+                            cluster: auth-identity
+                            timeout: 15s
+                        - match:
+                            prefix: "/students"
+                          route:
+                            cluster: auth-identity
+                            timeout: 15s
+                        - match:
+                            prefix: "/student"
+                          route:
+                            cluster: auth-identity
+                            timeout: 15s
+                        - match:
+                            prefix: "/teachers"
+                          route:
+                            cluster: auth-identity
+                            timeout: 15s
+                        - match:
+                            prefix: "/teacher"
+                          route:
+                            cluster: auth-identity
+                            timeout: 15s
+                        - match:
+                            prefix: "/admins"
+                          route:
+                            cluster: auth-identity
+                            timeout: 15s
+                        - match:
+                            prefix: "/admin"
+                          route:
+                            cluster: auth-identity
+                            timeout: 15s
+                        - match:
+                            prefix: "/schools"
+                          route:
+                            cluster: academics
+                            timeout: 15s
+                        - match:
+                            prefix: "/school"
+                          route:
+                            cluster: academics
+                            timeout: 15s
+                        - match:
+                            prefix: "/courses"
+                          route:
+                            cluster: academics
+                            timeout: 15s
+                        - match:
+                            prefix: "/course"
+                          route:
+                            cluster: academics
+                            timeout: 15s
+                        - match:
+                            prefix: "/classrooms"
+                          route:
+                            cluster: academics
+                            timeout: 15s
+                        - match:
+                            prefix: "/classroom"
+                          route:
+                            cluster: academics
+                            timeout: 15s
+                        - match:
+                            prefix: "/studentGroups"
+                          route:
+                            cluster: academics
+                            timeout: 15s
+                        - match:
+                            prefix: "/studentGroup"
+                          route:
+                            cluster: academics
+                            timeout: 15s
+                http_filters:
+                  - name: envoy.filters.http.cors
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors
+                  - name: envoy.filters.http.jwt_authn
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication
+                      bypass_cors_preflight: true
+                      providers:
+                        semaphore_jwt:
+                          issuer: "semaphore-auth-identity"
+                          remote_jwks:
+                            http_uri:
+                              uri: http://auth-identity:8081/.well-known/jwks.json
+                              cluster: auth-identity
+                              timeout: 2s
+                            cache_duration: 300s
+                      rules:
+                        - match:
+                            prefix: "/auth"
+                          requires:
+                            allow_missing_or_failed: {}
+                        - match:
+                            prefix: "/beacon"
+                          requires:
+                            allow_missing_or_failed: {}
+                        - match:
+                            prefix: "/.well-known/jwks.json"
+                          requires:
+                            allow_missing_or_failed: {}
+                        - match:
+                            prefix: "/health"
+                          requires:
+                            allow_missing_or_failed: {}
+                        - match:
+                            prefix: "/"
+                          requires:
+                            provider_name: semaphore_jwt
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+
+  clusters:
+    - name: auth-identity
+      connect_timeout: 2s
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: auth-identity
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: auth-identity
+                      port_value: 8081
+
+    - name: academics
+      connect_timeout: 2s
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: academics
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: academics
+                      port_value: 8082
+
+    - name: attendance
+      connect_timeout: 2s
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: attendance
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: attendance
+                      port_value: 8083
+
+    - name: beacon
+      connect_timeout: 2s
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: beacon
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: beacon
+                      port_value: 8084
+
+admin:
+  access_log_path: /tmp/admin_access.log
+  address:
+    socket_address:
+      address: 0.0.0.0
+      port_value: 9901

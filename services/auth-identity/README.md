@@ -18,7 +18,9 @@ Run:
 ```
 cd services/auth-identity
 DATABASE_URL="postgres://postgres:postgres@127.0.0.1:5432/auth_identity?sslmode=disable" \
-JWT_SECRET="dev-secret" \
+JWT_PRIVATE_KEY_FILE="/path/to/private.pem" \
+JWT_PUBLIC_KEY_FILE="/path/to/public.pem" \
+JWT_ISSUER="semaphore-auth-identity" \
 go run ./cmd/server
 ```
 
@@ -29,6 +31,7 @@ HTTP will listen on `:8081`, gRPC on `:9091`.
 - `POST /auth/refresh`
 - `POST /auth/logout`
 - `POST /students/me/devices`
+- `GET /.well-known/jwks.json`
 - `GET /students/{schoolId}`
 - `POST /student`
 - `GET /student/{studentId}`

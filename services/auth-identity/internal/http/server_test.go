@@ -3,7 +3,11 @@ package http
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -32,21 +36,26 @@ func TestStudentTeacherEndpoints(t *testing.T) {
 	}
 	defer pool.Close()
 
+	privateKey, publicKey := mustKeyPair(t)
 	cfg := config.Config{
 		HTTPAddr:       ":0",
 		DatabaseURL:    "",
-		JWTSecret:      "test-secret",
+		JWTPrivateKey:  privateKey,
+		JWTPublicKey:   publicKey,
 		JWTIssuer:      "test-issuer",
 		AccessTokenTTL: 15 * time.Minute,
 	}
 	store := repository.NewStore(pool)
-	server := NewServer(cfg, store)
+	server, err := NewServer(cfg, store)
+	if err != nil {
+		t.Fatalf("server init error: %v", err)
+	}
 	app := httptest.NewServer(server.Router())
 	defer app.Close()
 
-	adminToken := mustToken(t, cfg.JWTSecret, cfg.JWTIssuer, adminID, "admin", schoolID)
-	studentToken := mustToken(t, cfg.JWTSecret, cfg.JWTIssuer, studentID, "student", schoolID)
-	teacherToken := mustToken(t, cfg.JWTSecret, cfg.JWTIssuer, teacherID, "teacher", schoolID)
+	adminToken := mustToken(t, cfg.JWTPrivateKey, cfg.JWTIssuer, adminID, "admin", schoolID)
+	studentToken := mustToken(t, cfg.JWTPrivateKey, cfg.JWTIssuer, studentID, "student", schoolID)
+	teacherToken := mustToken(t, cfg.JWTPrivateKey, cfg.JWTIssuer, teacherID, "teacher", schoolID)
 
 	// Admin can list students by school.
 	resp := doReq(t, http.MethodGet, app.URL+"/students/"+schoolID+"?limit=5", adminToken, nil)
@@ -86,19 +95,24 @@ func TestCreateStudentTeacher(t *testing.T) {
 	}
 	defer pool.Close()
 
+	privateKey, publicKey := mustKeyPair(t)
 	cfg := config.Config{
 		HTTPAddr:       ":0",
 		DatabaseURL:    "",
-		JWTSecret:      "test-secret",
+		JWTPrivateKey:  privateKey,
+		JWTPublicKey:   publicKey,
 		JWTIssuer:      "test-issuer",
 		AccessTokenTTL: 15 * time.Minute,
 	}
 	store := repository.NewStore(pool)
-	server := NewServer(cfg, store)
+	server, err := NewServer(cfg, store)
+	if err != nil {
+		t.Fatalf("server init error: %v", err)
+	}
 	app := httptest.NewServer(server.Router())
 	defer app.Close()
 
-	adminToken := mustToken(t, cfg.JWTSecret, cfg.JWTIssuer, adminID, "admin", schoolID)
+	adminToken := mustToken(t, cfg.JWTPrivateKey, cfg.JWTIssuer, adminID, "admin", schoolID)
 	timestamp := time.Now().Unix()
 
 	studentBody := map[string]interface{}{
@@ -160,8 +174,12 @@ func openTestDB(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
-func mustToken(t *testing.T, secret, issuer, userID, userType, schoolID string) string {
-	token, err := auth.NewAccessToken(secret, issuer, 10*time.Minute, auth.Claims{
+func mustToken(t *testing.T, privateKeyPEM, issuer, userID, userType, schoolID string) string {
+	privateKey, err := auth.ParseRSAPrivateKey(privateKeyPEM)
+	if err != nil {
+		t.Fatalf("key parse error: %v", err)
+	}
+	token, err := auth.NewAccessToken(privateKey, issuer, 10*time.Minute, auth.Claims{
 		UserID:   userID,
 		UserType: userType,
 		SchoolID: schoolID,
@@ -170,6 +188,27 @@ func mustToken(t *testing.T, secret, issuer, userID, userType, schoolID string) 
 		t.Fatalf("token error: %v", err)
 	}
 	return token
+}
+
+func mustKeyPair(t *testing.T) (string, string) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("keygen error: %v", err)
+	}
+	privateDER := x509.MarshalPKCS1PrivateKey(privateKey)
+	privatePEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: privateDER,
+	})
+	publicDER, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	if err != nil {
+		t.Fatalf("public key error: %v", err)
+	}
+	publicPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: publicDER,
+	})
+	return string(privatePEM), string(publicPEM)
 }
 
 func doReq(t *testing.T, method, url, token string, body interface{}) *http.Response {

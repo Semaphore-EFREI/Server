@@ -18,7 +18,8 @@ Run:
 ```
 cd services/academics
 DATABASE_URL="postgres://postgres:postgres@127.0.0.1:5432/academics?sslmode=disable" \
-JWT_SECRET="dev-secret" \
+JWT_PUBLIC_KEY_FILE="/path/to/public.pem" \
+JWT_ISSUER="semaphore-auth-identity" \
 go run ./cmd/server
 ```
 

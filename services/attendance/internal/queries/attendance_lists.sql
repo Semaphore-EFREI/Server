@@ -77,6 +77,25 @@ WHERE ts.teacher_id = $1
 ORDER BY s.signed_at DESC
 LIMIT $2;
 
+-- name: ListTeacherSignaturesByTeacherAndCourse :many
+SELECT s.id,
+       s.course_id,
+       s.signed_at,
+       s.status,
+       s.method,
+       s.image_url,
+       s.created_at,
+       s.updated_at,
+       s.deleted_at,
+       ts.teacher_id
+FROM signatures s
+INNER JOIN teacher_signatures ts ON ts.signature_id = s.id
+WHERE ts.teacher_id = $1
+  AND s.course_id = $2
+  AND s.deleted_at IS NULL
+ORDER BY s.signed_at DESC
+LIMIT $3;
+
 -- name: ListTeacherSignaturesByCourse :many
 SELECT s.id,
        s.course_id,

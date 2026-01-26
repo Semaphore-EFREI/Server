@@ -9,7 +9,8 @@ func TestLoadConfigOverrides(t *testing.T) {
 	t.Setenv("HTTP_ADDR", ":18081")
 	t.Setenv("GRPC_ADDR", ":19091")
 	t.Setenv("DATABASE_URL", "postgres://user:pass@localhost:5432/testdb")
-	t.Setenv("JWT_SECRET", "test-secret")
+	t.Setenv("JWT_PRIVATE_KEY", "test-private-key")
+	t.Setenv("JWT_PUBLIC_KEY", "test-public-key")
 	t.Setenv("JWT_ISSUER", "test-issuer")
 	t.Setenv("ACCESS_TOKEN_TTL", "30m")
 	t.Setenv("REFRESH_TOKEN_TTL", "48h")
@@ -25,8 +26,11 @@ func TestLoadConfigOverrides(t *testing.T) {
 	if cfg.DatabaseURL != "postgres://user:pass@localhost:5432/testdb" {
 		t.Fatalf("expected DATABASE_URL override, got %s", cfg.DatabaseURL)
 	}
-	if cfg.JWTSecret != "test-secret" {
-		t.Fatalf("expected JWT_SECRET override, got %s", cfg.JWTSecret)
+	if cfg.JWTPrivateKey != "test-private-key" {
+		t.Fatalf("expected JWT_PRIVATE_KEY override, got %s", cfg.JWTPrivateKey)
+	}
+	if cfg.JWTPublicKey != "test-public-key" {
+		t.Fatalf("expected JWT_PUBLIC_KEY override, got %s", cfg.JWTPublicKey)
 	}
 	if cfg.JWTIssuer != "test-issuer" {
 		t.Fatalf("expected JWT_ISSUER override, got %s", cfg.JWTIssuer)

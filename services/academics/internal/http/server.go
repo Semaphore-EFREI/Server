@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"crypto/rsa"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -18,12 +19,17 @@ import (
 )
 
 type Server struct {
-	cfg   config.Config
-	store *db.Store
+	cfg          config.Config
+	store        *db.Store
+	jwtPublicKey *rsa.PublicKey
 }
 
-func NewServer(cfg config.Config, store *db.Store) *Server {
-	return &Server{cfg: cfg, store: store}
+func NewServer(cfg config.Config, store *db.Store) (*Server, error) {
+	publicKey, err := auth.ParseRSAPublicKey(cfg.JWTPublicKey)
+	if err != nil {
+		return nil, err
+	}
+	return &Server{cfg: cfg, store: store, jwtPublicKey: publicKey}, nil
 }
 
 func (s *Server) Router() http.Handler {
@@ -84,7 +90,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			writeError(w, http.StatusUnauthorized, "missing_token")
 			return
 		}
-		claims, err := auth.ParseToken(s.cfg.JWTSecret, token)
+		claims, err := auth.ParseToken(s.jwtPublicKey, s.cfg.JWTIssuer, token)
 		if err != nil {
 			writeError(w, http.StatusUnauthorized, "invalid_token")
 			return

@@ -15,6 +15,7 @@ This repository contains the specification package for Semaphore (a course atten
 - `services/auth-identity`: first microservice implementation (Go).
 - `services/academics`: academics microservice implementation (Go).
 - `services/attendance`: attendance microservice implementation (Go).
+- `services/beacon`: beacon microservice implementation (Go).
 
 ## Documentation
 Start with `docs/README.md` for a guided map of the specs, architecture notes, and data-model references.
@@ -27,6 +28,9 @@ The academics microservice is implemented in `services/academics`. It handles sc
 
 ## Attendance Service
 The attendance microservice is implemented in `services/attendance`. It owns signatures and the gRPC AttendanceCommandService for beacon submissions. See `services/attendance/README.md` for usage.
+
+## Beacon Service
+The beacon microservice is implemented in `services/beacon`. It issues opaque beacon tokens, manages beacons, and submits validated beacon proofs to attendance via gRPC. See `services/beacon/README.md` for usage.
 
 ## Commands
 - Run a service locally from its directory (see service README files for env vars):

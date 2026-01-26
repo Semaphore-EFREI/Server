@@ -17,7 +17,8 @@ Run:
 ```
 cd services/attendance
 DATABASE_URL="postgres://postgres:postgres@127.0.0.1:5432/attendance?sslmode=disable" \
-JWT_SECRET="dev-secret" \
+JWT_PUBLIC_KEY_FILE="/path/to/public.pem" \
+JWT_ISSUER="semaphore-auth-identity" \
 ACADEMICS_GRPC_ADDR="127.0.0.1:9092" \
 IDENTITY_GRPC_ADDR="127.0.0.1:9091" \
 go run ./cmd/server

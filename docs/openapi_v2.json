@@ -1,0 +1,5199 @@
+{
+  "openapi": "3.0.4",
+  "info": {
+    "title": "Sémaphore",
+    "description": "API du serveur pour le projet Sémaphore\n- Version : Beta 1.1 (26 juillet)",
+    "version": "Beta 1.1"
+  },
+  "servers": [
+    {
+      "url": "https://semaphore.lebonnec.uk/api"
+    },
+    {
+      "url": "http://127.0.0.1:8080/api"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Balise",
+      "description": "Intéractions entre la balise et le serveur",
+      "externalDocs": {
+        "url": "https://www.notion.so/la-team-cook/Communication-Balise-Serveur-1f703238621480999c1bc0cf476f0e9a"
+      }
+    },
+    {
+      "name": "Gestion Balise",
+      "description": "Intéractions avec le serveur pour modifier des informations sur les balises"
+    },
+    {
+      "name": "Authentification",
+      "description": "Intéractions avec le serveur pour obtenir des jetons d'authentification"
+    },
+    {
+      "name": "Cours"
+    },
+    {
+      "name": "Signature"
+    },
+    {
+      "name": "Utilisateurs",
+      "description": "Gestion des utilisateurs"
+    },
+    {
+      "name": "Classes"
+    },
+    {
+      "name": "Groupes d'étudiants",
+      "description": "Regrouper des étudiants en classes et leur assigner des cours"
+    },
+    {
+      "name": "École",
+      "description": "Informations sur l'école"
+    }
+  ],
+  "paths": {
+    "/beacon/auth/token": {
+      "post": {
+        "tags": [
+          "Balise"
+        ],
+        "summary": "Demande un jeton",
+        "description": "Demande un jeton au serveur à partir de l'id de la balise.\n-\nQui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Interdit\n  - Développeurs: Interdit\n  - Balise: Oui\n",
+        "operationId": "postBeaconAuthToken",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "beaconId",
+                  "timestamp",
+                  "signature"
+                ],
+                "properties": {
+                  "beaconId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                  },
+                  "timestamp": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 1747584812520,
+                    "description": "Temps UNIX en millisecondes"
+                  },
+                  "signature": {
+                    "type": "string",
+                    "example": "d7bc0548faa4073276b7106d14de842236635318890c906f7f475d83fb0359d0",
+                    "description": "Contenu de la requête signé avec la clef privée ECDSA"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentification réussie",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "token",
+                        "refreshToken"
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenGroup"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/beacon/auth/refreshToken": {
+      "post": {
+        "tags": [
+          "Balise"
+        ],
+        "summary": "Demande un nouveau jeton",
+        "description": "Demande un nouveau jeton au serveur à partir du jeton de rafraichissement.\n-\nQui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Interdit\n  - Développeurs: Interdit\n  - Balise: Oui\n",
+        "operationId": "postBeaconAuthRefreshToken",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "beaconId",
+                  "refreshToken"
+                ],
+                "properties": {
+                  "beaconId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                  },
+                  "refreshToken": {
+                    "type": "string",
+                    "example": "eyJhbGciOiJIUz.OjE3MjU1MjM0MzksImVud.MjM0MzksIm"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentification réussie",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "token",
+                        "refreshToken"
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenGroup"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/beacon/buzzLightyear": {
+      "post": {
+        "tags": [
+          "Balise"
+        ],
+        "summary": "Signer avec la lampe torche",
+        "description": "Envoie le code obtenu par le capteur de luminosité au serveur\n-\nQui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Interdit\n  - Développeurs: Interdit\n  - Balise: Oui\n",
+        "operationId": "postBeaconBuzzLightyear",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "beaconId",
+                  "code",
+                  "signature"
+                ],
+                "properties": {
+                  "beaconId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                  },
+                  "code": {
+                    "type": "integer",
+                    "format": "int32",
+                    "example": 20659045
+                  },
+                  "signature": {
+                    "type": "string",
+                    "example": "MIICXAIBAAKBgQCPvp9Rfh2XUgQAlGNnu7BzkBE5/xifgjkwlem",
+                    "description": "Code reçu par la balise et signé avec la clef privée ECDSA"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Code valide"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/beacon/{beaconId}": {
+      "patch": {
+        "tags": [
+          "Balise"
+        ],
+        "summary": "Modifier la clef publique",
+        "description": "Partage sa nouvelle clef TOTP avec le serveur\n-\nQui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Interdit\n  - Développeurs: Interdit\n  - Balise: Oui\n",
+        "operationId": "putBeaconPublicKey",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "beaconId",
+            "in": "path",
+            "description": "ID de la balise",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "La balise ne doit envoyer que l'id et la clef TOTP.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "totpKey"
+                    ]
+                  },
+                  {
+                    "$ref": "#/components/schemas/Beacon"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Nouvelle clef enregistrée"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/dev/beacons": {
+      "get": {
+        "tags": [
+          "Gestion Balise"
+        ],
+        "summary": "Obtenir toutes les balises",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Interdit\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "getBeacons",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès requête",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "allOf": [
+                      {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "serialNumber",
+                          "classroom",
+                          "programVersion"
+                        ]
+                      },
+                      {
+                        "$ref": "#/components/schemas/Beacon"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/dev/beacon": {
+      "post": {
+        "tags": [
+          "Gestion Balise"
+        ],
+        "summary": "Enregistrer une nouvelle balise",
+        "description": "Enregistre une nouvelle balise dans la base de données\n-\nQui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Interdit\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "postDevBeacon",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "serialNumber",
+                      "signatureKey",
+                      "totpKey",
+                      "programVersion"
+                    ]
+                  },
+                  {
+                    "$ref": "#/components/schemas/Beacon"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Balise enregistrée. Le serveur renvoie l'objet Balise créé (sans les clefs), avec l'id assigné.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "serialNumber",
+                        "programVersion"
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/Beacon"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/dev/beacon/{beaconId}": {
+      "parameters": [
+        {
+          "name": "beaconId",
+          "in": "path",
+          "description": "ID de la balise",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          }
+        }
+      ],
+      "patch": {
+        "tags": [
+          "Gestion Balise"
+        ],
+        "summary": "Modifier une balise",
+        "description": "Modifie une balise dans la base de données.\n-\nQui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Interdit\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "putDevBeacon",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Tout paramètre peut-être modifié, excepté l'id et la clef de signature (ECDSA). Pour modifier ces éléments, il faut supprimer et recréer l'objet. Seuls les paramètres à modifier doivent être transmis, avec l'id.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "id"
+                    ]
+                  },
+                  {
+                    "$ref": "#/components/schemas/Beacon"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Balise modifiée"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Gestion Balise"
+        ],
+        "summary": "Obtenir une balise",
+        "description": "Retourne des informations sur une balise\n-\nQui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Interdit\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "getDevBeacon",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès requête. Renvoie l'objet balise sans les clefs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "serialNumber",
+                        "classroom",
+                        "programVersion"
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/Beacon"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Gestion Balise"
+        ],
+        "summary": "Supprime une balise",
+        "description": "Supprime une balise de la base de données\n-\nQui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Interdit\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "deleteDevBeacon",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Balise supprimée"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/dev/beacon/{beaconId}/classroom": {
+      "post": {
+        "tags": [
+          "Gestion Balise"
+        ],
+        "summary": "Assigner une balise à une classe",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "postBeaconClassroom",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "beaconId",
+            "in": "path",
+            "description": "ID de la balise",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "ID de la classe",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "classroomId"
+                ],
+                "properties": {
+                  "classroomId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Balise ajoutée à la classe"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/dev/beacon/{beaconId}/classroom/{classroomId}": {
+      "delete": {
+        "tags": [
+          "Gestion Balise"
+        ],
+        "summary": "Supprimer une balise d'une classe",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "deleteBeaconClassroom",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "beaconId",
+            "in": "path",
+            "description": "ID de la balise",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          },
+          {
+            "name": "classroomId",
+            "in": "path",
+            "description": "ID de la classe",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Balise supprimée de la classe"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/auth/token": {
+      "post": {
+        "tags": [
+          "Authentification"
+        ],
+        "summary": "Connexion utilisateur",
+        "description": "Permet à un utilisateur d'obtenir un jeton d'authentification\n-\nQui peux exécuter la requête ?\n  - Étudiants : Oui\n  - Enseignants: Oui\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "postAuthToken",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userType",
+                  "email",
+                  "password"
+                ],
+                "properties": {
+                  "userType": {
+                    "type": "string",
+                    "enum": [
+                      "student",
+                      "teacher",
+                      "admin",
+                      "dev"
+                    ],
+                    "example": "student"
+                  },
+                  "email": {
+                    "type": "string",
+                    "example": "mon-compte@semaphore.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "N2liSDIzaktsMDk=",
+                    "description": "Mot de passe en Base64"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentification réussie",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "token",
+                        "refreshToken"
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenGroup"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/auth/refreshToken": {
+      "post": {
+        "tags": [
+          "Authentification"
+        ],
+        "summary": "Reconnexion utilisateur",
+        "description": "Permet à un utilisateur d'obtenir un nouveau jeton d'authentification\n-\nQui peux exécuter la requête ?\n  - Étudiants : Oui\n  - Enseignants: Oui\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "postAuthRefreshToken",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userType",
+                  "userId",
+                  "refreshToken"
+                ],
+                "properties": {
+                  "userType": {
+                    "type": "string",
+                    "enum": [
+                      "student",
+                      "teacher",
+                      "admin",
+                      "dev"
+                    ],
+                    "example": "student"
+                  },
+                  "userId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                  },
+                  "refreshToken": {
+                    "type": "string",
+                    "example": "eyJhbGciOiJIUz.OjE3MjU1MjM0MzksImVud.MjM0MzksIm"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentification réussie",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "token",
+                        "refreshToken"
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenGroup"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/courses": {
+      "get": {
+        "tags": [
+          "Cours"
+        ],
+        "summary": "Obtenir les cours passés et futurs d'un utilisateur",
+        "description": "Permet d'obtenir les cours d'un utilisateur selon plusieurs paramètres. \n-\nSi aucun paramètre n'est fourni, le serveur renvoie les cours sur une plage de 20 jours (10 passés et 10 futurs)\n\nQui peux exécuter la requête ?\n  - Étudiants : Oui\n  - Enseignants: Oui\n  - Administration: Oui (en fournissant un userId)\n  - Développeurs: Oui (en fournissant un userId)\n  - Balise: Interdit\n",
+        "operationId": "getCourses",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "description": "ID de l’utilisateur dont on veut les cours (pour admin et dev uniquement)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Nombre maximum de cours à retourner",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Date de début de la plage",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Date de fin de la plage",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "include",
+            "in": "query",
+            "description": "Données liées à inclure",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "classrooms",
+                  "signatures"
+                ]
+              },
+              "default": [
+                "classrooms",
+                "signatures"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Requête réussi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "oneOf": [
+                      {
+                        "allOf": [
+                          {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "name",
+                              "date",
+                              "endDate",
+                              "isOnline",
+                              "signatureClosingDelay",
+                              "signatureClosed"
+                            ]
+                          },
+                          {
+                            "$ref": "#/components/schemas/Course"
+                          }
+                        ]
+                      },
+                      {
+                        "allOf": [
+                          {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "name",
+                              "date",
+                              "endDate",
+                              "isOnline",
+                              "signatureClosingDelay",
+                              "signatureClosed"
+                            ]
+                          },
+                          {
+                            "$ref": "#/components/schemas/CourseExtended"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/course": {
+      "post": {
+        "tags": [
+          "Cours"
+        ],
+        "summary": "Ajouter un cours",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui (doivent fournir l'id de l'école dans le corps)\n  - Balise: Interdit\n",
+        "operationId": "postCourse",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "description": "signatureClosingDelay est automatiquement fixé selon les préférences de l'école.\n\nsignatureClosed est placé sur faux par défaut.\n\nl'id de l'école est récupéré selon le jeton de l'utilisateur qui appelle la terminaison.\n",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "date",
+                      "endDate",
+                      "isOnline"
+                    ]
+                  },
+                  {
+                    "$ref": "#/components/schemas/Course"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cours créé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "name",
+                        "date",
+                        "isOnline",
+                        "signatureClosingDelay",
+                        "signatureClosed"
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/Course"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/course/{courseId}": {
+      "parameters": [
+        {
+          "name": "courseId",
+          "in": "path",
+          "description": "ID du cours",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          }
+        }
+      ],
+      "patch": {
+        "tags": [
+          "Cours"
+        ],
+        "summary": "Modifier un cours",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "patchCourse",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "id"
+                    ]
+                  },
+                  {
+                    "$ref": "#/components/schemas/Course"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Cours modifié"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Cours"
+        ],
+        "summary": "Obtenir un cours",
+        "description": "Permet d'obtenir les informations d'un cours\n-\nQui peux exécuter la requête ?\n  - Étudiants : Oui\n  - Enseignants: Oui\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "getCourse",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID du cours",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          },
+          {
+            "name": "include",
+            "in": "query",
+            "description": "Données liées à inclure",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "classrooms",
+                  "signatures"
+                ]
+              },
+              "default": [
+                "classrooms",
+                "signatures"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Requête réussi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "name",
+                            "date",
+                            "endDate",
+                            "isOnline",
+                            "signatureClosingDelay",
+                            "signatureClosed"
+                          ]
+                        },
+                        {
+                          "$ref": "#/components/schemas/Course"
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "name",
+                            "date",
+                            "endDate",
+                            "isOnline",
+                            "signatureClosingDelay",
+                            "signatureClosed"
+                          ]
+                        },
+                        {
+                          "$ref": "#/components/schemas/CourseExtended"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Cours"
+        ],
+        "summary": "Modifier un cours",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "deleteCourse",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Cours supprimé"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/course/{courseId}/status": {
+      "get": {
+        "tags": [
+          "Cours"
+        ],
+        "summary": "Obtenir les informations de signature d'un cours",
+        "description": "Permet à un étudiant ou a un enseignant d'obtenir l'état de sa signature sur un des ses cours\n-\nQui peux exécuter la requête ?\n  - Étudiants : Oui\n  - Enseignants: Oui\n  - Administration: Interdit\n  - Développeurs: Interdit\n  - Balise: Interdit\n",
+        "operationId": "getCourseStatus",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID du cours",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Requête réussi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "date",
+                            "course",
+                            "status",
+                            "image",
+                            "method",
+                            "teacher"
+                          ]
+                        },
+                        {
+                          "$ref": "#/components/schemas/TeacherSignature"
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "date",
+                            "course",
+                            "status",
+                            "method",
+                            "student"
+                          ]
+                        },
+                        {
+                          "$ref": "#/components/schemas/StudentSignature"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/course/{courseId}/classrooms": {
+      "post": {
+        "tags": [
+          "Cours"
+        ],
+        "summary": "Ajouter une salle à un cours",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "postCourseClassroom",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID du cours",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "classroomId"
+                ],
+                "properties": {
+                  "classroomId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Liaison créée"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/course/{courseId}/classrooms/{classroomId}": {
+      "delete": {
+        "tags": [
+          "Cours"
+        ],
+        "summary": "Supprimer une salle d'un cours",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "deleteCourseClassroom",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID du cours",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          },
+          {
+            "name": "classroomId",
+            "in": "path",
+            "description": "ID de la salle",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Liaison supprimé"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/course/{courseId}/studentGroups": {
+      "post": {
+        "tags": [
+          "Cours"
+        ],
+        "summary": "Assigner des groupes à un cours",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "postCourseStudentGroups",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID du cours",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "groupsIds"
+                ],
+                "properties": {
+                  "groupsIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid",
+                      "description": "ID des groupes",
+                      "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Groupes ajoutés"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/course/{courseId}/studentGroup/{groupId}": {
+      "delete": {
+        "tags": [
+          "Cours"
+        ],
+        "summary": "Supprimer des étudiants d'un groupe",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "deleteCourseStudentGroup",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID du cours",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          },
+          {
+            "name": "groupId",
+            "in": "path",
+            "description": "ID du groupe",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Groupe supprimé"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/course/{courseId}/teacher": {
+      "post": {
+        "tags": [
+          "Cours"
+        ],
+        "summary": "Assigner un enseignant à un cours",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "postCourseTeacher",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID du cours",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "teacherId"
+                ],
+                "properties": {
+                  "teacherId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "ID de l'enseignant",
+                    "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Enseignant ajouté"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/course/{courseId}/teacher/{teacherId}": {
+      "delete": {
+        "tags": [
+          "Cours"
+        ],
+        "summary": "Supprimer un enseignant d'un cours",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "deleteCourseTeacher",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID du cours",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          },
+          {
+            "name": "teacherId",
+            "in": "path",
+            "description": "ID de l'enseignant",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Enseignant supprimé"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/signature": {
+      "post": {
+        "tags": [
+          "Signature"
+        ],
+        "summary": "Envoyer une signature",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Oui\n  - Enseignants: Oui\n  - Administration: Interdit\n  - Développeurs: Interdit\n  - Balise: Interdit\n",
+        "operationId": "postSignature",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/StudentSignature"
+                      },
+                      {
+                        "type": "object",
+                        "description": "Signature étudiant",
+                        "required": [
+                          "date",
+                          "course",
+                          "status",
+                          "method",
+                          "student"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/TeacherSignature"
+                      },
+                      {
+                        "type": "object",
+                        "description": "Signature enseignant",
+                        "required": [
+                          "date",
+                          "course",
+                          "status",
+                          "image",
+                          "method",
+                          "teacher"
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signature créée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/StudentSignature"
+                        },
+                        {
+                          "type": "object",
+                          "description": "Signature étudiant",
+                          "required": [
+                            "id",
+                            "date",
+                            "course",
+                            "status",
+                            "method",
+                            "student"
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/TeacherSignature"
+                        },
+                        {
+                          "type": "object",
+                          "description": "Signature enseignant",
+                          "required": [
+                            "id",
+                            "date",
+                            "course",
+                            "status",
+                            "image",
+                            "method",
+                            "teacher"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/signature/{signatureId}": {
+      "parameters": [
+        {
+          "name": "signatureId",
+          "in": "path",
+          "description": "ID de la signature",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Signature"
+        ],
+        "summary": "Obtenir une signature",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Oui (ne peut accéder qu'à ses signatures (celles pour lesquelles student == id de l'étudiant qui appelle la terminaison))\n  - Enseignants: Oui (ne peut accéder qu'à ses signatures et celles des étudiants présents à ses cours)\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "getSignature",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Requête réussi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "date",
+                            "course",
+                            "status",
+                            "image",
+                            "method",
+                            "teacher"
+                          ]
+                        },
+                        {
+                          "$ref": "#/components/schemas/TeacherSignature"
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "date",
+                            "course",
+                            "status",
+                            "method",
+                            "student"
+                          ]
+                        },
+                        {
+                          "$ref": "#/components/schemas/StudentSignature"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Signature"
+        ],
+        "summary": "Modifier une signature",
+        "description": "Permet de modifier une signature (lorsqu'un élève signe après que son enseignant l'ai mis présent par exemple)\n-\nQui peux exécuter la requête ?\n  - Étudiants : Oui (seulement pour sa signature)\n  - Enseignants: Oui (seulement pour sa signature et la signature des étudiants présents à ces cours, mais pas leur image (sauf si c'est pour la rendre nulle))\n  - Administration: Oui (seulement les attributs 'status' et 'administrator' (son ID à lui))\n  - Développeurs: Interdit\n  - Balise: Interdit\n",
+        "operationId": "patchSignature",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/StudentSignature"
+                      },
+                      {
+                        "type": "object",
+                        "description": "Signature étudiant",
+                        "required": [
+                          "id"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/TeacherSignature"
+                      },
+                      {
+                        "type": "object",
+                        "description": "Signature enseignant",
+                        "required": [
+                          "id"
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Signature modifiée"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Signature"
+        ],
+        "summary": "Supprimer une signature",
+        "description": "Permet à un administrateur de supprimer une signature\n-\nQui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "deleteSignature",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Signature supprimée"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/signature/buzzlightyear": {
+      "get": {
+        "tags": [
+          "Signature"
+        ],
+        "summary": "Demande un code de 28 bits pour signer à l'aide du flash",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Oui\n  - Enseignants: Interdit\n  - Administration: Interdit\n  - Développeurs: Interdit\n  - Balise: Interdit\n",
+        "operationId": "getBuzzlightyear",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Requête réussi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BeaconCode"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/students/{schoolId}": {
+      "get": {
+        "tags": [
+          "Utilisateurs"
+        ],
+        "summary": "Obtenir tous les étudiants d'une école",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "getStudents",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "schoolId",
+            "in": "path",
+            "description": "ID de l'école",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès requête",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/Student"
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "firstname",
+                          "lastname",
+                          "email",
+                          "createdOn",
+                          "studentNumber"
+                        ],
+                        "properties": {
+                          "deviceId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/student": {
+      "post": {
+        "tags": [
+          "Utilisateurs"
+        ],
+        "summary": "Créer un compte étudiant",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui (doit fournir 'school' dans le corps)\n  - Balise: Interdit\n",
+        "operationId": "postStudent",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/Student"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "firstname",
+                      "lastname",
+                      "email",
+                      "createdOn",
+                      "password",
+                      "studentNumber"
+                    ],
+                    "properties": {
+                      "password": {
+                        "type": "string",
+                        "example": "12345abcd"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Étudiant créé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "firstname",
+                        "lastname",
+                        "email",
+                        "createdOn",
+                        "studentNumber"
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/Student"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/student/{studentId}": {
+      "parameters": [
+        {
+          "name": "studentId",
+          "in": "path",
+          "description": "ID de l'étudiant",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Utilisateurs"
+        ],
+        "summary": "Obtenir un étudiant",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Oui (seulement son compte à lui)\n  - Enseignants: Oui\n  - Administration: Oui\n  - Développeurs: Oui (obtient l'id de l'école dans le corps, les autres utilisateurs non)\n  - Balise: Interdit\n",
+        "operationId": "getStudent",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès requête",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Student"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "firstname",
+                        "lastname",
+                        "email",
+                        "createdOn",
+                        "studentNumber"
+                      ],
+                      "properties": {
+                        "deviceId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Utilisateurs"
+        ],
+        "summary": "Modifier un étudiant",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "patchStudent",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/Student"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "id"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Étudiant modifié"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Utilisateurs"
+        ],
+        "summary": "Supprimer un étudiant",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "deleteStudent",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Étudiant supprimé"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/student/{studentId}/device": {
+      "parameters": [
+        {
+          "name": "studentId",
+          "in": "path",
+          "description": "ID de l'étudiant",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Utilisateurs"
+        ],
+        "summary": "Obtenir l'appareil d'un utilisateur",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Oui\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "studentGetDevice",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Appareil disponible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Device"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Utilisateurs"
+        ],
+        "summary": "Enregistre un nouvel appareil pour l'étudiant (si possible)",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Oui\n  - Enseignants: Interdit\n  - Administration: Interdit\n  - Développeurs: Interdit\n  - Balise: Interdit\n",
+        "operationId": "studentPutDevice",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/Device"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "publicKey"
+                    ],
+                    "properties": {
+                      "publicKey": {
+                        "type": "string",
+                        "example": "g83kgltp692vb45mw9486md"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Appareil créé"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/teachers/{schoolId}": {
+      "get": {
+        "tags": [
+          "Utilisateurs"
+        ],
+        "summary": "Obtenir tous les enseignants d'une école",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "getTeachers",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "schoolId",
+            "in": "path",
+            "description": "ID de l'école",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès requête",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "allOf": [
+                      {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "firstname",
+                          "lastname",
+                          "email",
+                          "createdOn"
+                        ]
+                      },
+                      {
+                        "$ref": "#/components/schemas/Teacher"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/teacher": {
+      "post": {
+        "tags": [
+          "Utilisateurs"
+        ],
+        "summary": "Créer un compte enseignant",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui (doit fournir 'school' dans le corps)\n  - Balise: Interdit\n",
+        "operationId": "postTeacher",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/Teacher"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "firstname",
+                      "lastname",
+                      "email",
+                      "createdOn",
+                      "password"
+                    ],
+                    "properties": {
+                      "password": {
+                        "type": "string",
+                        "example": "12345abcd"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Enseignant créé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "firstname",
+                        "lastname",
+                        "email",
+                        "createdOn"
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/Teacher"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/teacher/{teacherId}": {
+      "parameters": [
+        {
+          "name": "teacherId",
+          "in": "path",
+          "description": "ID de l'enseignant",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Utilisateurs"
+        ],
+        "summary": "Obtenir un enseignant",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Oui (son propre compte seulement)\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "getTeacher",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès requête",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "firstname",
+                        "lastname",
+                        "email",
+                        "createdOn"
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/Teacher"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Utilisateurs"
+        ],
+        "summary": "Modifier un enseignant",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "patchTeacher",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/Teacher"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "id"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Enseignant modifié"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Utilisateurs"
+        ],
+        "summary": "Supprimer un enseignant",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "deleteTeacher",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Enseignant supprimé"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/admins/{schoolId}": {
+      "get": {
+        "tags": [
+          "Utilisateurs"
+        ],
+        "summary": "Obtenir tous les administrateurs d'une école",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "getAdmins",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "schoolId",
+            "in": "path",
+            "description": "ID de l'école",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès requête",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "allOf": [
+                      {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "firstname",
+                          "lastname",
+                          "email",
+                          "createdOn",
+                          "role"
+                        ]
+                      },
+                      {
+                        "$ref": "#/components/schemas/Administrator"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/admin": {
+      "post": {
+        "tags": [
+          "Utilisateurs"
+        ],
+        "summary": "Créer un compte administrateur",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui (doit spécifier 'school' dans le corps, les autres utilisateurs non)\n  - Balise: Interdit\n",
+        "operationId": "postAdmin",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/Administrator"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "firstname",
+                      "lastname",
+                      "email",
+                      "createdOn",
+                      "password",
+                      "role"
+                    ],
+                    "properties": {
+                      "password": {
+                        "type": "string",
+                        "example": "12345abcd"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Administrateur créé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "firstname",
+                        "lastname",
+                        "email",
+                        "createdOn",
+                        "studentNumber",
+                        "role"
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/Administrator"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/admin/{adminId}": {
+      "parameters": [
+        {
+          "name": "adminId",
+          "in": "path",
+          "description": "ID de l'administrateur",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Utilisateurs"
+        ],
+        "summary": "Obtenir un administrateur",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "getAdmin",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès requête",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "firstname",
+                        "lastname",
+                        "email",
+                        "createdOn",
+                        "role"
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/Administrator"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Utilisateurs"
+        ],
+        "summary": "Modifier un administrateur",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "patchAdmin",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/Administrator"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "id"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Administrateur modifié"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Utilisateurs"
+        ],
+        "summary": "Supprimer un administrateur",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "deleteAdmin",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Administrateur supprimé"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/classrooms/{schoolId}": {
+      "get": {
+        "tags": [
+          "Classes"
+        ],
+        "summary": "Obtenir toutes les classes d'une écoles",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui (seulement les classes associées à l'école de l'administrateur (selon son token))\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "getClassrooms",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "schoolId",
+            "in": "path",
+            "description": "ID de l'école",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          },
+          {
+            "name": "include",
+            "in": "query",
+            "description": "Élements à inclure avec la réponse",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "beacons"
+                ]
+              },
+              "default": []
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès requête",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "oneOf": [
+                      {
+                        "allOf": [
+                          {
+                            "$ref": "#/components/schemas/Classroom"
+                          },
+                          {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "name"
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "allOf": [
+                          {
+                            "$ref": "#/components/schemas/ClassroomExtended"
+                          },
+                          {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "name"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/classroom": {
+      "post": {
+        "tags": [
+          "Classes"
+        ],
+        "summary": "Créer une classe",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui (doit spécifier 'school' dans le corps)\n  - Balise: Interdit\n",
+        "operationId": "postClassroom",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/Classroom"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "name"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Classe créé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Classroom"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "name"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/classroom/{classroomId}": {
+      "parameters": [
+        {
+          "name": "classroomId",
+          "in": "path",
+          "description": "ID de la classe",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Classes"
+        ],
+        "summary": "Obtenir une classe",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Oui\n  - Enseignants: Oui\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "getClassroom",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "classroomId",
+            "in": "path",
+            "description": "ID de la classe",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          },
+          {
+            "name": "include",
+            "in": "query",
+            "description": "Élements à inclure avec la réponse",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "beacons"
+                ]
+              },
+              "default": []
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès requête",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/Classroom"
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "name"
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ClassroomExtended"
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "name"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Classes"
+        ],
+        "summary": "Modifier une classe",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "patchClassroom",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/Classroom"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "id"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Classe modifiée"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Classes"
+        ],
+        "summary": "Modifier une classe",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "deleteClassroom",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Classe supprimée"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/studentGroups/{schoolId}": {
+      "get": {
+        "tags": [
+          "Groupes d'étudiants"
+        ],
+        "summary": "Obtenir tous les groupes d'étudiants d'une école",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "getStudentGroups",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "schoolId",
+            "in": "path",
+            "description": "ID de l'école",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          },
+          {
+            "name": "include",
+            "in": "query",
+            "description": "Élements à inclure avec la réponse",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "courses",
+                  "students"
+                ]
+              },
+              "default": [
+                "courses"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès requête",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "allOf": [
+                      {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "singleStudentGroup"
+                        ]
+                      },
+                      {
+                        "$ref": "#/components/schemas/StudentGroup"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/studentGroup": {
+      "post": {
+        "tags": [
+          "Groupes d'étudiants"
+        ],
+        "summary": "Créer un groupe d'étudiant",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui (doit spécifier 'school' dans le corps)\n  - Balise: Interdit\n",
+        "operationId": "postStudentGroup",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/StudentGroup"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "singleStudentGroup"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Groupe créé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/StudentGroup"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "name",
+                        "singleStudentGroup"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/studentGroup/{groupId}": {
+      "parameters": [
+        {
+          "name": "groupId",
+          "in": "path",
+          "description": "ID du groupe",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Groupes d'étudiants"
+        ],
+        "summary": "Obtenir un groupe",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "getStudentGroup",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "description": "ID du groupe",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          },
+          {
+            "name": "include",
+            "in": "query",
+            "description": "Élements à inclure avec la réponse",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "courses",
+                  "students"
+                ]
+              },
+              "default": [
+                "courses"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès requête",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/StudentGroup"
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "name",
+                            "singleStudentGroup"
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/StudentGroupExtended"
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "name",
+                            "singleStudentGroup"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Groupes d'étudiants"
+        ],
+        "summary": "Modifier un groupe",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "patchStudentGroup",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/StudentGroup"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "id"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Groupe modifié"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Groupes d'étudiants"
+        ],
+        "summary": "Modifier un groupe",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "deleteStudentGroup",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Groupe supprimé"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/studentGroup/{groupId}/students": {
+      "post": {
+        "tags": [
+          "Groupes d'étudiants"
+        ],
+        "summary": "Assigner des étudiants à un groupe",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "postStudentGroupStudents",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "description": "ID du groupe",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Liste des ID étudiant",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "studentsIds"
+                ],
+                "properties": {
+                  "studentsIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid",
+                      "description": "ID étudiant",
+                      "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Étudiants ajoutés dans le groupe"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/studentGroup/{groupId}/student/{studentId}": {
+      "delete": {
+        "tags": [
+          "Groupes d'étudiants"
+        ],
+        "summary": "Supprimer des étudiants d'un groupe",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "deleteStudentGroupStudent",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "description": "ID du groupe",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          },
+          {
+            "name": "studentId",
+            "in": "path",
+            "description": "ID de l'étudiant",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Étudiant supprimé du groupe"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/schools": {
+      "get": {
+        "tags": [
+          "École"
+        ],
+        "summary": "Obtenir toutes les écoles",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Interdit\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "getSchools",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "expand",
+            "in": "query",
+            "description": "Élements à inclure avec la réponse",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "preferences"
+                ]
+              },
+              "default": [
+                "preferences"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès requête",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "name"
+                          ]
+                        },
+                        {
+                          "$ref": "#/components/schemas/School"
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "name",
+                            "preferences"
+                          ]
+                        },
+                        {
+                          "$ref": "#/components/schemas/SchoolExpanded"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/school": {
+      "post": {
+        "tags": [
+          "École"
+        ],
+        "summary": "Créer une école",
+        "description": "Un objet SchoolPreferences est créé automatiquement et lié à l'école.\n-\nQui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Interdit\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "postSchool",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "name"
+                    ]
+                  },
+                  {
+                    "$ref": "#/components/schemas/School"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Succès requête",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "name",
+                        "preferences"
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/School"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/school/{schoolId}": {
+      "parameters": [
+        {
+          "name": "schoolId",
+          "in": "path",
+          "description": "ID de l'école",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "École"
+        ],
+        "summary": "Obtenir une école",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Oui (seulement pour l'école à laquelle leur compte est associé)\n  - Enseignants: Oui (seulement pour l'école à laquelle leur compte est associé)\n  - Administration: Oui (seulement pour l'école à laquelle leur compte est associé)\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "getSchool",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "schoolId",
+            "in": "path",
+            "description": "ID de l'école",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "description": "Élements à inclure avec la réponse",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "preferences"
+                ]
+              },
+              "default": [
+                "preferences"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès requête",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "name"
+                          ]
+                        },
+                        {
+                          "$ref": "#/components/schemas/School"
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "name",
+                            "preferences"
+                          ]
+                        },
+                        {
+                          "$ref": "#/components/schemas/SchoolExpanded"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "École"
+        ],
+        "summary": "Modifier une école",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui (seulement l'école à laquelle leur compte est associé)\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "patchSchool",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "id"
+                    ]
+                  },
+                  {
+                    "$ref": "#/components/schemas/School"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "École modifiée"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "École"
+        ],
+        "summary": "Supprimer une école",
+        "description": "Supprime également l'objet SchoolPreferences associé.\n-\nQui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Interdit\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "deleteSchool",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "École supprimée"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
+    "/school/{schoolId}/preferences": {
+      "patch": {
+        "tags": [
+          "École"
+        ],
+        "summary": "Modifier les préférences de l'école",
+        "description": "Qui peux exécuter la requête ?\n  - Étudiants : Interdit\n  - Enseignants: Interdit\n  - Administration: Oui (seulement pour l'école à laquelle est associé leur compte)\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "patchSchoolPreferences",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "schoolId",
+            "in": "path",
+            "description": "ID de l'école",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "id"
+                    ]
+                  },
+                  {
+                    "$ref": "#/components/schemas/SchoolPreferences"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Préférences modifiées"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "TokenGroup": {
+        "type": "object",
+        "description": "les tokens sont en Base64. Une fois décodés, leur contenu dépend du type d'utilisateur (étudiant, prof, admin, dev)",
+        "properties": {
+          "token": {
+            "type": "string",
+            "example": "eyJhbGciOiJIUz.OjE3MjU1MjM0MzksImVud.MjM0MzksIm"
+          },
+          "refreshToken": {
+            "type": "string",
+            "example": "eyJhbGciOiJIUz.OjE3MjU1MjM0MzksImVud.MjM0MzksIm"
+          }
+        }
+      },
+      "Beacon": {
+        "type": "object",
+        "description": "Objet représentant une balise",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          },
+          "serialNumber": {
+            "type": "integer",
+            "format": "int64",
+            "example": 16543
+          },
+          "signatureKey": {
+            "type": "string",
+            "example": "MIICXAIBAAKBgQCPvp9Rfh2XUgQAlGNnu7BzkBE5/xifgjkwlem",
+            "description": "Clef publique ECDSA."
+          },
+          "totpKey": {
+            "type": "string",
+            "example": "MIICXAIBAAKBgQCPvp9Rfh2XUgQAlGNnu7BzkBE5/xifgjkwlem",
+            "description": "Clef TOTP pour générer les codes NFC"
+          },
+          "classroom": {
+            "type": "string",
+            "format": "uuid",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          },
+          "programVersion": {
+            "type": "string",
+            "example": "v1.0"
+          }
+        }
+      },
+      "BeaconExpanded": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Beacon"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "classroom": {
+                "$ref": "#/components/schemas/Classroom"
+              }
+            }
+          }
+        ]
+      },
+      "Course": {
+        "type": "object",
+        "description": "Objet de cours de base",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          },
+          "name": {
+            "type": "string",
+            "example": "Théorie du signal"
+          },
+          "date": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1751358516
+          },
+          "endDate": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1751358516
+          },
+          "isOnline": {
+            "type": "boolean",
+            "example": false
+          },
+          "signatureClosingDelay": {
+            "type": "integer",
+            "description": "Délais avant fermeture de la validation de présence",
+            "example": 15
+          },
+          "signatureClosed": {
+            "type": "boolean",
+            "description": "Si la validation de présence est ouverte ou fermée (passe sur true dès que `signatureClosingDelay` est dépassé)",
+            "example": false
+          },
+          "school": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID de l'école",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          }
+        }
+      },
+      "CourseExpanded": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Course"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "school": {
+                "$ref": "#/components/schemas/School"
+              }
+            }
+          }
+        ]
+      },
+      "CourseExtended": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Course"
+          },
+          {
+            "type": "object",
+            "description": "Objet cours",
+            "properties": {
+              "classrooms": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Classroom"
+                }
+              },
+              "signature": {
+                "type": "array",
+                "items": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/StudentSignature"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TeacherSignature"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "type"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "Classroom": {
+        "type": "object",
+        "description": "Salle de cours",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          },
+          "name": {
+            "type": "string",
+            "example": "A001"
+          },
+          "school": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID de l'école",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          }
+        }
+      },
+      "ClassroomExpanded": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Classroom"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "school": {
+                "$ref": "#/components/schemas/School"
+              }
+            }
+          }
+        ]
+      },
+      "ClassroomExtended": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Classroom"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "beacons": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Beacon"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "Signature": {
+        "type": "object",
+        "description": "Signature de base",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          },
+          "date": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1751358516
+          },
+          "course": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID du cours",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "signed",
+              "present",
+              "absent"
+            ],
+            "example": "signed"
+          },
+          "image": {
+            "type": "string",
+            "format": "base64",
+            "description": "Image au format base64",
+            "example": "Q2VjaSBlc3QgdW5lIGltYWdlIChzaSBzaSBqZSB2b3VzIGFzc3VyZSk="
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "beacon",
+              "buzzLightyear",
+              "qrCode",
+              "teacher",
+              "web",
+              "self"
+            ],
+            "description": "self est uniquement utilisé pour les enseignant (qui se mettent présent tout seul)",
+            "example": "beacon"
+          }
+        }
+      },
+      "SignatureExpanded": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Signature"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "course": {
+                "$ref": "#/components/schemas/Course"
+              }
+            }
+          }
+        ]
+      },
+      "TeacherSignature": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Signature"
+          },
+          {
+            "type": "object",
+            "description": "Signature d'enseignant",
+            "properties": {
+              "teacher": {
+                "type": "string",
+                "format": "uuid",
+                "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+              }
+            }
+          }
+        ]
+      },
+      "TeacherSignatureExpanded": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/SignatureExpanded"
+          },
+          {
+            "$ref": "#/components/schemas/TeacherSignature"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "teacher": {
+                "$ref": "#/components/schemas/Teacher"
+              }
+            }
+          }
+        ]
+      },
+      "StudentSignature": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Signature"
+          },
+          {
+            "type": "object",
+            "description": "Signature d'étudiant",
+            "properties": {
+              "student": {
+                "type": "string",
+                "format": "uuid",
+                "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+              },
+              "teacher": {
+                "type": "string",
+                "format": "uuid",
+                "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+              },
+              "administrator": {
+                "type": "string",
+                "format": "uuid",
+                "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+              }
+            }
+          }
+        ]
+      },
+      "StudentSignatureExpanded": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/SignatureExpanded"
+          },
+          {
+            "$ref": "#/components/schemas/StudentSignature"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "student": {
+                "$ref": "#/components/schemas/Student"
+              },
+              "teacher": {
+                "$ref": "#/components/schemas/Teacher"
+              },
+              "administrator": {
+                "$ref": "#/components/schemas/Administrator"
+              }
+            }
+          }
+        ]
+      },
+      "BeaconCode": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "integer",
+                "format": "int28",
+                "example": 145326783
+              },
+              "validity": {
+                "type": "integer",
+                "format": "int16",
+                "example": 15,
+                "description": "Validité en minutes"
+              }
+            }
+          }
+        ]
+      },
+      "SignedBeaconCode": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "integer",
+                "format": "int28",
+                "example": 145326783
+              }
+            }
+          }
+        ]
+      },
+      "User": {
+        "type": "object",
+        "description": "Composant de base des comptes utilisateurs",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          },
+          "firstname": {
+            "type": "string",
+            "example": "Marc"
+          },
+          "lastname": {
+            "type": "string",
+            "example": "Dupont"
+          },
+          "email": {
+            "type": "string",
+            "example": "jean.paul@semaphore.fr"
+          },
+          "passwordHash": {
+            "type": "string",
+            "example": "Q2VjaSBlc3QgdW5lIGltYWdlIChzaSBzaSBqZSB2b3VzIGFzc3VyZSk"
+          },
+          "createdOn": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1751358516
+          },
+          "school": {
+            "type": "string",
+            "format": "uuid",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          }
+        }
+      },
+      "UserExpanded": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/User"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "school": {
+                "$ref": "#/components/schemas/School"
+              }
+            }
+          }
+        ]
+      },
+      "Teacher": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/User"
+          }
+        ]
+      },
+      "Student": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/User"
+          },
+          {
+            "type": "object",
+            "description": "Compte étudiant",
+            "properties": {
+              "studentNumber": {
+                "type": "integer",
+                "example": 20210894
+              }
+            }
+          }
+        ]
+      },
+      "Administrator": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/User"
+          },
+          {
+            "type": "object",
+            "description": "Compte Administrateur",
+            "properties": {
+              "role": {
+                "type": "string",
+                "enum": [
+                  "planning",
+                  "absence",
+                  "manager"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "Device": {
+        "type": "object",
+        "description": "Appareil lié à un Étudiant",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          },
+          "name": {
+            "type": "string",
+            "example": "iPhone 14 Pro de Thomas"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "26/01/2024T08:34"
+          }
+        }
+      },
+      "StudentGroup": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          },
+          "name": {
+            "type": "string",
+            "example": "M1 - TI"
+          },
+          "singleStudentGroup": {
+            "type": "boolean",
+            "example": false
+          },
+          "school": {
+            "type": "string",
+            "format": "uuid",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          }
+        }
+      },
+      "StudentGroupExtended": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/StudentGroup"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "courses": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Course"
+                }
+              },
+              "students": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Student"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "School": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          },
+          "name": {
+            "type": "string",
+            "example": "EFREI Paris"
+          },
+          "preferences": {
+            "type": "string",
+            "format": "uuid",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          }
+        }
+      },
+      "SchoolExpanded": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/School"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "preferences": {
+                "$ref": "#/components/schemas/SchoolPreferences"
+              }
+            }
+          }
+        ]
+      },
+      "SchoolPreferences": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          },
+          "defaultSignatureClosingDelay": {
+            "type": "integer",
+            "description": "Temps par défaut en minutes après le début du cours pendant lequel les étudiants peuvent signer",
+            "example": 15
+          },
+          "teacherCanModifyClosingdelay": {
+            "type": "boolean",
+            "example": true
+          },
+          "studentsCanSignBeforeTeacher": {
+            "type": "boolean",
+            "example": false
+          },
+          "nfcEnabled": {
+            "type": "boolean",
+            "example": true
+          },
+          "flashlightEnabled": {
+            "type": "boolean",
+            "example": true
+          },
+          "qrCodeEnabled": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      }
+    },
+    "responses": {
+      "400": {
+        "description": "Syntaxe erronée"
+      },
+      "401": {
+        "description": "Jeton non valide ou absent"
+      },
+      "403": {
+        "description": "Non autorisé"
+      },
+      "404": {
+        "description": "Ressource non trouvée"
+      },
+      "409": {
+        "description": "La ressource existe déjà"
+      },
+      "UnknownError": {
+        "description": "Unexpected error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Valeur du jeton d'authentification"
+      }
+    }
+  }
+}

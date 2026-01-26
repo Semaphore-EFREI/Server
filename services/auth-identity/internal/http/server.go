@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"crypto/rsa"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -21,12 +22,33 @@ import (
 )
 
 type Server struct {
-	cfg   config.Config
-	store *repository.Store
+	cfg           config.Config
+	store         *repository.Store
+	jwtPrivateKey *rsa.PrivateKey
+	jwtPublicKey  *rsa.PublicKey
+	jwks          auth.JWKSet
 }
 
-func NewServer(cfg config.Config, store *repository.Store) *Server {
-	return &Server{cfg: cfg, store: store}
+func NewServer(cfg config.Config, store *repository.Store) (*Server, error) {
+	privateKey, err := auth.ParseRSAPrivateKey(cfg.JWTPrivateKey)
+	if err != nil {
+		return nil, err
+	}
+	publicKey, err := auth.ParseRSAPublicKey(cfg.JWTPublicKey)
+	if err != nil {
+		return nil, err
+	}
+	jwks, err := auth.NewJWKSet(publicKey)
+	if err != nil {
+		return nil, err
+	}
+	return &Server{
+		cfg:           cfg,
+		store:         store,
+		jwtPrivateKey: privateKey,
+		jwtPublicKey:  publicKey,
+		jwks:          jwks,
+	}, nil
 }
 
 func (s *Server) Router() http.Handler {
@@ -35,12 +57,15 @@ func (s *Server) Router() http.Handler {
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
+	r.Get("/.well-known/jwks.json", s.handleJWKS)
 
 	r.Post("/auth/login", s.handleLogin)
 	r.Post("/auth/refresh", s.handleRefresh)
 	r.Post("/auth/logout", s.handleLogout)
 
 	r.With(s.authMiddleware).Post("/students/me/devices", s.handleRegisterDevice)
+	r.With(s.authMiddleware).Get("/student/{studentId}/device", s.handleGetStudentDevice)
+	r.With(s.authMiddleware).Put("/student/{studentId}/device", s.handlePutStudentDevice)
 
 	r.Route("/students", func(r chi.Router) {
 		r.With(s.authMiddleware, s.requireAdminOrDev).Get("/{schoolId}", s.handleGetStudentsBySchool)
@@ -285,6 +310,24 @@ type registerDeviceRequest struct {
 	PublicKey        *string `json:"public_key"`
 }
 
+type deviceResponse struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	CreatedAt string `json:"createdAt"`
+}
+
+type putStudentDeviceRequest struct {
+	ID        *string `json:"id,omitempty"`
+	Name      string  `json:"name"`
+	CreatedAt *string `json:"createdAt,omitempty"`
+	PublicKey string  `json:"publicKey"`
+}
+
+type deviceRegistrationResult struct {
+	Device model.Device
+	Status int
+}
+
 func (s *Server) handleRegisterDevice(w http.ResponseWriter, r *http.Request) {
 	claims := claimsFromContext(r.Context())
 	if claims == nil || claims.UserType != "student" {
@@ -304,42 +347,152 @@ func (s *Server) handleRegisterDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	now := time.Now().UTC()
-	activeDevice, err := s.store.GetActiveDevice(r.Context(), claims.UserID)
-	if err == nil {
-		if activeDevice.DeviceIdentifier == req.DeviceIdentifier {
-			_ = s.store.UpdateDeviceLastSeen(r.Context(), activeDevice.ID, now)
-			writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-			return
-		}
-		if activeDevice.RegisteredAt.After(now.Add(-s.cfg.DeviceRebindAfter)) {
-			writeError(w, http.StatusConflict, "device_rebind_too_soon")
-			return
-		}
-		if err := s.store.DeactivateDevices(r.Context(), claims.UserID, now); err != nil {
-			writeError(w, http.StatusInternalServerError, "server_error")
-			return
-		}
-	} else if !errors.Is(err, pgx.ErrNoRows) {
+	result, errCode, err := s.registerDevice(r.Context(), claims.UserID, req.DeviceIdentifier, req.PublicKey)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error")
 		return
+	}
+	if errCode != "" {
+		writeError(w, http.StatusConflict, errCode)
+		return
+	}
+	if result.Status == http.StatusOK {
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]string{"status": "registered"})
+}
+
+func (s *Server) handleGetStudentDevice(w http.ResponseWriter, r *http.Request) {
+	claims := claimsFromContext(r.Context())
+	if claims == nil {
+		writeError(w, http.StatusUnauthorized, "missing_token")
+		return
+	}
+
+	studentID := chi.URLParam(r, "studentId")
+	if studentID == "" {
+		writeError(w, http.StatusBadRequest, "missing_student_id")
+		return
+	}
+
+	if claims.UserType == "teacher" {
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+	if claims.UserType == "student" && claims.UserID != studentID {
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+	if claims.UserType != "student" && !isAdminOrDev(claims) {
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+
+	device, err := s.store.GetActiveDevice(r.Context(), studentID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "device_not_found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, mapDeviceResponse(device))
+}
+
+func (s *Server) handlePutStudentDevice(w http.ResponseWriter, r *http.Request) {
+	claims := claimsFromContext(r.Context())
+	if claims == nil {
+		writeError(w, http.StatusUnauthorized, "missing_token")
+		return
+	}
+	if claims.UserType != "student" {
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+
+	studentID := chi.URLParam(r, "studentId")
+	if studentID == "" {
+		writeError(w, http.StatusBadRequest, "missing_student_id")
+		return
+	}
+	if claims.UserID != studentID {
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+
+	var req putStudentDeviceRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request")
+		return
+	}
+
+	req.Name = strings.TrimSpace(req.Name)
+	req.PublicKey = strings.TrimSpace(req.PublicKey)
+	if req.Name == "" || req.PublicKey == "" {
+		writeError(w, http.StatusBadRequest, "missing_fields")
+		return
+	}
+
+	result, errCode, err := s.registerDevice(r.Context(), studentID, req.Name, &req.PublicKey)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+	if errCode != "" {
+		writeError(w, http.StatusConflict, errCode)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, mapDeviceResponse(result.Device))
+}
+
+func (s *Server) registerDevice(ctx context.Context, studentID, deviceIdentifier string, publicKey *string) (deviceRegistrationResult, string, error) {
+	now := time.Now().UTC()
+	activeDevice, err := s.store.GetActiveDevice(ctx, studentID)
+	if err == nil {
+		if activeDevice.DeviceIdentifier == deviceIdentifier {
+			_ = s.store.UpdateDeviceLastSeen(ctx, activeDevice.ID, now)
+			activeDevice.LastSeenAt = &now
+			return deviceRegistrationResult{Device: activeDevice, Status: http.StatusOK}, "", nil
+		}
+		if activeDevice.RegisteredAt.After(now.Add(-s.cfg.DeviceRebindAfter)) {
+			return deviceRegistrationResult{}, "device_rebind_too_soon", nil
+		}
+		if err := s.store.DeactivateDevices(ctx, studentID, now); err != nil {
+			return deviceRegistrationResult{}, "", err
+		}
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return deviceRegistrationResult{}, "", err
 	}
 
 	device := model.Device{
 		ID:               uuid.NewString(),
-		StudentID:        claims.UserID,
-		DeviceIdentifier: req.DeviceIdentifier,
-		PublicKey:        req.PublicKey,
+		StudentID:        studentID,
+		DeviceIdentifier: deviceIdentifier,
+		PublicKey:        publicKey,
 		RegisteredAt:     now,
 		LastSeenAt:       &now,
 		Active:           true,
 	}
-	if err := s.store.CreateDevice(r.Context(), device); err != nil {
-		writeError(w, http.StatusInternalServerError, "server_error")
-		return
+	if err := s.store.CreateDevice(ctx, device); err != nil {
+		return deviceRegistrationResult{}, "", err
 	}
 
-	writeJSON(w, http.StatusCreated, map[string]string{"status": "registered"})
+	return deviceRegistrationResult{Device: device, Status: http.StatusCreated}, "", nil
+}
+
+func mapDeviceResponse(device model.Device) deviceResponse {
+	resp := deviceResponse{
+		ID:   device.ID,
+		Name: device.DeviceIdentifier,
+	}
+	if !device.RegisteredAt.IsZero() {
+		resp.CreatedAt = device.RegisteredAt.UTC().Format(time.RFC3339)
+	}
+	return resp
 }
 
 type createUserRequest struct {
@@ -1360,7 +1513,7 @@ func (s *Server) handleGetAdminsBySchool(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) issueTokens(ctx context.Context, user model.User, role model.Role, userAgent, ip string) (string, string, error) {
-	accessToken, err := auth.NewAccessToken(s.cfg.JWTSecret, s.cfg.JWTIssuer, s.cfg.AccessTokenTTL, auth.Claims{
+	accessToken, err := auth.NewAccessToken(s.jwtPrivateKey, s.cfg.JWTIssuer, s.cfg.AccessTokenTTL, auth.Claims{
 		UserID:    user.ID,
 		UserType:  role.UserType,
 		SchoolID:  user.SchoolID,
@@ -1405,7 +1558,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		claims, err := auth.ParseToken(s.cfg.JWTSecret, token)
+		claims, err := auth.ParseToken(s.jwtPublicKey, s.cfg.JWTIssuer, token)
 		if err != nil {
 			writeError(w, http.StatusUnauthorized, "invalid_token")
 			return
@@ -1476,6 +1629,10 @@ func writeJSON(w http.ResponseWriter, status int, payload interface{}) {
 
 func writeError(w http.ResponseWriter, status int, code string) {
 	writeJSON(w, status, map[string]string{"error": code})
+}
+
+func (s *Server) handleJWKS(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, s.jwks)
 }
 
 func clientIP(r *http.Request) string {

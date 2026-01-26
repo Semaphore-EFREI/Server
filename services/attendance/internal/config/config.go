@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -10,7 +11,7 @@ type Config struct {
 	HTTPAddr          string
 	GRPCAddr          string
 	DatabaseURL       string
-	JWTSecret         string
+	JWTPublicKey      string
 	JWTIssuer         string
 	AcademicsGRPCAddr string
 	IdentityGRPCAddr  string
@@ -22,7 +23,7 @@ func Load() Config {
 		HTTPAddr:          getenv("HTTP_ADDR", ":8083"),
 		GRPCAddr:          getenv("GRPC_ADDR", ":9093"),
 		DatabaseURL:       getenv("DATABASE_URL", "postgres://postgres:postgres@127.0.0.1:5432/attendance?sslmode=disable"),
-		JWTSecret:         getenv("JWT_SECRET", "dev-secret"),
+		JWTPublicKey:      getenvKey("JWT_PUBLIC_KEY", ""),
 		JWTIssuer:         getenv("JWT_ISSUER", "semaphore-auth-identity"),
 		AcademicsGRPCAddr: getenv("ACADEMICS_GRPC_ADDR", "127.0.0.1:9092"),
 		IdentityGRPCAddr:  getenv("IDENTITY_GRPC_ADDR", "127.0.0.1:9091"),
@@ -49,4 +50,24 @@ func getenvDuration(key string, fallback time.Duration) time.Duration {
 		}
 	}
 	return fallback
+}
+
+func getenvKey(key, fallback string) string {
+	if file := os.Getenv(key + "_FILE"); file != "" {
+		if data, err := os.ReadFile(file); err == nil {
+			return normalizePEM(string(data))
+		}
+	}
+	if val := os.Getenv(key); val != "" {
+		return normalizePEM(val)
+	}
+	return fallback
+}
+
+func normalizePEM(value string) string {
+	value = strings.TrimSpace(value)
+	if strings.Contains(value, "\\n") && !strings.Contains(value, "\n") {
+		value = strings.ReplaceAll(value, "\\n", "\n")
+	}
+	return value
 }

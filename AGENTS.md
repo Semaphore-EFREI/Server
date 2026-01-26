@@ -11,7 +11,7 @@
   - `docs/database-schema.md`: per-service database documentation and enums.
   - `docs/database-implementation.md`: migration and seed instructions for dev.
 - `migrations/` stores per-service SQL migrations (schema + seed).
-- `services/` contains implementation code, including `services/auth-identity`, `services/academics`, and `services/attendance`.
+- `services/` contains implementation code, including `services/auth-identity`, `services/academics`, `services/attendance`, and `services/beacon`.
 - There is no application source code in this repo yet; treat it as a specification package.
 
 ## Build, Test, and Development Commands

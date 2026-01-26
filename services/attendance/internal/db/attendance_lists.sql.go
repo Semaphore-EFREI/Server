@@ -437,3 +437,73 @@ func (q *Queries) ListTeacherSignaturesByTeacher(ctx context.Context, arg ListTe
 	}
 	return items, nil
 }
+
+const listTeacherSignaturesByTeacherAndCourse = `-- name: ListTeacherSignaturesByTeacherAndCourse :many
+SELECT s.id,
+       s.course_id,
+       s.signed_at,
+       s.status,
+       s.method,
+       s.image_url,
+       s.created_at,
+       s.updated_at,
+       s.deleted_at,
+       ts.teacher_id
+FROM signatures s
+INNER JOIN teacher_signatures ts ON ts.signature_id = s.id
+WHERE ts.teacher_id = $1
+  AND s.course_id = $2
+  AND s.deleted_at IS NULL
+ORDER BY s.signed_at DESC
+LIMIT $3
+`
+
+type ListTeacherSignaturesByTeacherAndCourseParams struct {
+	TeacherID pgtype.UUID `db:"teacher_id" json:"teacher_id"`
+	CourseID  pgtype.UUID `db:"course_id" json:"course_id"`
+	Limit     int32       `db:"limit" json:"limit"`
+}
+
+type ListTeacherSignaturesByTeacherAndCourseRow struct {
+	ID        pgtype.UUID        `db:"id" json:"id"`
+	CourseID  pgtype.UUID        `db:"course_id" json:"course_id"`
+	SignedAt  pgtype.Timestamptz `db:"signed_at" json:"signed_at"`
+	Status    SignatureStatus    `db:"status" json:"status"`
+	Method    SignatureMethod    `db:"method" json:"method"`
+	ImageUrl  pgtype.Text        `db:"image_url" json:"image_url"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+	TeacherID pgtype.UUID        `db:"teacher_id" json:"teacher_id"`
+}
+
+func (q *Queries) ListTeacherSignaturesByTeacherAndCourse(ctx context.Context, arg ListTeacherSignaturesByTeacherAndCourseParams) ([]ListTeacherSignaturesByTeacherAndCourseRow, error) {
+	rows, err := q.db.Query(ctx, listTeacherSignaturesByTeacherAndCourse, arg.TeacherID, arg.CourseID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTeacherSignaturesByTeacherAndCourseRow
+	for rows.Next() {
+		var i ListTeacherSignaturesByTeacherAndCourseRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CourseID,
+			&i.SignedAt,
+			&i.Status,
+			&i.Method,
+			&i.ImageUrl,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.TeacherID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

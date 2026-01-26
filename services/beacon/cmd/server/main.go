@@ -3,21 +3,16 @@ package main
 import (
 	"context"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"google.golang.org/grpc"
-
-	attendancev1 "semaphore/attendance/attendance/v1"
-	"semaphore/attendance/internal/clients"
-	"semaphore/attendance/internal/config"
-	"semaphore/attendance/internal/db"
-	attendancegrpc "semaphore/attendance/internal/grpc"
-	internalhttp "semaphore/attendance/internal/http"
+	"semaphore/beacon/internal/clients"
+	"semaphore/beacon/internal/config"
+	"semaphore/beacon/internal/db"
+	internalhttp "semaphore/beacon/internal/http"
 )
 
 func main() {
@@ -33,13 +28,13 @@ func main() {
 	defer pool.Close()
 
 	store := db.NewStore(pool)
-	clients, err := clients.New(ctx, cfg.AcademicsGRPCAddr, cfg.IdentityGRPCAddr, cfg.GRPCDialTimeout)
+	clients, err := clients.New(ctx, cfg.AttendanceAddr, cfg.GRPCDialTimeout)
 	if err != nil {
 		log.Fatalf("grpc dial failed: %v", err)
 	}
 	defer clients.Close()
 
-	server, err := internalhttp.NewServer(cfg, store, clients.Academics, clients.Identity)
+	server, err := internalhttp.NewServer(cfg, store, clients.Attendance)
 	if err != nil {
 		log.Fatalf("server init failed: %v", err)
 	}
@@ -49,24 +44,10 @@ func main() {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	grpcServer := grpc.NewServer()
-	attendancev1.RegisterAttendanceCommandServiceServer(grpcServer, attendancegrpc.NewAttendanceServer(store, clients.Academics))
-
 	go func() {
-		log.Printf("attendance http listening on %s", cfg.HTTPAddr)
+		log.Printf("beacon http listening on %s", cfg.HTTPAddr)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("http server error: %v", err)
-		}
-	}()
-
-	go func() {
-		listener, err := net.Listen("tcp", cfg.GRPCAddr)
-		if err != nil {
-			log.Fatalf("grpc listen error: %v", err)
-		}
-		log.Printf("attendance grpc listening on %s", cfg.GRPCAddr)
-		if err := grpcServer.Serve(listener); err != nil {
-			log.Fatalf("grpc server error: %v", err)
 		}
 	}()
 
@@ -78,5 +59,4 @@ func main() {
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		log.Printf("shutdown error: %v", err)
 	}
-	grpcServer.GracefulStop()
 }

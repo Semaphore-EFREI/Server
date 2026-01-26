@@ -17,5 +17,140 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7
+    container_name: semaphore-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    environment:
+      REDIS_PASSWORD: "your_redis_password"
+    volumes:
+      - redis_data:/data
+
+  migrations:
+    image: migrate/migrate:v4.16.2
+    container_name: semaphore-migrations
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      migrate -path /migrations/auth_identity
+      -database "postgres://postgres:postgres@postgres:5432/auth_identity?sslmode=disable" up &&
+      migrate -path /migrations/academics
+      -database "postgres://postgres:postgres@postgres:5432/academics?sslmode=disable" up &&
+      migrate -path /migrations/attendance
+      -database "postgres://postgres:postgres@postgres:5432/attendance?sslmode=disable" up &&
+      migrate -path /migrations/beacon
+      -database "postgres://postgres:postgres@postgres:5432/beacon?sslmode=disable" up
+    volumes:
+      - ./migrations:/migrations:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  auth-identity:
+    image: golang:1.22
+    container_name: semaphore-auth-identity
+    working_dir: /workspace/services/auth-identity
+    command: ["go", "run", "./cmd/server"]
+    environment:
+      DATABASE_URL: "postgres://postgres:postgres@postgres:5432/auth_identity?sslmode=disable"
+      JWT_PRIVATE_KEY_FILE: "/run/semaphore-jwt/private.pem"
+      JWT_PUBLIC_KEY_FILE: "/run/semaphore-jwt/public.pem"
+      JWT_ISSUER: "semaphore-auth-identity"
+    volumes:
+      - .:/workspace
+      - ./docker/jwt:/run/semaphore-jwt:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+
+  academics:
+    image: golang:1.22
+    container_name: semaphore-academics
+    working_dir: /workspace/services/academics
+    command: ["go", "run", "./cmd/server"]
+    environment:
+      DATABASE_URL: "postgres://postgres:postgres@postgres:5432/academics?sslmode=disable"
+      JWT_PUBLIC_KEY_FILE: "/run/semaphore-jwt/public.pem"
+      JWT_ISSUER: "semaphore-auth-identity"
+    volumes:
+      - .:/workspace
+      - ./docker/jwt:/run/semaphore-jwt:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+
+  attendance:
+    image: golang:1.22
+    container_name: semaphore-attendance
+    working_dir: /workspace/services/attendance
+    command: ["go", "run", "./cmd/server"]
+    environment:
+      DATABASE_URL: "postgres://postgres:postgres@postgres:5432/attendance?sslmode=disable"
+      JWT_PUBLIC_KEY_FILE: "/run/semaphore-jwt/public.pem"
+      JWT_ISSUER: "semaphore-auth-identity"
+      ACADEMICS_GRPC_ADDR: "academics:9092"
+      IDENTITY_GRPC_ADDR: "auth-identity:9091"
+    volumes:
+      - .:/workspace
+      - ./docker/jwt:/run/semaphore-jwt:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+      academics:
+        condition: service_started
+      auth-identity:
+        condition: service_started
+
+  beacon:
+    image: golang:1.22
+    container_name: semaphore-beacon
+    working_dir: /workspace/services/beacon
+    command: ["go", "run", "./cmd/server"]
+    environment:
+      DATABASE_URL: "postgres://postgres:postgres@postgres:5432/beacon?sslmode=disable"
+      JWT_PUBLIC_KEY_FILE: "/run/semaphore-jwt/public.pem"
+      JWT_ISSUER: "semaphore-auth-identity"
+      ATTENDANCE_GRPC_ADDR: "attendance:9093"
+    volumes:
+      - .:/workspace
+      - ./docker/jwt:/run/semaphore-jwt:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+      attendance:
+        condition: service_started
+
+  envoy:
+    image: envoyproxy/envoy:v1.29-latest
+    container_name: semaphore-envoy
+    command: ["-c", "/etc/envoy/envoy.yaml", "--log-level", "info"]
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./docker/envoy/envoy.yaml:/etc/envoy/envoy.yaml:ro
+    depends_on:
+      auth-identity:
+        condition: service_started
+      academics:
+        condition: service_started
+      attendance:
+        condition: service_started
+      beacon:
+        condition: service_started
+
 volumes:
   semaphore_postgres_data:
+  redis_data:

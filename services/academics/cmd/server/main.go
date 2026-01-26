@@ -32,7 +32,10 @@ func main() {
 	defer pool.Close()
 
 	store := db.NewStore(pool)
-	server := internalhttp.NewServer(cfg, store)
+	server, err := internalhttp.NewServer(cfg, store)
+	if err != nil {
+		log.Fatalf("server init failed: %v", err)
+	}
 
 	grpcServer := grpc.NewServer()
 	academicsv1.RegisterAcademicsQueryServiceServer(grpcServer, academicsgrpc.NewAcademicsServer(store.Queries))

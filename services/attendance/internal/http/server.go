@@ -2,8 +2,11 @@ package http
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"encoding/json"
 	"errors"
+	"math/big"
 	"net/http"
 	"strconv"
 	"strings"
@@ -21,14 +24,19 @@ import (
 )
 
 type Server struct {
-	cfg       config.Config
-	store     *db.Store
-	academics academicsv1.AcademicsQueryServiceClient
-	identity  identityv1.IdentityQueryServiceClient
+	cfg          config.Config
+	store        *db.Store
+	academics    academicsv1.AcademicsQueryServiceClient
+	identity     identityv1.IdentityQueryServiceClient
+	jwtPublicKey *rsa.PublicKey
 }
 
-func NewServer(cfg config.Config, store *db.Store, academics academicsv1.AcademicsQueryServiceClient, identity identityv1.IdentityQueryServiceClient) *Server {
-	return &Server{cfg: cfg, store: store, academics: academics, identity: identity}
+func NewServer(cfg config.Config, store *db.Store, academics academicsv1.AcademicsQueryServiceClient, identity identityv1.IdentityQueryServiceClient) (*Server, error) {
+	publicKey, err := auth.ParseRSAPublicKey(cfg.JWTPublicKey)
+	if err != nil {
+		return nil, err
+	}
+	return &Server{cfg: cfg, store: store, academics: academics, identity: identity, jwtPublicKey: publicKey}, nil
 }
 
 func (s *Server) Router() http.Handler {
@@ -38,8 +46,10 @@ func (s *Server) Router() http.Handler {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
+	r.With(s.authMiddleware).Get("/course/{courseId}/status", s.handleGetCourseStatus)
 	r.With(s.authMiddleware).Post("/signature", s.handleCreateSignature)
 	r.With(s.authMiddleware).Get("/signature/{signatureId}", s.handleGetSignature)
+	r.With(s.authMiddleware).Get("/signature/buzzlightyear", s.handleGetBuzzlightyear)
 	r.With(s.authMiddleware).Patch("/signature/{signatureId}", s.handlePatchSignature)
 	r.With(s.authMiddleware).Delete("/signature/{signatureId}", s.handleDeleteSignature)
 	r.With(s.authMiddleware).Get("/signatures", s.handleListSignatures)
@@ -59,7 +69,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			writeError(w, http.StatusUnauthorized, "missing_token")
 			return
 		}
-		claims, err := auth.ParseToken(s.cfg.JWTSecret, token)
+		claims, err := auth.ParseToken(s.jwtPublicKey, s.cfg.JWTIssuer, token)
 		if err != nil {
 			writeError(w, http.StatusUnauthorized, "invalid_token")
 			return
@@ -345,6 +355,116 @@ func (s *Server) handleGetSignature(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, mapTeacherSignature(teacherSig))
+}
+
+func (s *Server) handleGetCourseStatus(w http.ResponseWriter, r *http.Request) {
+	claims := claimsFromContext(r.Context())
+	if claims == nil {
+		writeError(w, http.StatusUnauthorized, "missing_token")
+		return
+	}
+	if claims.UserType != "student" && claims.UserType != "teacher" {
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+
+	courseID := chi.URLParam(r, "courseId")
+	if courseID == "" {
+		writeError(w, http.StatusBadRequest, "missing_course")
+		return
+	}
+	courseUUID, err := parseUUID(courseID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_course")
+		return
+	}
+
+	switch claims.UserType {
+	case "student":
+		allowed, err := s.academics.ValidateStudentCourse(r.Context(), &academicsv1.ValidateStudentCourseRequest{
+			StudentId: claims.UserID,
+			CourseId:  courseID,
+		})
+		if err != nil || !allowed.GetIsAllowed() {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		studentUUID, err := parseUUID(claims.UserID)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_student_id")
+			return
+		}
+		rows, err := s.store.Queries.ListStudentSignaturesByStudentAndCourse(r.Context(), db.ListStudentSignaturesByStudentAndCourseParams{
+			StudentID: studentUUID,
+			CourseID:  courseUUID,
+			Limit:     1,
+		})
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "server_error")
+			return
+		}
+		if len(rows) == 0 {
+			writeError(w, http.StatusNotFound, "signature_not_found")
+			return
+		}
+		writeJSON(w, http.StatusOK, mapStudentSignatureFromListStudentCourse(rows[0]))
+		return
+	case "teacher":
+		allowed, err := s.academics.ValidateTeacherCourse(r.Context(), &academicsv1.ValidateTeacherCourseRequest{
+			TeacherId: claims.UserID,
+			CourseId:  courseID,
+		})
+		if err != nil || !allowed.GetIsAssigned() {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		teacherUUID, err := parseUUID(claims.UserID)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_teacher_id")
+			return
+		}
+		rows, err := s.store.Queries.ListTeacherSignaturesByTeacherAndCourse(r.Context(), db.ListTeacherSignaturesByTeacherAndCourseParams{
+			TeacherID: teacherUUID,
+			CourseID:  courseUUID,
+			Limit:     1,
+		})
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "server_error")
+			return
+		}
+		if len(rows) == 0 {
+			writeError(w, http.StatusNotFound, "signature_not_found")
+			return
+		}
+		writeJSON(w, http.StatusOK, mapTeacherSignatureFromListTeacherCourse(rows[0]))
+		return
+	default:
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+}
+
+func (s *Server) handleGetBuzzlightyear(w http.ResponseWriter, r *http.Request) {
+	claims := claimsFromContext(r.Context())
+	if claims == nil {
+		writeError(w, http.StatusUnauthorized, "missing_token")
+		return
+	}
+	if claims.UserType != "student" {
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+
+	code, err := randomBuzzLightyearCode()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]int32{
+		"code":     code,
+		"validity": 15,
+	})
 }
 
 func (s *Server) handlePatchSignature(w http.ResponseWriter, r *http.Request) {
@@ -902,6 +1022,10 @@ func mapTeacherSignatureFromListTeacher(sig db.ListTeacherSignaturesByTeacherRow
 	return mapTeacherSignatureValues(sig.ID, sig.CourseID, sig.SignedAt, sig.Status, sig.Method, sig.ImageUrl, sig.TeacherID)
 }
 
+func mapTeacherSignatureFromListTeacherCourse(sig db.ListTeacherSignaturesByTeacherAndCourseRow) teacherSignatureResponse {
+	return mapTeacherSignatureValues(sig.ID, sig.CourseID, sig.SignedAt, sig.Status, sig.Method, sig.ImageUrl, sig.TeacherID)
+}
+
 func mapTeacherSignatureFromListCourse(sig db.ListTeacherSignaturesByCourseRow) teacherSignatureResponse {
 	return mapTeacherSignatureValues(sig.ID, sig.CourseID, sig.SignedAt, sig.Status, sig.Method, sig.ImageUrl, sig.TeacherID)
 }
@@ -1016,6 +1140,15 @@ func parseLimit(r *http.Request, fallback int32) int32 {
 		}
 	}
 	return fallback
+}
+
+func randomBuzzLightyearCode() (int32, error) {
+	max := big.NewInt(1 << 28)
+	value, err := rand.Int(rand.Reader, max)
+	if err != nil {
+		return 0, err
+	}
+	return int32(value.Int64()), nil
 }
 
 // Utilities

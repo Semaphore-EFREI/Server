@@ -28,7 +28,9 @@ Tables:
 
 ## Beacon DB
 Tables:
-- `beacons`: hardware metadata, keys, optional classroom assignment, and telemetry timestamps.
+- `beacons`: hardware metadata, keys, optional classroom assignment, telemetry timestamps, soft delete.
+- `beacon_tokens`: opaque access + refresh tokens for beacon authentication.
+- `beacon_idempotency_keys`: idempotency tracking for beacon submissions (endpoint + response).
 
 ## Enums
 - `signature_method`: `flash`, `qrcode`, `nfc`, `beacon`, `buzzLightyear`, `qrCode`, `teacher`, `web`, `self`, `admin`.
