@@ -64,3 +64,27 @@ variable "jenkins_admin_password" {
   sensitive   = true
   default     = "admin"
 }
+
+variable "semaphore_repo_url" {
+  type        = string
+  description = "Git URL for the Semaphore repository (used by the Jenkins pipeline)"
+  default     = "https://github.com/Semaphore-EFREI/Server"
+}
+
+variable "semaphore_repo_branch" {
+  type        = string
+  description = "Branch to build for the Semaphore pipeline job"
+  default     = "main"
+}
+
+variable "semaphore_jenkinsfile_path" {
+  type        = string
+  description = "Path to the Jenkinsfile inside the Semaphore repo"
+  default     = "Jenkinsfile"
+}
+
+variable "semaphore_jenkins_job_name" {
+  type        = string
+  description = "Jenkins job name for Semaphore"
+  default     = "semaphore-backend"
+}
