@@ -34,112 +34,134 @@ static_resources:
                       routes:
                         - match:
                             prefix: "/.well-known"
+                          name: jwks
                           route:
                             cluster: auth-identity
                             timeout: 15s
                         - match:
                             safe_regex:
                               regex: "^/course/[^/]+/status$"
+                          name: course_status
                           route:
                             cluster: attendance
                             timeout: 15s
                         - match:
                             prefix: "/signature"
+                          name: signature
                           route:
                             cluster: attendance
                             timeout: 15s
                         - match:
                             prefix: "/signatures"
+                          name: signatures
                           route:
                             cluster: attendance
                             timeout: 15s
                         - match:
                             prefix: "/beacon"
+                          name: beacon
                           route:
                             cluster: beacon
                             timeout: 15s
                         - match:
                             prefix: "/dev/beacon"
+                          name: dev_beacon
                           route:
                             cluster: beacon
                             timeout: 15s
                         - match:
                             prefix: "/auth"
+                          name: auth
                           route:
                             cluster: auth-identity
                             timeout: 15s
                         - match:
                             prefix: "/users"
+                          name: users
                           route:
                             cluster: auth-identity
                             timeout: 15s
                         - match:
                             prefix: "/students"
+                          name: students
                           route:
                             cluster: auth-identity
                             timeout: 15s
                         - match:
                             prefix: "/student"
+                          name: student
                           route:
                             cluster: auth-identity
                             timeout: 15s
                         - match:
                             prefix: "/teachers"
+                          name: teachers
                           route:
                             cluster: auth-identity
                             timeout: 15s
                         - match:
                             prefix: "/teacher"
+                          name: teacher
                           route:
                             cluster: auth-identity
                             timeout: 15s
                         - match:
                             prefix: "/admins"
+                          name: admins
                           route:
                             cluster: auth-identity
                             timeout: 15s
                         - match:
                             prefix: "/admin"
+                          name: admin
                           route:
                             cluster: auth-identity
                             timeout: 15s
                         - match:
                             prefix: "/schools"
+                          name: schools
                           route:
                             cluster: academics
                             timeout: 15s
                         - match:
                             prefix: "/school"
+                          name: school
                           route:
                             cluster: academics
                             timeout: 15s
                         - match:
                             prefix: "/courses"
+                          name: courses
                           route:
                             cluster: academics
                             timeout: 15s
                         - match:
                             prefix: "/course"
+                          name: course
                           route:
                             cluster: academics
                             timeout: 15s
                         - match:
                             prefix: "/classrooms"
+                          name: classrooms
                           route:
                             cluster: academics
                             timeout: 15s
                         - match:
                             prefix: "/classroom"
+                          name: classroom
                           route:
                             cluster: academics
                             timeout: 15s
                         - match:
                             prefix: "/studentGroups"
+                          name: student_groups
                           route:
                             cluster: academics
                             timeout: 15s
                         - match:
                             prefix: "/studentGroup"
+                          name: student_group
                           route:
                             cluster: academics
                             timeout: 15s

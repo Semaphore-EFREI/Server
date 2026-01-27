@@ -380,8 +380,8 @@
           "refId": "A"
         },
         {
-          "expr": "sum by (envoy_response_code)(rate(envoy_http_downstream_rq_total{envoy_http_conn_manager_prefix=\"ingress_http\"}[5m]))",
-          "legendFormat": "status {{envoy_response_code}}",
+          "expr": "sum by (envoy_response_code_class)(rate(envoy_http_downstream_rq_total{envoy_http_conn_manager_prefix=\"ingress_http\"}[5m]))",
+          "legendFormat": "status {{envoy_response_code_class}}",
           "refId": "B"
         }
       ],
@@ -470,7 +470,7 @@
       "pluginVersion": "12.3.0",
       "targets": [
         {
-          "expr": "sum by (envoy_route)(rate(envoy_http_downstream_rq_total{envoy_http_conn_manager_prefix=\"ingress_http\"}[5m]))",
+          "expr": "sum by (envoy_route)(rate(envoy_http_downstream_rq_total{envoy_http_conn_manager_prefix=\"ingress_http\",envoy_route!=\"\"}[5m]))",
           "legendFormat": "{{envoy_route}}",
           "refId": "A"
         }
@@ -482,7 +482,10 @@
   "preload": false,
   "refresh": "",
   "schemaVersion": 42,
-  "tags": ["semaphore", "kubernetes"],
+  "tags": [
+    "semaphore",
+    "kubernetes"
+  ],
   "templating": {
     "list": []
   },

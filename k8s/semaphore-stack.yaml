@@ -160,6 +160,8 @@ kind: Service
 metadata:
   name: postgres
   namespace: semaphore
+  labels:
+    app: postgres
 spec:
   selector:
     app: postgres
@@ -222,6 +224,8 @@ kind: Service
 metadata:
   name: redis
   namespace: semaphore
+  labels:
+    app: redis
 spec:
   selector:
     app: redis
@@ -317,6 +321,8 @@ kind: Service
 metadata:
   name: envoy-gateway
   namespace: semaphore
+  labels:
+    app: envoy
 spec:
   type: ClusterIP
   selector:
@@ -405,6 +411,8 @@ kind: Service
 metadata:
   name: auth-identity
   namespace: semaphore
+  labels:
+    app: auth-identity
 spec:
   selector:
     app: auth-identity
@@ -487,6 +495,8 @@ kind: Service
 metadata:
   name: academics
   namespace: semaphore
+  labels:
+    app: academics
 spec:
   selector:
     app: academics
@@ -577,6 +587,8 @@ kind: Service
 metadata:
   name: attendance
   namespace: semaphore
+  labels:
+    app: attendance
 spec:
   selector:
     app: attendance
@@ -657,6 +669,8 @@ kind: Service
 metadata:
   name: beacon
   namespace: semaphore
+  labels:
+    app: beacon
 spec:
   selector:
     app: beacon
