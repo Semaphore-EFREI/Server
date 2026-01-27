@@ -116,7 +116,7 @@ pipeline {
             script {
               writeFile file: 'kubeconfig', text: env.KUBECONFIG_CONTENT
             }
-            withEnv(["KUBECONFIG=${pwd()}/kubeconfig"]) {
+            withEnv(["KUBECONFIG=${pwd()}/kubeconfig", "K8S_NAMESPACE=${params.K8S_NAMESPACE}"]) {
               sh '''
                 set -e
                 kubectl apply -k .

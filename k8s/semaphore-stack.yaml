@@ -41,7 +41,8 @@ metadata:
   name: jwt-secrets
   namespace: semaphore
 stringData:
-  jwt-secret: change-me-jwt-secret
+  jwt-private-key: change-me-jwt-private-key
+  jwt-public-key: change-me-jwt-public-key
   jwt-issuer: semaphore-auth-identity
 
 ---
