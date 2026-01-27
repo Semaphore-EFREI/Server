@@ -1,3 +1,21 @@
+resource "jenkins_credential_secret_text" "semaphore_jwt_private_key" {
+  name        = "semaphore-jwt-private-key"
+  description = "JWT private key PEM for Semaphore"
+  secret      = var.semaphore_jwt_private_key
+}
+
+resource "jenkins_credential_secret_text" "semaphore_jwt_public_key" {
+  name        = "semaphore-jwt-public-key"
+  description = "JWT public key PEM for Semaphore"
+  secret      = var.semaphore_jwt_public_key
+}
+
+resource "jenkins_credential_secret_text" "semaphore_jwt_issuer" {
+  name        = "semaphore-jwt-issuer"
+  description = "JWT issuer for Semaphore"
+  secret      = var.semaphore_jwt_issuer
+}
+
 resource "jenkins_job" "semaphore_backend" {
   name = var.semaphore_jenkins_job_name
 
@@ -6,4 +24,10 @@ resource "jenkins_job" "semaphore_backend" {
     branch           = var.semaphore_repo_branch
     jenkinsfile_path = var.semaphore_jenkinsfile_path
   })
+
+  depends_on = [
+    jenkins_credential_secret_text.semaphore_jwt_private_key,
+    jenkins_credential_secret_text.semaphore_jwt_public_key,
+    jenkins_credential_secret_text.semaphore_jwt_issuer,
+  ]
 }

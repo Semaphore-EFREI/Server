@@ -30,6 +30,7 @@ pipeline {
       defaultValue: 'kubeconfig-burrito',
       description: 'Jenkins file credential ID containing kubeconfig.'
     )
+    // JWT credentials are managed via Terraform (fixed IDs).
   }
 
   environment {
@@ -118,8 +119,28 @@ pipeline {
             withEnv(["KUBECONFIG=${pwd()}/kubeconfig"]) {
               sh '''
                 set -e
-                kubectl apply -f k8s/semaphore-stack.yaml
+                kubectl apply -k .
               '''
+
+              withCredentials([
+                string(credentialsId: 'semaphore-jwt-private-key', variable: 'JWT_PRIVATE_KEY'),
+                string(credentialsId: 'semaphore-jwt-public-key', variable: 'JWT_PUBLIC_KEY'),
+                string(credentialsId: 'semaphore-jwt-issuer', variable: 'JWT_ISSUER'),
+              ]) {
+                script {
+                  writeFile file: 'jwt_private.pem', text: env.JWT_PRIVATE_KEY
+                  writeFile file: 'jwt_public.pem', text: env.JWT_PUBLIC_KEY
+                }
+                sh '''
+                  set -e
+
+                  kubectl create secret generic jwt-secrets \
+                    --from-file=jwt-private-key=jwt_private.pem \
+                    --from-file=jwt-public-key=jwt_public.pem \
+                    --from-literal=jwt-issuer="${JWT_ISSUER}" \
+                    --dry-run=client -o yaml | kubectl apply -n "${K8S_NAMESPACE}" -f -
+                '''
+              }
 
               script {
                 def services = (env.SERVICES ?: '').tokenize(' ')

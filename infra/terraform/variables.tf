@@ -88,3 +88,23 @@ variable "semaphore_jenkins_job_name" {
   description = "Jenkins job name for Semaphore"
   default     = "semaphore-backend"
 }
+
+variable "semaphore_jwt_private_key" {
+  type        = string
+  description = "JWT private key PEM for Semaphore"
+  sensitive   = true
+  default     = "replace-me"
+}
+
+variable "semaphore_jwt_public_key" {
+  type        = string
+  description = "JWT public key PEM for Semaphore"
+  sensitive   = true
+  default     = "replace-me"
+}
+
+variable "semaphore_jwt_issuer" {
+  type        = string
+  description = "JWT issuer for Semaphore"
+  default     = "semaphore-auth-identity"
+}
