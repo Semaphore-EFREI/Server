@@ -122,7 +122,8 @@ spec:
                   key: POSTGRES_PASSWORD
       containers:
         - name: migrate
-          image: migrate/migrate:v4.17.1
+          image: registry.burrito.deway.fr/semaphore-migrations:latest
+          imagePullPolicy: Always
           command: ["/bin/sh", "-c"]
           args:
             - |
@@ -152,28 +153,6 @@ spec:
                 secretKeyRef:
                   name: postgres-database-urls
                   key: beacon
-          volumeMounts:
-            - name: migrations-auth-identity
-              mountPath: /migrations/auth_identity
-            - name: migrations-academics
-              mountPath: /migrations/academics
-            - name: migrations-attendance
-              mountPath: /migrations/attendance
-            - name: migrations-beacon
-              mountPath: /migrations/beacon
-      volumes:
-        - name: migrations-auth-identity
-          configMap:
-            name: migrations-auth-identity
-        - name: migrations-academics
-          configMap:
-            name: migrations-academics
-        - name: migrations-attendance
-          configMap:
-            name: migrations-attendance
-        - name: migrations-beacon
-          configMap:
-            name: migrations-beacon
 
 ---
 apiVersion: v1

@@ -42,6 +42,7 @@ pipeline {
     REGISTRY_PUSH_HOST = 'registry.jenkins.svc.cluster.local:5000'
 
     SERVICES = 'auth-identity academics attendance beacon'
+    MIGRATIONS_IMAGE = 'semaphore-migrations'
   }
 
   stages {
@@ -105,6 +106,25 @@ pipeline {
               parallel tasks
             }
           }
+        }
+      }
+    }
+
+    stage('Build Migrations Image') {
+      steps {
+        container('builder') {
+          sh """
+            set -e
+            echo \"Building migrations image\"
+            buildctl \\
+              --addr \"${env.BUILDKIT_HOST}\" \\
+              build \\
+              --frontend dockerfile.v0 \\
+              --local context=. \\
+              --local dockerfile=. \\
+              --opt filename=docker/Dockerfile.migrations \\
+              --output 'type=image,\"name=${env.REGISTRY_PUSH_HOST}/${env.MIGRATIONS_IMAGE}:${env.BUILD_NUMBER},${env.REGISTRY_PUSH_HOST}/${env.MIGRATIONS_IMAGE}:latest\",push=true,registry.insecure=true'
+          """
         }
       }
     }

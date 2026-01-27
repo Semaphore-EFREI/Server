@@ -10,18 +10,6 @@ configMapGenerator:
   - name: envoy-config
     files:
       - envoy.yaml=docker/envoy/envoy.yaml
-  - name: migrations-auth-identity
-    files:
-      - migrations/auth_identity
-  - name: migrations-academics
-    files:
-      - migrations/academics
-  - name: migrations-attendance
-    files:
-      - migrations/attendance
-  - name: migrations-beacon
-    files:
-      - migrations/beacon
 
 generatorOptions:
   disableNameSuffixHash: true
