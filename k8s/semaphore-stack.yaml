@@ -94,6 +94,88 @@ spec:
             name: db-init-sql
 
 ---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: semaphore-migrations
+  namespace: semaphore
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16
+          command: ["sh", "-c"]
+          args:
+            - |
+              until pg_isready -h postgres -U postgres; do
+                sleep 1
+              done
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
+      containers:
+        - name: migrate
+          image: migrate/migrate:v4.17.1
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              migrate -path /migrations/auth_identity -database "${AUTH_IDENTITY_DATABASE_URL}" up
+              migrate -path /migrations/academics -database "${ACADEMICS_DATABASE_URL}" up
+              migrate -path /migrations/attendance -database "${ATTENDANCE_DATABASE_URL}" up
+              migrate -path /migrations/beacon -database "${BEACON_DATABASE_URL}" up
+          env:
+            - name: AUTH_IDENTITY_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-database-urls
+                  key: auth-identity
+            - name: ACADEMICS_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-database-urls
+                  key: academics
+            - name: ATTENDANCE_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-database-urls
+                  key: attendance
+            - name: BEACON_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-database-urls
+                  key: beacon
+          volumeMounts:
+            - name: migrations-auth-identity
+              mountPath: /migrations/auth_identity
+            - name: migrations-academics
+              mountPath: /migrations/academics
+            - name: migrations-attendance
+              mountPath: /migrations/attendance
+            - name: migrations-beacon
+              mountPath: /migrations/beacon
+      volumes:
+        - name: migrations-auth-identity
+          configMap:
+            name: migrations-auth-identity
+        - name: migrations-academics
+          configMap:
+            name: migrations-academics
+        - name: migrations-attendance
+          configMap:
+            name: migrations-attendance
+        - name: migrations-beacon
+          configMap:
+            name: migrations-beacon
+
+---
 apiVersion: v1
 kind: Service
 metadata:

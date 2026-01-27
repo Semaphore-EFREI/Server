@@ -119,6 +119,7 @@ pipeline {
             withEnv(["KUBECONFIG=${pwd()}/kubeconfig", "K8S_NAMESPACE=${params.K8S_NAMESPACE}"]) {
               sh '''
                 set -e
+                kubectl delete job semaphore-migrations -n "${K8S_NAMESPACE}" --ignore-not-found
                 kubectl apply -k .
                 kubectl apply -k k8s/monitoring
               '''
