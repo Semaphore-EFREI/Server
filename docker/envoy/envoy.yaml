@@ -22,11 +22,15 @@ static_resources:
                       domains: ["*"]
                       cors:
                         allow_origin_string_match:
-                          - prefix: "*"
+                          - exact: "https://semaphore.lebonnec.uk"
+                          - exact: "https://semaphore.deway.fr"
+                          - exact: "http://localhost:3000"
+                          - exact: "http://localhost:5173"
                         allow_methods: "GET,POST,PUT,PATCH,DELETE,OPTIONS"
                         allow_headers: "authorization,content-type,x-device-id,x-student-id,x-course-id,idempotency-key"
                         expose_headers: "content-length"
                         max_age: "86400"
+                        allow_credentials: true
                       routes:
                         - match:
                             prefix: "/.well-known"
