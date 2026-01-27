@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 
 	academicsv1 "semaphore/academics/academics/v1"
@@ -58,6 +59,7 @@ func (s *Server) Router() http.Handler {
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
+	r.Handle("/metrics", promhttp.Handler())
 
 	r.With(s.authMiddleware).Get("/course/{courseId}/status", s.handleGetCourseStatus)
 	r.With(s.authMiddleware).Post("/signature", s.handleCreateSignature)

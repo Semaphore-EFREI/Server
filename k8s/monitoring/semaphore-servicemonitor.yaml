@@ -1,0 +1,25 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: semaphore-services
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames:
+      - semaphore
+  selector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - auth-identity
+          - academics
+          - attendance
+          - beacon
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scheme: http

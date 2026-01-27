@@ -5,3 +5,5 @@ terraform.tfstate.backup
 
 # Terraform plan files
 *.tfplan
+
+*.pem

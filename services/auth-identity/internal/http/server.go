@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"semaphore/auth-identity/internal/auth"
 	"semaphore/auth-identity/internal/config"
@@ -57,6 +58,7 @@ func (s *Server) Router() http.Handler {
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
+	r.Handle("/metrics", promhttp.Handler())
 	r.Get("/.well-known/jwks.json", s.handleJWKS)
 
 	r.Post("/auth/login", s.handleLogin)

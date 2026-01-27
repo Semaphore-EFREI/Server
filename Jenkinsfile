@@ -120,6 +120,7 @@ pipeline {
               sh '''
                 set -e
                 kubectl apply -k .
+                kubectl apply -k k8s/monitoring
               '''
 
               withCredentials([

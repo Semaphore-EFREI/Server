@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: semaphore-envoy
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames:
+      - semaphore
+  selector:
+    matchLabels:
+      app: envoy
+  endpoints:
+    - port: admin
+      path: /stats/prometheus
+      interval: 30s
+      scheme: http
