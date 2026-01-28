@@ -1,0 +1,38 @@
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: semaphore
+spec:
+  mtls:
+    mode: STRICT
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: default
+  namespace: semaphore
+spec:
+  host: "*.semaphore.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-semaphore-namespace
+  namespace: semaphore
+spec:
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            namespaces: ["semaphore"]
+    - from:
+        - source:
+            principals:
+              - "cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"
+              - "cluster.local/ns/istio-system/sa/istio-ingressgateway"

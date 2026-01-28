@@ -5,8 +5,9 @@ namespace: monitoring
 
 resources:
   - semaphore-servicemonitor.yaml
-  - semaphore-envoy-servicemonitor.yaml
   - promtail-config.yaml
+  - istio-ingress-servicemonitor.yaml
+  - istio-semaphore-podmonitor.yaml
 
 configMapGenerator:
   - name: semaphore-grafana-dashboard

@@ -142,6 +142,8 @@ pipeline {
                 kubectl delete job semaphore-migrations -n "${K8S_NAMESPACE}" --ignore-not-found
                 kubectl apply -k .
                 kubectl apply -k k8s/monitoring
+                kubectl apply -k k8s/istio
+                kubectl rollout restart statefulset/postgres statefulset/redis -n "${K8S_NAMESPACE}"
               '''
 
               withCredentials([

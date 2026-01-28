@@ -7,9 +7,5 @@ resources:
   - k8s/semaphore-stack.yaml
 
 configMapGenerator:
-  - name: envoy-config
-    files:
-      - envoy.yaml=docker/envoy/envoy.yaml
-
 generatorOptions:
   disableNameSuffixHash: true

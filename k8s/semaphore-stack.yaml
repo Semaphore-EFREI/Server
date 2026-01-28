@@ -285,60 +285,6 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: envoy-gateway
-  namespace: semaphore
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: envoy
-  template:
-    metadata:
-      labels:
-        app: envoy
-    spec:
-      containers:
-        - name: envoy
-          image: envoyproxy/envoy:v1.30.0
-          args:
-            - "/usr/local/bin/envoy"
-            - "-c"
-            - "/etc/envoy/envoy.yaml"
-          ports:
-            - name: admin
-              containerPort: 9901
-          volumeMounts:
-            - name: envoy-config
-              mountPath: /etc/envoy
-      volumes:
-        - name: envoy-config
-          configMap:
-            name: envoy-config
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: envoy-gateway
-  namespace: semaphore
-  labels:
-    app: envoy
-spec:
-  type: ClusterIP
-  selector:
-    app: envoy
-  ports:
-    - name: http
-      port: 80
-      targetPort: 8080
-    - name: admin
-      port: 9901
-      targetPort: 9901
-
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
   name: auth-identity
   namespace: semaphore
 spec:

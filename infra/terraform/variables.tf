@@ -22,30 +22,6 @@ variable "jenkins_service_account" {
   default     = "default"
 }
 
-variable "semaphore_gateway_domain" {
-  type        = string
-  description = "Public hostname for the Semaphore Envoy gateway"
-  default     = "semaphore.deway.fr"
-}
-
-variable "tls_cluster_issuer" {
-  type        = string
-  description = "cert-manager ClusterIssuer name for TLS"
-  default     = "letsencrypt"
-}
-
-variable "gateway_service_name" {
-  type        = string
-  description = "Kubernetes Service name for the gateway"
-  default     = "envoy-gateway"
-}
-
-variable "gateway_service_port" {
-  type        = number
-  description = "Service port for the gateway"
-  default     = 80
-}
-
 variable "jenkins_domain" {
   type        = string
   description = "Public hostname for Jenkins ingress"
@@ -63,6 +39,36 @@ variable "jenkins_admin_password" {
   description = "Admin password for Jenkins controller"
   sensitive   = true
   default     = "admin"
+}
+
+variable "semaphore_gateway_domain" {
+  type        = string
+  description = "Public hostname for the Semaphore gateway"
+  default     = "semaphore.deway.fr"
+}
+
+variable "tls_cluster_issuer" {
+  type        = string
+  description = "cert-manager ClusterIssuer name for TLS"
+  default     = "letsencrypt"
+}
+
+variable "istio_namespace" {
+  type        = string
+  description = "Namespace for Istio control plane"
+  default     = "istio-system"
+}
+
+variable "istio_chart_version" {
+  type        = string
+  description = "Istio chart version (base, istiod, gateway)"
+  default     = "1.23.2"
+}
+
+variable "istio_ingressgateway_service_type" {
+  type        = string
+  description = "Service type for Istio ingress gateway"
+  default     = "ClusterIP"
 }
 
 variable "semaphore_repo_url" {

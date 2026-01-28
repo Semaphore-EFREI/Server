@@ -5,6 +5,9 @@ locals {
 resource "kubernetes_namespace" "semaphore" {
   metadata {
     name = local.app_namespace
+    labels = {
+      "istio-injection" = "enabled"
+    }
   }
 }
 
@@ -13,8 +16,8 @@ resource "kubernetes_manifest" "semaphore_https_redirect" {
     apiVersion = "traefik.io/v1alpha1"
     kind       = "Middleware"
     metadata = {
-      name      = "https-redirect"
-      namespace = kubernetes_namespace.semaphore.metadata[0].name
+      name      = "semaphore-https-redirect"
+      namespace = var.istio_namespace
     }
     spec = {
       redirectScheme = {
@@ -25,14 +28,49 @@ resource "kubernetes_manifest" "semaphore_https_redirect" {
   }
 }
 
-resource "kubernetes_ingress_v1" "semaphore_gateway" {
+resource "kubernetes_ingress_v1" "semaphore_gateway_http" {
   metadata {
-    name      = "semaphore-gateway"
-    namespace = kubernetes_namespace.semaphore.metadata[0].name
+    name      = "semaphore-gateway-http"
+    namespace = var.istio_namespace
     annotations = {
-      "cert-manager.io/cluster-issuer"                  = var.tls_cluster_issuer
-      "traefik.ingress.kubernetes.io/router.entrypoints" = "web,websecure"
-      "traefik.ingress.kubernetes.io/router.middlewares" = "${var.semaphore_namespace}-https-redirect@kubernetescrd"
+      "traefik.ingress.kubernetes.io/router.entrypoints" = "web"
+      "traefik.ingress.kubernetes.io/router.middlewares" = "${var.istio_namespace}-semaphore-https-redirect@kubernetescrd"
+    }
+  }
+
+  spec {
+    ingress_class_name = "traefik"
+
+    rule {
+      host = var.semaphore_gateway_domain
+
+      http {
+        path {
+          path      = "/"
+          path_type = "Prefix"
+
+          backend {
+            service {
+              name = "istio-ingressgateway"
+
+              port {
+                number = 80
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+resource "kubernetes_ingress_v1" "semaphore_gateway_https" {
+  metadata {
+    name      = "semaphore-gateway-https"
+    namespace = var.istio_namespace
+    annotations = {
+      "cert-manager.io/cluster-issuer"                   = var.tls_cluster_issuer
+      "traefik.ingress.kubernetes.io/router.entrypoints" = "websecure"
       "traefik.ingress.kubernetes.io/router.tls"         = "true"
     }
   }
@@ -50,10 +88,10 @@ resource "kubernetes_ingress_v1" "semaphore_gateway" {
 
           backend {
             service {
-              name = var.gateway_service_name
+              name = "istio-ingressgateway"
 
               port {
-                number = var.gateway_service_port
+                number = 80
               }
             }
           }
@@ -66,8 +104,6 @@ resource "kubernetes_ingress_v1" "semaphore_gateway" {
       secret_name = "semaphore-gateway-tls"
     }
   }
-
-  depends_on = [kubernetes_manifest.semaphore_https_redirect]
 }
 
 resource "kubernetes_role" "jenkins_deployer" {
@@ -216,4 +252,56 @@ resource "kubernetes_role_binding" "jenkins_deployer_binding" {
     name      = var.jenkins_service_account
     namespace = var.jenkins_namespace
   }
+}
+
+resource "kubernetes_namespace" "istio_system" {
+  metadata {
+    name = var.istio_namespace
+  }
+}
+
+resource "helm_release" "istio_base" {
+  name       = "istio-base"
+  repository = "https://istio-release.storage.googleapis.com/charts"
+  chart      = "base"
+  namespace  = var.istio_namespace
+  version    = var.istio_chart_version
+
+  depends_on = [kubernetes_namespace.istio_system]
+}
+
+resource "helm_release" "istiod" {
+  name       = "istiod"
+  repository = "https://istio-release.storage.googleapis.com/charts"
+  chart      = "istiod"
+  namespace  = var.istio_namespace
+  version    = var.istio_chart_version
+
+  values = [
+    yamlencode({
+      meshConfig = {
+        accessLogFile = "/dev/stdout"
+      }
+    }),
+  ]
+
+  depends_on = [helm_release.istio_base]
+}
+
+resource "helm_release" "istio_ingressgateway" {
+  name       = "istio-ingressgateway"
+  repository = "https://istio-release.storage.googleapis.com/charts"
+  chart      = "gateway"
+  namespace  = var.istio_namespace
+  version    = var.istio_chart_version
+
+  values = [
+    yamlencode({
+      service = {
+        type = var.istio_ingressgateway_service_type
+      }
+    }),
+  ]
+
+  depends_on = [helm_release.istiod]
 }

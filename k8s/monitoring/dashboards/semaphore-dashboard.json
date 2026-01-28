@@ -375,13 +375,13 @@
       "pluginVersion": "12.3.0",
       "targets": [
         {
-          "expr": "sum(rate(envoy_http_downstream_rq_total{envoy_http_conn_manager_prefix=\"ingress_http\"}[5m]))",
+          "expr": "sum(rate(istio_requests_total{destination_workload=\"istio-ingressgateway\",destination_workload_namespace=\"istio-system\"}[5m]))",
           "legendFormat": "all",
           "refId": "A"
         },
         {
-          "expr": "sum by (envoy_response_code_class)(rate(envoy_http_downstream_rq_total{envoy_http_conn_manager_prefix=\"ingress_http\"}[5m]))",
-          "legendFormat": "status {{envoy_response_code_class}}",
+          "expr": "sum by (response_code)(rate(istio_requests_total{destination_workload=\"istio-ingressgateway\",destination_workload_namespace=\"istio-system\"}[5m]))",
+          "legendFormat": "status {{response_code}}",
           "refId": "B"
         }
       ],
@@ -470,12 +470,12 @@
       "pluginVersion": "12.3.0",
       "targets": [
         {
-          "expr": "sum by (envoy_route)(rate(envoy_http_downstream_rq_total{envoy_http_conn_manager_prefix=\"ingress_http\",envoy_route!=\"\"}[5m]))",
-          "legendFormat": "{{envoy_route}}",
+          "expr": "sum by (destination_service)(rate(istio_requests_total{destination_workload=\"istio-ingressgateway\",destination_workload_namespace=\"istio-system\"}[5m]))",
+          "legendFormat": "{{destination_service}}",
           "refId": "A"
         }
       ],
-      "title": "Gateway Requests by Route",
+      "title": "Gateway Requests by Service",
       "type": "timeseries"
     }
   ],
