@@ -20,6 +20,17 @@ spec:
       mode: ISTIO_MUTUAL
 
 ---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: semaphore-mtls-egress
+  namespace: istio-system
+spec:
+  host: "*.semaphore.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
