@@ -6,3 +6,4 @@ resources:
   - semaphore-gateway.yaml
   - semaphore-mtls.yaml
   - semaphore-ingress-auth.yaml
+  - semaphore-observability-authz.yaml

@@ -144,6 +144,16 @@ pipeline {
                 kubectl apply -k k8s/monitoring
                 kubectl apply -k k8s/istio
                 kubectl rollout restart statefulset/postgres statefulset/redis -n "${K8S_NAMESPACE}"
+
+                PROM_STS="prometheus-kube-prometheus-stack-prometheus"
+                if kubectl -n monitoring get sts "${PROM_STS}" >/dev/null 2>&1; then
+                  CURRENT=$(kubectl -n monitoring get sts "${PROM_STS}" -o jsonpath='{.spec.template.metadata.annotations.sidecar\\.istio\\.io/inject}' 2>/dev/null || true)
+                  if [ "${CURRENT}" != "true" ]; then
+                    kubectl -n monitoring patch sts "${PROM_STS}" \
+                      -p '{"spec":{"template":{"metadata":{"annotations":{"sidecar.istio.io/inject":"true"}}}}}'
+                    kubectl -n monitoring rollout restart sts "${PROM_STS}"
+                  fi
+                fi
               '''
 
               withCredentials([
