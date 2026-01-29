@@ -65,6 +65,7 @@ func (s *Server) Router() http.Handler {
 	r.Post("/auth/refresh", s.handleRefresh)
 	r.Post("/auth/logout", s.handleLogout)
 
+	r.With(s.authMiddleware).Get("/auth/me", s.handleGetMe)
 	r.With(s.authMiddleware).Post("/students/me/devices", s.handleRegisterDevice)
 	r.With(s.authMiddleware).Get("/student/{studentId}/device", s.handleGetStudentDevice)
 	r.With(s.authMiddleware).Put("/student/{studentId}/device", s.handlePutStudentDevice)
@@ -632,6 +633,42 @@ func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := s.store.GetUserByID(r.Context(), userID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "user_not_found")
+		return
+	}
+	role, err := s.store.GetRole(r.Context(), user.ID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "role_not_found")
+		return
+	}
+
+	summary := userSummary{
+		ID:        user.ID,
+		SchoolID:  user.SchoolID,
+		Email:     user.Email,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		UserType:  role.UserType,
+		AdminRole: role.AdminRole,
+	}
+	if role.UserType == "student" {
+		if profile, err := s.store.GetStudentProfile(r.Context(), user.ID); err == nil {
+			studentNumber := profile.StudentNumber
+			summary.StudentNo = &studentNumber
+		}
+	}
+	writeJSON(w, http.StatusOK, summary)
+}
+
+func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
+	claims := claimsFromContext(r.Context())
+	if claims == nil {
+		writeError(w, http.StatusUnauthorized, "missing_token")
+		return
+	}
+
+	user, err := s.store.GetUserByID(r.Context(), claims.UserID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "user_not_found")
 		return

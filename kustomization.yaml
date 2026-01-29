@@ -5,7 +5,12 @@ namespace: semaphore
 
 resources:
   - k8s/semaphore-stack.yaml
+  - k8s/istio
 
 configMapGenerator:
+  - name: envoy-gateway-config
+    files:
+      - envoy.yaml=docker/envoy/envoy.yaml
+
 generatorOptions:
   disableNameSuffixHash: true

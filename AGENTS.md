@@ -19,6 +19,9 @@
   - `go run ./cmd/server`
 - Run tests for a service:
   - `go test ./...`
+- Kubernetes commands must use the remote cluster config:
+  - `KUBECONFIG=~/.kube/burrito-k3s.yaml kubectl ...`
+  - Envoy gateway config is generated from `docker/envoy/envoy.yaml` via root kustomize; apply Istio with `KUBECONFIG=~/.kube/burrito-k3s.yaml kubectl apply -k .`
 
 ## Coding Style & Naming Conventions
 - Keep Markdown concise with clear headings and short bullet lists.

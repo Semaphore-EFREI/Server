@@ -1,0 +1,128 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: envoy-gateway
+  namespace: semaphore
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: envoy-gateway
+  namespace: semaphore
+  labels:
+    app: envoy-gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: envoy-gateway
+  template:
+    metadata:
+      labels:
+        app: envoy-gateway
+      annotations:
+        sidecar.istio.io/inject: "true"
+        traffic.sidecar.istio.io/includeOutboundIPRanges: "*"
+    spec:
+      serviceAccountName: envoy-gateway
+      containers:
+        - name: envoy
+          image: envoyproxy/envoy:v1.29.2
+          args:
+            - "-c"
+            - "/etc/envoy/envoy.yaml"
+            - "--service-cluster"
+            - "envoy-gateway"
+            - "--service-node"
+            - "envoy-gateway"
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: envoy-admin
+              containerPort: 9901
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 9901
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: 9901
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: envoy-config
+              mountPath: /etc/envoy/envoy.yaml
+              subPath: envoy.yaml
+      volumes:
+        - name: envoy-config
+          configMap:
+            name: envoy-gateway-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: envoy-gateway
+  namespace: semaphore
+  labels:
+    app: envoy-gateway
+spec:
+  type: LoadBalancer
+  selector:
+    app: envoy-gateway
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: envoy-gateway-admin
+  namespace: semaphore
+  labels:
+    app: envoy-gateway
+    component: admin
+spec:
+  type: ClusterIP
+  selector:
+    app: envoy-gateway
+  ports:
+    - name: envoy-admin
+      port: 9901
+      targetPort: 9901
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: envoy-gateway
+  namespace: semaphore
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: envoy-gateway
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

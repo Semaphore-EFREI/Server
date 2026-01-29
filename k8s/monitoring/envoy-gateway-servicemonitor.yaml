@@ -1,19 +1,20 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: istio-ingressgateway
+  name: envoy-gateway
   namespace: monitoring
   labels:
     release: kube-prometheus-stack
 spec:
   namespaceSelector:
     matchNames:
-      - istio-system
+      - semaphore
   selector:
     matchLabels:
-      istio: ingressgateway
+      app: envoy-gateway
+      component: admin
   endpoints:
-    - port: http-envoy-prom
+    - port: envoy-admin
       path: /stats/prometheus
       interval: 30s
       scheme: http

@@ -31,7 +31,7 @@ resource "kubernetes_manifest" "semaphore_https_redirect" {
 resource "kubernetes_ingress_v1" "semaphore_gateway_http" {
   metadata {
     name      = "semaphore-gateway-http"
-    namespace = var.istio_namespace
+    namespace = local.app_namespace
     annotations = {
       "traefik.ingress.kubernetes.io/router.entrypoints" = "web"
       "traefik.ingress.kubernetes.io/router.middlewares" = "${var.istio_namespace}-semaphore-https-redirect@kubernetescrd"
@@ -51,7 +51,7 @@ resource "kubernetes_ingress_v1" "semaphore_gateway_http" {
 
           backend {
             service {
-              name = "istio-ingressgateway"
+              name = "envoy-gateway"
 
               port {
                 number = 80
@@ -67,7 +67,7 @@ resource "kubernetes_ingress_v1" "semaphore_gateway_http" {
 resource "kubernetes_ingress_v1" "semaphore_gateway_https" {
   metadata {
     name      = "semaphore-gateway-https"
-    namespace = var.istio_namespace
+    namespace = local.app_namespace
     annotations = {
       "cert-manager.io/cluster-issuer"                   = var.tls_cluster_issuer
       "traefik.ingress.kubernetes.io/router.entrypoints" = "websecure"
@@ -88,7 +88,7 @@ resource "kubernetes_ingress_v1" "semaphore_gateway_https" {
 
           backend {
             service {
-              name = "istio-ingressgateway"
+              name = "envoy-gateway"
 
               port {
                 number = 80

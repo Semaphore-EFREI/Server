@@ -69,6 +69,12 @@ func TestStudentTeacherEndpoints(t *testing.T) {
 		t.Fatalf("expected 200, got %d", resp.StatusCode)
 	}
 
+	// Student can get own profile via /auth/me.
+	resp = doReq(t, http.MethodGet, app.URL+"/auth/me", studentToken, nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+
 	// Student cannot access teacher profile.
 	resp = doReq(t, http.MethodGet, app.URL+"/teacher/"+teacherID, studentToken, nil)
 	if resp.StatusCode != http.StatusForbidden {

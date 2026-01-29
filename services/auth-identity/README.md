@@ -30,6 +30,7 @@ HTTP will listen on `:8081`, gRPC on `:9091`.
 - `POST /auth/login`
 - `POST /auth/refresh`
 - `POST /auth/logout`
+- `GET /auth/me`
 - `POST /students/me/devices`
 - `GET /.well-known/jwks.json`
 - `GET /students/{schoolId}`

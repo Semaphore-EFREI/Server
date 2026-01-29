@@ -12,4 +12,4 @@ spec:
       to:
         - operation:
             methods: ["GET"]
-            paths: ["/metrics"]
+            paths: ["/metrics", "/stats/prometheus"]
