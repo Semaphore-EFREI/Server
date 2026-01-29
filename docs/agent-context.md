@@ -16,21 +16,24 @@ Switch from Istio IngressGateway to a standalone Envoy API gateway with Istio si
 - When strict mTLS is enabled, upstream calls from Envoy gateway fail with:
   - `503 upstream connect error or disconnect/reset before headers. reset reason: connection termination`
   - Service sidecars show `filter_chain_not_found` for connections from gateway pod IPs.
-- This indicates the gateway’s outbound traffic is reaching services as **plaintext** (mTLS not applied), so strict mTLS rejects it.
+- This indicates the gateway’s outbound traffic is **plaintext** (mTLS not applied), so strict mTLS rejects it.
 - Temporary mitigations were applied to allow plaintext (PERMISSIVE) for gateway and services; RBAC was loosened to allow traffic.
+- After enabling outbound capture (`includeOutboundIPRanges: "*"`), gateway sidecar logs still show **PassthroughCluster** for `/auth/login`, meaning traffic is captured but not matched to service identity (no mTLS).
 
 ## Likely root cause
-- The Envoy gateway’s outbound traffic is **not being captured** by Istio iptables/sidecar, so mTLS upgrade does not happen.
+- The Envoy gateway’s outbound traffic is **not matched to the service registry**, so Istio does not apply mTLS and uses PassthroughCluster.
 - With strict mTLS, services reject plaintext, causing resets.
 
 ## Files changed (repo)
 - `docker/envoy/envoy.yaml`
-  - Kept as the single source of truth for Envoy config. (No health/root/forwarded headers added.)
+  - Single source of truth for Envoy config; routes include `/auth/*`, `/users/*`, etc. `/auth/me` added.
 - `k8s/istio/envoy-gateway.yaml`
   - Envoy gateway Deployment/Service/HPA + sidecar injection.
   - Admin service label `component: admin`.
+  - Outbound capture annotation: `traffic.sidecar.istio.io/includeOutboundIPRanges: "*"`.
+  - DNS capture annotations: `ISTIO_META_DNS_CAPTURE=true`, `ISTIO_META_DNS_AUTO_ALLOCATE=true` (via `proxy.istio.io/config`).
 - `k8s/istio/kustomization.yaml`
-  - No longer includes namespace; includes envoy-gateway, mTLS/authz, observability.
+  - No namespace; includes envoy-gateway, mTLS/authz, observability.
 - `kustomization.yaml` (repo root)
   - Includes `k8s/istio` and generates `envoy-gateway-config` from `docker/envoy/envoy.yaml`.
 - `k8s/monitoring/envoy-gateway-servicemonitor.yaml`
@@ -45,6 +48,12 @@ Switch from Istio IngressGateway to a standalone Envoy API gateway with Istio si
   - `allow-semaphore-namespace` policy currently allows **all** (no source constraints).
 - `k8s/istio/semaphore-observability-authz.yaml`
   - Allows `/stats/prometheus` in addition to `/metrics`.
+- `services/auth-identity/internal/http/server.go`
+  - Added `GET /auth/me` handler (returns current user summary based on JWT claims).
+- `services/auth-identity/internal/http/server_test.go`
+  - Added `/auth/me` test.
+- `services/auth-identity/README.md`
+  - Lists `/auth/me`.
 - Removed:
   - `k8s/istio/semaphore-gateway.yaml`
   - `k8s/istio/semaphore-ingress-auth.yaml`
@@ -65,11 +74,11 @@ Switch from Istio IngressGateway to a standalone Envoy API gateway with Istio si
 
 ## Debug evidence (from cluster)
 - Envoy gateway pods are 2/2 with sidecar.
-- Envoy admin `/clusters` shows endpoints healthy but `rq_error` increments.
-- Service sidecar logs show `filter_chain_not_found` for gateway IPs (plaintext hitting strict mTLS).
+- Envoy admin `/clusters` shows endpoints healthy but `rq_error` increments when strict mTLS is on.
+- Service sidecar logs show `filter_chain_not_found` for gateway IPs under strict mTLS.
+- Gateway sidecar logs show `PassthroughCluster` for `/auth/login`, indicating service identity not matched.
 
 ## Next steps (for strict mTLS later)
-- Ensure Envoy gateway outbound traffic is intercepted by the sidecar (validate by observing outbound stats in sidecar, or making sure iptables interception applies to Envoy’s egress).
-- Remove PERMISSIVE policies once mTLS is confirmed end-to-end.
-- Re-tighten AuthorizationPolicies to only allow expected sources (traefik/gateway principals) instead of `allow all`.
+- Re-test after DNS capture annotation; goal is to see gateway sidecar logs use `outbound|8081||auth-identity.semaphore.svc.cluster.local` instead of `PassthroughCluster`.
+- Once outbound is matched and mTLS works, remove PERMISSIVE policies and tighten AuthorizationPolicies to only allow expected sources.
 
