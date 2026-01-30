@@ -69,7 +69,8 @@ SELECT s.id,
        s.created_at,
        s.updated_at,
        s.deleted_at,
-       ts.teacher_id
+       ts.teacher_id,
+       ts.administrator_id
 FROM signatures s
 INNER JOIN teacher_signatures ts ON ts.signature_id = s.id
 WHERE ts.teacher_id = $1
@@ -87,7 +88,8 @@ SELECT s.id,
        s.created_at,
        s.updated_at,
        s.deleted_at,
-       ts.teacher_id
+       ts.teacher_id,
+       ts.administrator_id
 FROM signatures s
 INNER JOIN teacher_signatures ts ON ts.signature_id = s.id
 WHERE ts.teacher_id = $1
@@ -106,7 +108,8 @@ SELECT s.id,
        s.created_at,
        s.updated_at,
        s.deleted_at,
-       ts.teacher_id
+       ts.teacher_id,
+       ts.administrator_id
 FROM signatures s
 INNER JOIN teacher_signatures ts ON ts.signature_id = s.id
 WHERE s.course_id = $1

@@ -403,6 +403,15 @@ func (s *Store) RevokeRefreshSession(ctx context.Context, sessionID string, revo
 	return err
 }
 
+func (s *Store) RevokeRefreshSessionsByUser(ctx context.Context, userID string, revokedAt time.Time) error {
+	_, err := s.pool.Exec(ctx, `
+    UPDATE refresh_token_sessions
+    SET revoked_at = $1
+    WHERE user_id = $2 AND revoked_at IS NULL
+  `, revokedAt, userID)
+	return err
+}
+
 func (s *Store) GetActiveDevice(ctx context.Context, studentID string) (model.Device, error) {
 	var device model.Device
 	row := s.pool.QueryRow(ctx, `

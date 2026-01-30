@@ -60,7 +60,7 @@ type SchoolPreference struct {
 	TeacherCanModifyClosingDelay        bool               `db:"teacher_can_modify_closing_delay" json:"teacher_can_modify_closing_delay"`
 	StudentsCanSignBeforeTeacher        bool               `db:"students_can_sign_before_teacher" json:"students_can_sign_before_teacher"`
 	EnableFlash                         bool               `db:"enable_flash" json:"enable_flash"`
-	EnableQrcode                        bool               `db:"enable_qrcode" json:"enable_qrcode"`
+	DisableCourseModificationFromUI     bool               `db:"disable_course_modification_from_ui" json:"disable_course_modification_from_ui"`
 	EnableNfc                           bool               `db:"enable_nfc" json:"enable_nfc"`
 	CreatedAt                           pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt                           pgtype.Timestamptz `db:"updated_at" json:"updated_at"`

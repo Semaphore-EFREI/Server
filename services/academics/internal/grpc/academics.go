@@ -142,7 +142,7 @@ func (s *AcademicsServer) GetSchoolPreferences(ctx context.Context, req *academi
 			TeacherCanModifyClosingDelay:        prefs.TeacherCanModifyClosingDelay,
 			StudentsCanSignBeforeTeacher:        prefs.StudentsCanSignBeforeTeacher,
 			EnableFlash:                         prefs.EnableFlash,
-			EnableQrcode:                        prefs.EnableQrcode,
+			DisableCourseModificationFromUi:     prefs.DisableCourseModificationFromUI,
 			EnableNfc:                           prefs.EnableNfc,
 		},
 	}, nil

@@ -542,7 +542,7 @@ type SchoolPreferences struct {
 	TeacherCanModifyClosingDelay        bool   `protobuf:"varint,3,opt,name=teacher_can_modify_closing_delay,json=teacherCanModifyClosingDelay,proto3" json:"teacher_can_modify_closing_delay,omitempty"`
 	StudentsCanSignBeforeTeacher        bool   `protobuf:"varint,4,opt,name=students_can_sign_before_teacher,json=studentsCanSignBeforeTeacher,proto3" json:"students_can_sign_before_teacher,omitempty"`
 	EnableFlash                         bool   `protobuf:"varint,5,opt,name=enable_flash,json=enableFlash,proto3" json:"enable_flash,omitempty"`
-	EnableQrcode                        bool   `protobuf:"varint,6,opt,name=enable_qrcode,json=enableQrcode,proto3" json:"enable_qrcode,omitempty"`
+	DisableCourseModificationFromUi     bool   `protobuf:"varint,6,opt,name=disable_course_modification_from_ui,json=disableCourseModificationFromUi,proto3" json:"disable_course_modification_from_ui,omitempty"`
 	EnableNfc                           bool   `protobuf:"varint,7,opt,name=enable_nfc,json=enableNfc,proto3" json:"enable_nfc,omitempty"`
 }
 
@@ -613,9 +613,9 @@ func (x *SchoolPreferences) GetEnableFlash() bool {
 	return false
 }
 
-func (x *SchoolPreferences) GetEnableQrcode() bool {
+func (x *SchoolPreferences) GetDisableCourseModificationFromUi() bool {
 	if x != nil {
-		return x.EnableQrcode
+		return x.DisableCourseModificationFromUi
 	}
 	return false
 }

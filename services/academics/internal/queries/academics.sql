@@ -5,7 +5,7 @@ INSERT INTO school_preferences (
   teacher_can_modify_closing_delay,
   students_can_sign_before_teacher,
   enable_flash,
-  enable_qrcode,
+  disable_course_modification_from_ui,
   enable_nfc,
   created_at,
   updated_at
@@ -19,10 +19,10 @@ INSERT INTO school_preferences (
   $7,
   $8,
   $9
-) RETURNING id, default_signature_closing_delay_minutes, teacher_can_modify_closing_delay, students_can_sign_before_teacher, enable_flash, enable_qrcode, enable_nfc, created_at, updated_at, deleted_at;
+) RETURNING id, default_signature_closing_delay_minutes, teacher_can_modify_closing_delay, students_can_sign_before_teacher, enable_flash, disable_course_modification_from_ui, enable_nfc, created_at, updated_at, deleted_at;
 
 -- name: GetSchoolPreferences :one
-SELECT id, default_signature_closing_delay_minutes, teacher_can_modify_closing_delay, students_can_sign_before_teacher, enable_flash, enable_qrcode, enable_nfc, created_at, updated_at, deleted_at
+SELECT id, default_signature_closing_delay_minutes, teacher_can_modify_closing_delay, students_can_sign_before_teacher, enable_flash, disable_course_modification_from_ui, enable_nfc, created_at, updated_at, deleted_at
 FROM school_preferences
 WHERE id = $1 AND deleted_at IS NULL;
 
@@ -32,11 +32,11 @@ SET default_signature_closing_delay_minutes = $2,
     teacher_can_modify_closing_delay = $3,
     students_can_sign_before_teacher = $4,
     enable_flash = $5,
-    enable_qrcode = $6,
+    disable_course_modification_from_ui = $6,
     enable_nfc = $7,
     updated_at = $8
 WHERE id = $1 AND deleted_at IS NULL
-RETURNING id, default_signature_closing_delay_minutes, teacher_can_modify_closing_delay, students_can_sign_before_teacher, enable_flash, enable_qrcode, enable_nfc, created_at, updated_at, deleted_at;
+RETURNING id, default_signature_closing_delay_minutes, teacher_can_modify_closing_delay, students_can_sign_before_teacher, enable_flash, disable_course_modification_from_ui, enable_nfc, created_at, updated_at, deleted_at;
 
 -- name: CreateSchool :one
 INSERT INTO schools (id, name, preferences_id, created_at, updated_at)
@@ -315,3 +315,10 @@ ORDER BY c.start_at DESC;
 SELECT student_id
 FROM students_groups
 WHERE student_group_id = $1;
+
+-- name: ListStudentGroupsByCourse :many
+SELECT sg.id, sg.school_id, sg.name, sg.single_student_group, sg.created_at, sg.updated_at, sg.deleted_at
+FROM student_groups sg
+INNER JOIN courses_student_groups csg ON csg.student_group_id = sg.id
+WHERE csg.course_id = $1 AND sg.deleted_at IS NULL
+ORDER BY sg.created_at DESC;

@@ -65,6 +65,7 @@ func (s *Server) Router() http.Handler {
 	r.With(s.authMiddleware).Post("/signature", s.handleCreateSignature)
 	r.With(s.authMiddleware).Get("/signature/{signatureId}", s.handleGetSignature)
 	r.With(s.authMiddleware).Get("/signature/buzzlightyear", s.handleGetBuzzlightyear)
+	r.With(s.authMiddleware).Post("/signature/buzzlightyear/{beaconId}", s.handlePostBuzzlightyear)
 	r.With(s.authMiddleware).Patch("/signature/{signatureId}", s.handlePatchSignature)
 	r.With(s.authMiddleware).Delete("/signature/{signatureId}", s.handleDeleteSignature)
 	r.With(s.authMiddleware).Get("/signatures", s.handleListSignatures)
@@ -120,7 +121,8 @@ type studentSignatureResponse struct {
 
 type teacherSignatureResponse struct {
 	signatureBaseResponse
-	Teacher string `json:"teacher"`
+	Teacher       string `json:"teacher"`
+	Administrator string `json:"administrator,omitempty"`
 }
 
 type createSignatureRequest struct {
@@ -131,7 +133,7 @@ type createSignatureRequest struct {
 	Method        string  `json:"method"`
 	Student       string  `json:"student"`
 	Teacher       string  `json:"teacher"`
-	Administrator string  `json:"administrator"`
+	Administrator *string `json:"administrator"`
 }
 
 type patchSignatureRequest struct {
@@ -148,7 +150,7 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "missing_token")
 		return
 	}
-	if claims.UserType != "student" && claims.UserType != "teacher" {
+	if claims.UserType != "student" && claims.UserType != "teacher" && claims.UserType != "admin" {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -170,25 +172,30 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusForbidden, "forbidden")
 			return
 		}
-		req.Administrator = ""
+		req.Administrator = nil
 		if !s.validateStudentDevice(r.Context(), req.Student, r.Header.Get("X-Device-ID")) {
 			writeError(w, http.StatusForbidden, "device_not_allowed")
 			return
 		}
-	} else {
+	} else if claims.UserType == "teacher" {
 		if req.Teacher == "" {
 			req.Teacher = claims.UserID
 		}
-		if req.Teacher != claims.UserID || req.Student != "" {
+		if req.Teacher != claims.UserID {
 			writeError(w, http.StatusForbidden, "forbidden")
 			return
 		}
-		req.Administrator = ""
-		if req.Image == nil || *req.Image == "" {
-			writeError(w, http.StatusBadRequest, "missing_image")
+		req.Administrator = nil
+	} else {
+		if req.Student == "" && req.Teacher == "" {
+			writeError(w, http.StatusBadRequest, "missing_teacher")
 			return
 		}
+		adminID := claims.UserID
+		req.Administrator = &adminID
 	}
+
+	isStudentSignature := req.Student != ""
 
 	courseID, err := parseUUID(req.Course)
 	if err != nil {
@@ -203,7 +210,11 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 	}
 	course := courseResp.GetCourse()
 
-	if claims.UserType == "student" {
+	if claims.UserType == "admin" && claims.SchoolID != "" && claims.SchoolID != course.GetSchoolId() {
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+	if isStudentSignature {
 		allowed, err := s.academics.ValidateStudentCourse(r.Context(), &academicsv1.ValidateStudentCourseRequest{
 			StudentId: req.Student,
 			CourseId:  req.Course,
@@ -212,7 +223,8 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusForbidden, "forbidden")
 			return
 		}
-	} else {
+	}
+	if req.Teacher != "" {
 		allowed, err := s.academics.ValidateTeacherCourse(r.Context(), &academicsv1.ValidateTeacherCourseRequest{
 			TeacherId: req.Teacher,
 			CourseId:  req.Course,
@@ -267,7 +279,7 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 		statusValue = db.SignatureStatus(timingStatus)
 	}
 
-	if claims.UserType == "student" {
+	if isStudentSignature {
 		studentUUID, err := parseUUID(req.Student)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_student_id")
@@ -322,19 +334,20 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return err
 		}
-		if claims.UserType == "student" {
+		if isStudentSignature {
 			return q.CreateStudentSignature(r.Context(), db.CreateStudentSignatureParams{
 				SignatureID:     pgUUID(signatureID),
 				StudentID:       pgUUIDFromString(req.Student),
 				TeacherID:       pgUUIDFromString(req.Teacher),
-				AdministratorID: pgUUIDFromString(req.Administrator),
+				AdministratorID: pgUUIDFromStringPtr(req.Administrator),
 				CourseID:        courseID,
 			})
 		}
 		return q.CreateTeacherSignature(r.Context(), db.CreateTeacherSignatureParams{
-			SignatureID: pgUUID(signatureID),
-			TeacherID:   pgUUIDFromString(req.Teacher),
-			CourseID:    courseID,
+			SignatureID:     pgUUID(signatureID),
+			TeacherID:       pgUUIDFromString(req.Teacher),
+			AdministratorID: pgUUIDFromStringPtr(req.Administrator),
+			CourseID:        courseID,
 		})
 	}); err != nil {
 		var pgErr *pgconn.PgError
@@ -346,7 +359,11 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if claims.UserType == "student" {
+	if isStudentSignature {
+		administrator := ""
+		if req.Administrator != nil {
+			administrator = *req.Administrator
+		}
 		resp := studentSignatureResponse{
 			signatureBaseResponse: signatureBaseResponse{
 				ID:     signatureID.String(),
@@ -357,7 +374,7 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 			},
 			Student:       req.Student,
 			Teacher:       req.Teacher,
-			Administrator: req.Administrator,
+			Administrator: administrator,
 		}
 		if req.Image != nil {
 			resp.Image = *req.Image
@@ -366,6 +383,10 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	administrator := ""
+	if req.Administrator != nil {
+		administrator = *req.Administrator
+	}
 	resp := teacherSignatureResponse{
 		signatureBaseResponse: signatureBaseResponse{
 			ID:     signatureID.String(),
@@ -374,7 +395,8 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 			Status: string(statusValue),
 			Method: string(methodValue),
 		},
-		Teacher: req.Teacher,
+		Teacher:       req.Teacher,
+		Administrator: administrator,
 	}
 	if req.Image != nil {
 		resp.Image = *req.Image
@@ -522,7 +544,16 @@ func (s *Server) handleGetBuzzlightyear(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusInternalServerError, "server_error")
 		return
 	}
-	if err := s.storeBuzzLightyearCode(r.Context(), code); err != nil {
+
+	beaconID := strings.TrimSpace(r.URL.Query().Get("beaconId"))
+	if beaconID != "" {
+		if _, err := uuid.Parse(beaconID); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_beacon_id")
+			return
+		}
+	}
+
+	if err := s.storeBuzzLightyearCode(r.Context(), beaconID, code); err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error")
 		return
 	}
@@ -530,6 +561,57 @@ func (s *Server) handleGetBuzzlightyear(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, map[string]int32{
 		"code":     code,
 		"validity": 15,
+	})
+}
+
+func (s *Server) handlePostBuzzlightyear(w http.ResponseWriter, r *http.Request) {
+	claims := claimsFromContext(r.Context())
+	if claims == nil {
+		writeError(w, http.StatusUnauthorized, "missing_token")
+		return
+	}
+	if claims.UserType != "student" {
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+
+	beaconID := chi.URLParam(r, "beaconId")
+	if beaconID == "" {
+		writeError(w, http.StatusBadRequest, "missing_beacon_id")
+		return
+	}
+	if _, err := uuid.Parse(beaconID); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_beacon_id")
+		return
+	}
+
+	var req struct {
+		Signature string `json:"signature"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request")
+		return
+	}
+	if strings.TrimSpace(req.Signature) == "" {
+		writeError(w, http.StatusBadRequest, "missing_signature")
+		return
+	}
+
+	code, ok, err := s.loadBuzzLightyearCode(r.Context(), beaconID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+	if !ok {
+		writeError(w, http.StatusNotFound, "code_not_found")
+		return
+	}
+	_ = s.clearBuzzLightyearCode(r.Context(), beaconID)
+
+	message := fmt.Sprintf("%s_%d", beaconID, code)
+	writeJSON(w, http.StatusOK, map[string]string{
+		"message":   message,
+		"signature": req.Signature,
 	})
 }
 
@@ -1081,22 +1163,22 @@ func mapStudentSignatureValues(id, courseID pgtype.UUID, signedAt pgtype.Timesta
 }
 
 func mapTeacherSignature(sig db.GetTeacherSignatureRow) teacherSignatureResponse {
-	return mapTeacherSignatureValues(sig.ID, sig.CourseID, sig.SignedAt, sig.Status, sig.Method, sig.ImageUrl, sig.TeacherID)
+	return mapTeacherSignatureValues(sig.ID, sig.CourseID, sig.SignedAt, sig.Status, sig.Method, sig.ImageUrl, sig.TeacherID, sig.AdministratorID)
 }
 
 func mapTeacherSignatureFromListTeacher(sig db.ListTeacherSignaturesByTeacherRow) teacherSignatureResponse {
-	return mapTeacherSignatureValues(sig.ID, sig.CourseID, sig.SignedAt, sig.Status, sig.Method, sig.ImageUrl, sig.TeacherID)
+	return mapTeacherSignatureValues(sig.ID, sig.CourseID, sig.SignedAt, sig.Status, sig.Method, sig.ImageUrl, sig.TeacherID, sig.AdministratorID)
 }
 
 func mapTeacherSignatureFromListTeacherCourse(sig db.ListTeacherSignaturesByTeacherAndCourseRow) teacherSignatureResponse {
-	return mapTeacherSignatureValues(sig.ID, sig.CourseID, sig.SignedAt, sig.Status, sig.Method, sig.ImageUrl, sig.TeacherID)
+	return mapTeacherSignatureValues(sig.ID, sig.CourseID, sig.SignedAt, sig.Status, sig.Method, sig.ImageUrl, sig.TeacherID, sig.AdministratorID)
 }
 
 func mapTeacherSignatureFromListCourse(sig db.ListTeacherSignaturesByCourseRow) teacherSignatureResponse {
-	return mapTeacherSignatureValues(sig.ID, sig.CourseID, sig.SignedAt, sig.Status, sig.Method, sig.ImageUrl, sig.TeacherID)
+	return mapTeacherSignatureValues(sig.ID, sig.CourseID, sig.SignedAt, sig.Status, sig.Method, sig.ImageUrl, sig.TeacherID, sig.AdministratorID)
 }
 
-func mapTeacherSignatureValues(id, courseID pgtype.UUID, signedAt pgtype.Timestamptz, status db.SignatureStatus, method db.SignatureMethod, image pgtype.Text, teacherID pgtype.UUID) teacherSignatureResponse {
+func mapTeacherSignatureValues(id, courseID pgtype.UUID, signedAt pgtype.Timestamptz, status db.SignatureStatus, method db.SignatureMethod, image pgtype.Text, teacherID, adminID pgtype.UUID) teacherSignatureResponse {
 	resp := teacherSignatureResponse{
 		signatureBaseResponse: signatureBaseResponse{
 			ID:     uuidString(id),
@@ -1105,7 +1187,8 @@ func mapTeacherSignatureValues(id, courseID pgtype.UUID, signedAt pgtype.Timesta
 			Status: string(status),
 			Method: string(method),
 		},
-		Teacher: uuidString(teacherID),
+		Teacher:       uuidString(teacherID),
+		Administrator: uuidString(adminID),
 	}
 	if image.Valid {
 		resp.Image = image.String
@@ -1217,12 +1300,46 @@ func randomBuzzLightyearCode() (int32, error) {
 	return int32(value.Int64()), nil
 }
 
-func (s *Server) storeBuzzLightyearCode(ctx context.Context, code int32) error {
+func (s *Server) storeBuzzLightyearCode(ctx context.Context, beaconID string, code int32) error {
 	if s.redis == nil {
 		return nil
 	}
-	key := fmt.Sprintf("buzzlightyear:%d", code)
-	return s.redis.Set(ctx, key, "1", s.buzzTTL).Err()
+	key := buzzLightyearKey(beaconID, code)
+	return s.redis.Set(ctx, key, strconv.FormatInt(int64(code), 10), s.buzzTTL).Err()
+}
+
+func (s *Server) loadBuzzLightyearCode(ctx context.Context, beaconID string) (int32, bool, error) {
+	if s.redis == nil {
+		return 0, false, nil
+	}
+	key := buzzLightyearKey(beaconID, 0)
+	value, err := s.redis.Get(ctx, key).Result()
+	if err == redis.Nil {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, false, err
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return 0, false, err
+	}
+	return int32(parsed), true, nil
+}
+
+func (s *Server) clearBuzzLightyearCode(ctx context.Context, beaconID string) error {
+	if s.redis == nil {
+		return nil
+	}
+	key := buzzLightyearKey(beaconID, 0)
+	return s.redis.Del(ctx, key).Err()
+}
+
+func buzzLightyearKey(beaconID string, code int32) string {
+	if beaconID == "" {
+		return fmt.Sprintf("buzzlightyear:%d", code)
+	}
+	return fmt.Sprintf("buzzlightyear:%s", beaconID)
 }
 
 // Utilities
@@ -1281,6 +1398,13 @@ func pgUUIDFromString(id string) pgtype.UUID {
 		return pgtype.UUID{}
 	}
 	return pgtype.UUID{Bytes: parsed, Valid: true}
+}
+
+func pgUUIDFromStringPtr(id *string) pgtype.UUID {
+	if id == nil {
+		return pgtype.UUID{}
+	}
+	return pgUUIDFromString(*id)
 }
 
 func pgTime(t time.Time) pgtype.Timestamptz {

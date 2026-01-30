@@ -50,19 +50,13 @@ func (s *Server) Router() http.Handler {
 	})
 	r.Handle("/metrics", promhttp.Handler())
 
-	r.Post("/beacon/auth/token", s.handleBeaconAuthToken)
-	r.Post("/beacon/auth/refreshToken", s.handleBeaconRefresh)
-
-	r.With(s.beaconAuthMiddleware).Post("/beacon/buzzLightyear", s.handleBuzzLightyear)
-	r.With(s.beaconAuthMiddleware).Patch("/beacon/{beaconId}", s.handlePatchBeaconKey)
-
-	r.With(s.authMiddleware, s.requireDev).Get("/dev/beacons", s.handleListBeacons)
-	r.With(s.authMiddleware, s.requireDev).Post("/dev/beacon", s.handleCreateBeacon)
-	r.With(s.authMiddleware, s.requireDev).Get("/dev/beacon/{beaconId}", s.handleGetBeacon)
-	r.With(s.authMiddleware, s.requireDev).Patch("/dev/beacon/{beaconId}", s.handlePatchBeacon)
-	r.With(s.authMiddleware, s.requireDev).Delete("/dev/beacon/{beaconId}", s.handleDeleteBeacon)
-	r.With(s.authMiddleware, s.requireAdminOrDev).Post("/dev/beacon/{beaconId}/classroom", s.handleAssignBeaconClassroom)
-	r.With(s.authMiddleware, s.requireAdminOrDev).Delete("/dev/beacon/{beaconId}/classroom/{classroomId}", s.handleRemoveBeaconClassroom)
+	r.With(s.authMiddleware, s.requireAdminOrDev).Get("/beacons", s.handleListBeacons)
+	r.With(s.authMiddleware, s.requireAdminOrDev).Post("/beacon", s.handleCreateBeacon)
+	r.With(s.authMiddleware, s.requireAdminOrDev).Get("/beacon/{beaconId}", s.handleGetBeacon)
+	r.With(s.authMiddleware, s.requireAdminOrDev).Patch("/beacon/{beaconId}", s.handlePatchBeacon)
+	r.With(s.authMiddleware, s.requireAdminOrDev).Delete("/beacon/{beaconId}", s.handleDeleteBeacon)
+	r.With(s.authMiddleware, s.requireAdminOrDev).Post("/beacon/{beaconId}/classroom", s.handleAssignBeaconClassroom)
+	r.With(s.authMiddleware, s.requireAdminOrDev).Delete("/beacon/{beaconId}/classroom/{classroomId}", s.handleRemoveBeaconClassroom)
 
 	return r
 }

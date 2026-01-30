@@ -248,7 +248,7 @@ INSERT INTO school_preferences (
   teacher_can_modify_closing_delay,
   students_can_sign_before_teacher,
   enable_flash,
-  enable_qrcode,
+  disable_course_modification_from_ui,
   enable_nfc,
   created_at,
   updated_at
@@ -262,7 +262,7 @@ INSERT INTO school_preferences (
   $7,
   $8,
   $9
-) RETURNING id, default_signature_closing_delay_minutes, teacher_can_modify_closing_delay, students_can_sign_before_teacher, enable_flash, enable_qrcode, enable_nfc, created_at, updated_at, deleted_at
+) RETURNING id, default_signature_closing_delay_minutes, teacher_can_modify_closing_delay, students_can_sign_before_teacher, enable_flash, disable_course_modification_from_ui, enable_nfc, created_at, updated_at, deleted_at
 `
 
 type CreateSchoolPreferencesParams struct {
@@ -271,7 +271,7 @@ type CreateSchoolPreferencesParams struct {
 	TeacherCanModifyClosingDelay        bool               `db:"teacher_can_modify_closing_delay" json:"teacher_can_modify_closing_delay"`
 	StudentsCanSignBeforeTeacher        bool               `db:"students_can_sign_before_teacher" json:"students_can_sign_before_teacher"`
 	EnableFlash                         bool               `db:"enable_flash" json:"enable_flash"`
-	EnableQrcode                        bool               `db:"enable_qrcode" json:"enable_qrcode"`
+	DisableCourseModificationFromUI     bool               `db:"disable_course_modification_from_ui" json:"disable_course_modification_from_ui"`
 	EnableNfc                           bool               `db:"enable_nfc" json:"enable_nfc"`
 	CreatedAt                           pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt                           pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
@@ -280,15 +280,15 @@ type CreateSchoolPreferencesParams struct {
 func (q *Queries) CreateSchoolPreferences(ctx context.Context, arg CreateSchoolPreferencesParams) (SchoolPreference, error) {
 	row := q.db.QueryRow(ctx, createSchoolPreferences,
 		arg.ID,
-		arg.DefaultSignatureClosingDelayMinutes,
-		arg.TeacherCanModifyClosingDelay,
-		arg.StudentsCanSignBeforeTeacher,
-		arg.EnableFlash,
-		arg.EnableQrcode,
-		arg.EnableNfc,
-		arg.CreatedAt,
-		arg.UpdatedAt,
-	)
+	arg.DefaultSignatureClosingDelayMinutes,
+	arg.TeacherCanModifyClosingDelay,
+	arg.StudentsCanSignBeforeTeacher,
+	arg.EnableFlash,
+	arg.DisableCourseModificationFromUI,
+	arg.EnableNfc,
+	arg.CreatedAt,
+	arg.UpdatedAt,
+)
 	var i SchoolPreference
 	err := row.Scan(
 		&i.ID,
@@ -296,7 +296,7 @@ func (q *Queries) CreateSchoolPreferences(ctx context.Context, arg CreateSchoolP
 		&i.TeacherCanModifyClosingDelay,
 		&i.StudentsCanSignBeforeTeacher,
 		&i.EnableFlash,
-		&i.EnableQrcode,
+		&i.DisableCourseModificationFromUI,
 		&i.EnableNfc,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -408,7 +408,7 @@ func (q *Queries) GetSchool(ctx context.Context, id pgtype.UUID) (School, error)
 }
 
 const getSchoolPreferences = `-- name: GetSchoolPreferences :one
-SELECT id, default_signature_closing_delay_minutes, teacher_can_modify_closing_delay, students_can_sign_before_teacher, enable_flash, enable_qrcode, enable_nfc, created_at, updated_at, deleted_at
+SELECT id, default_signature_closing_delay_minutes, teacher_can_modify_closing_delay, students_can_sign_before_teacher, enable_flash, disable_course_modification_from_ui, enable_nfc, created_at, updated_at, deleted_at
 FROM school_preferences
 WHERE id = $1 AND deleted_at IS NULL
 `
@@ -422,7 +422,7 @@ func (q *Queries) GetSchoolPreferences(ctx context.Context, id pgtype.UUID) (Sch
 		&i.TeacherCanModifyClosingDelay,
 		&i.StudentsCanSignBeforeTeacher,
 		&i.EnableFlash,
-		&i.EnableQrcode,
+		&i.DisableCourseModificationFromUI,
 		&i.EnableNfc,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -1004,6 +1004,42 @@ func (q *Queries) ListStudentIDsByStudentGroup(ctx context.Context, studentGroup
 	return items, nil
 }
 
+const listStudentGroupsByCourse = `-- name: ListStudentGroupsByCourse :many
+SELECT sg.id, sg.school_id, sg.name, sg.single_student_group, sg.created_at, sg.updated_at, sg.deleted_at
+FROM student_groups sg
+INNER JOIN courses_student_groups csg ON csg.student_group_id = sg.id
+WHERE csg.course_id = $1 AND sg.deleted_at IS NULL
+ORDER BY sg.created_at DESC
+`
+
+func (q *Queries) ListStudentGroupsByCourse(ctx context.Context, courseID pgtype.UUID) ([]StudentGroup, error) {
+	rows, err := q.db.Query(ctx, listStudentGroupsByCourse, courseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []StudentGroup
+	for rows.Next() {
+		var i StudentGroup
+		if err := rows.Scan(
+			&i.ID,
+			&i.SchoolID,
+			&i.Name,
+			&i.SingleStudentGroup,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const removeCourseClassroom = `-- name: RemoveCourseClassroom :exec
 DELETE FROM courses_classrooms
 WHERE course_id = $1 AND classroom_id = $2
@@ -1258,11 +1294,11 @@ SET default_signature_closing_delay_minutes = $2,
     teacher_can_modify_closing_delay = $3,
     students_can_sign_before_teacher = $4,
     enable_flash = $5,
-    enable_qrcode = $6,
+    disable_course_modification_from_ui = $6,
     enable_nfc = $7,
     updated_at = $8
 WHERE id = $1 AND deleted_at IS NULL
-RETURNING id, default_signature_closing_delay_minutes, teacher_can_modify_closing_delay, students_can_sign_before_teacher, enable_flash, enable_qrcode, enable_nfc, created_at, updated_at, deleted_at
+RETURNING id, default_signature_closing_delay_minutes, teacher_can_modify_closing_delay, students_can_sign_before_teacher, enable_flash, disable_course_modification_from_ui, enable_nfc, created_at, updated_at, deleted_at
 `
 
 type UpdateSchoolPreferencesParams struct {
@@ -1271,7 +1307,7 @@ type UpdateSchoolPreferencesParams struct {
 	TeacherCanModifyClosingDelay        bool               `db:"teacher_can_modify_closing_delay" json:"teacher_can_modify_closing_delay"`
 	StudentsCanSignBeforeTeacher        bool               `db:"students_can_sign_before_teacher" json:"students_can_sign_before_teacher"`
 	EnableFlash                         bool               `db:"enable_flash" json:"enable_flash"`
-	EnableQrcode                        bool               `db:"enable_qrcode" json:"enable_qrcode"`
+	DisableCourseModificationFromUI     bool               `db:"disable_course_modification_from_ui" json:"disable_course_modification_from_ui"`
 	EnableNfc                           bool               `db:"enable_nfc" json:"enable_nfc"`
 	UpdatedAt                           pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
@@ -1279,14 +1315,14 @@ type UpdateSchoolPreferencesParams struct {
 func (q *Queries) UpdateSchoolPreferences(ctx context.Context, arg UpdateSchoolPreferencesParams) (SchoolPreference, error) {
 	row := q.db.QueryRow(ctx, updateSchoolPreferences,
 		arg.ID,
-		arg.DefaultSignatureClosingDelayMinutes,
-		arg.TeacherCanModifyClosingDelay,
-		arg.StudentsCanSignBeforeTeacher,
-		arg.EnableFlash,
-		arg.EnableQrcode,
-		arg.EnableNfc,
-		arg.UpdatedAt,
-	)
+	arg.DefaultSignatureClosingDelayMinutes,
+	arg.TeacherCanModifyClosingDelay,
+	arg.StudentsCanSignBeforeTeacher,
+	arg.EnableFlash,
+	arg.DisableCourseModificationFromUI,
+	arg.EnableNfc,
+	arg.UpdatedAt,
+)
 	var i SchoolPreference
 	err := row.Scan(
 		&i.ID,
@@ -1294,7 +1330,7 @@ func (q *Queries) UpdateSchoolPreferences(ctx context.Context, arg UpdateSchoolP
 		&i.TeacherCanModifyClosingDelay,
 		&i.StudentsCanSignBeforeTeacher,
 		&i.EnableFlash,
-		&i.EnableQrcode,
+		&i.DisableCourseModificationFromUI,
 		&i.EnableNfc,
 		&i.CreatedAt,
 		&i.UpdatedAt,

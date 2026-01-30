@@ -96,18 +96,19 @@ func (q *Queries) CreateStudentSignature(ctx context.Context, arg CreateStudentS
 }
 
 const createTeacherSignature = `-- name: CreateTeacherSignature :exec
-INSERT INTO teacher_signatures (signature_id, teacher_id, course_id)
-VALUES ($1, $2, $3)
+INSERT INTO teacher_signatures (signature_id, teacher_id, administrator_id, course_id)
+VALUES ($1, $2, $3, $4)
 `
 
 type CreateTeacherSignatureParams struct {
-	SignatureID pgtype.UUID `db:"signature_id" json:"signature_id"`
-	TeacherID   pgtype.UUID `db:"teacher_id" json:"teacher_id"`
-	CourseID    pgtype.UUID `db:"course_id" json:"course_id"`
+	SignatureID     pgtype.UUID `db:"signature_id" json:"signature_id"`
+	TeacherID       pgtype.UUID `db:"teacher_id" json:"teacher_id"`
+	AdministratorID pgtype.UUID `db:"administrator_id" json:"administrator_id"`
+	CourseID        pgtype.UUID `db:"course_id" json:"course_id"`
 }
 
 func (q *Queries) CreateTeacherSignature(ctx context.Context, arg CreateTeacherSignatureParams) error {
-	_, err := q.db.Exec(ctx, createTeacherSignature, arg.SignatureID, arg.TeacherID, arg.CourseID)
+	_, err := q.db.Exec(ctx, createTeacherSignature, arg.SignatureID, arg.TeacherID, arg.AdministratorID, arg.CourseID)
 	return err
 }
 
@@ -174,23 +175,25 @@ SELECT s.id,
        s.created_at,
        s.updated_at,
        s.deleted_at,
-       ts.teacher_id
+       ts.teacher_id,
+       ts.administrator_id
 FROM signatures s
 INNER JOIN teacher_signatures ts ON ts.signature_id = s.id
 WHERE s.id = $1 AND s.deleted_at IS NULL
 `
 
 type GetTeacherSignatureRow struct {
-	ID        pgtype.UUID        `db:"id" json:"id"`
-	CourseID  pgtype.UUID        `db:"course_id" json:"course_id"`
-	SignedAt  pgtype.Timestamptz `db:"signed_at" json:"signed_at"`
-	Status    SignatureStatus    `db:"status" json:"status"`
-	Method    SignatureMethod    `db:"method" json:"method"`
-	ImageUrl  pgtype.Text        `db:"image_url" json:"image_url"`
-	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	DeletedAt pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
-	TeacherID pgtype.UUID        `db:"teacher_id" json:"teacher_id"`
+	ID              pgtype.UUID        `db:"id" json:"id"`
+	CourseID        pgtype.UUID        `db:"course_id" json:"course_id"`
+	SignedAt        pgtype.Timestamptz `db:"signed_at" json:"signed_at"`
+	Status          SignatureStatus    `db:"status" json:"status"`
+	Method          SignatureMethod    `db:"method" json:"method"`
+	ImageUrl        pgtype.Text        `db:"image_url" json:"image_url"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt       pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+	TeacherID       pgtype.UUID        `db:"teacher_id" json:"teacher_id"`
+	AdministratorID pgtype.UUID        `db:"administrator_id" json:"administrator_id"`
 }
 
 func (q *Queries) GetTeacherSignature(ctx context.Context, id pgtype.UUID) (GetTeacherSignatureRow, error) {
@@ -207,6 +210,7 @@ func (q *Queries) GetTeacherSignature(ctx context.Context, id pgtype.UUID) (GetT
 		&i.UpdatedAt,
 		&i.DeletedAt,
 		&i.TeacherID,
+		&i.AdministratorID,
 	)
 	return i, err
 }

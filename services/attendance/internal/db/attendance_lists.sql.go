@@ -312,7 +312,8 @@ SELECT s.id,
        s.created_at,
        s.updated_at,
        s.deleted_at,
-       ts.teacher_id
+       ts.teacher_id,
+       ts.administrator_id
 FROM signatures s
 INNER JOIN teacher_signatures ts ON ts.signature_id = s.id
 WHERE s.course_id = $1
@@ -327,16 +328,17 @@ type ListTeacherSignaturesByCourseParams struct {
 }
 
 type ListTeacherSignaturesByCourseRow struct {
-	ID        pgtype.UUID        `db:"id" json:"id"`
-	CourseID  pgtype.UUID        `db:"course_id" json:"course_id"`
-	SignedAt  pgtype.Timestamptz `db:"signed_at" json:"signed_at"`
-	Status    SignatureStatus    `db:"status" json:"status"`
-	Method    SignatureMethod    `db:"method" json:"method"`
-	ImageUrl  pgtype.Text        `db:"image_url" json:"image_url"`
-	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	DeletedAt pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
-	TeacherID pgtype.UUID        `db:"teacher_id" json:"teacher_id"`
+	ID              pgtype.UUID        `db:"id" json:"id"`
+	CourseID        pgtype.UUID        `db:"course_id" json:"course_id"`
+	SignedAt        pgtype.Timestamptz `db:"signed_at" json:"signed_at"`
+	Status          SignatureStatus    `db:"status" json:"status"`
+	Method          SignatureMethod    `db:"method" json:"method"`
+	ImageUrl        pgtype.Text        `db:"image_url" json:"image_url"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt       pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+	TeacherID       pgtype.UUID        `db:"teacher_id" json:"teacher_id"`
+	AdministratorID pgtype.UUID        `db:"administrator_id" json:"administrator_id"`
 }
 
 func (q *Queries) ListTeacherSignaturesByCourse(ctx context.Context, arg ListTeacherSignaturesByCourseParams) ([]ListTeacherSignaturesByCourseRow, error) {
@@ -359,6 +361,7 @@ func (q *Queries) ListTeacherSignaturesByCourse(ctx context.Context, arg ListTea
 			&i.UpdatedAt,
 			&i.DeletedAt,
 			&i.TeacherID,
+			&i.AdministratorID,
 		); err != nil {
 			return nil, err
 		}
@@ -380,7 +383,8 @@ SELECT s.id,
        s.created_at,
        s.updated_at,
        s.deleted_at,
-       ts.teacher_id
+       ts.teacher_id,
+       ts.administrator_id
 FROM signatures s
 INNER JOIN teacher_signatures ts ON ts.signature_id = s.id
 WHERE ts.teacher_id = $1
@@ -395,16 +399,17 @@ type ListTeacherSignaturesByTeacherParams struct {
 }
 
 type ListTeacherSignaturesByTeacherRow struct {
-	ID        pgtype.UUID        `db:"id" json:"id"`
-	CourseID  pgtype.UUID        `db:"course_id" json:"course_id"`
-	SignedAt  pgtype.Timestamptz `db:"signed_at" json:"signed_at"`
-	Status    SignatureStatus    `db:"status" json:"status"`
-	Method    SignatureMethod    `db:"method" json:"method"`
-	ImageUrl  pgtype.Text        `db:"image_url" json:"image_url"`
-	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	DeletedAt pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
-	TeacherID pgtype.UUID        `db:"teacher_id" json:"teacher_id"`
+	ID              pgtype.UUID        `db:"id" json:"id"`
+	CourseID        pgtype.UUID        `db:"course_id" json:"course_id"`
+	SignedAt        pgtype.Timestamptz `db:"signed_at" json:"signed_at"`
+	Status          SignatureStatus    `db:"status" json:"status"`
+	Method          SignatureMethod    `db:"method" json:"method"`
+	ImageUrl        pgtype.Text        `db:"image_url" json:"image_url"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt       pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+	TeacherID       pgtype.UUID        `db:"teacher_id" json:"teacher_id"`
+	AdministratorID pgtype.UUID        `db:"administrator_id" json:"administrator_id"`
 }
 
 func (q *Queries) ListTeacherSignaturesByTeacher(ctx context.Context, arg ListTeacherSignaturesByTeacherParams) ([]ListTeacherSignaturesByTeacherRow, error) {
@@ -427,6 +432,7 @@ func (q *Queries) ListTeacherSignaturesByTeacher(ctx context.Context, arg ListTe
 			&i.UpdatedAt,
 			&i.DeletedAt,
 			&i.TeacherID,
+			&i.AdministratorID,
 		); err != nil {
 			return nil, err
 		}
@@ -448,7 +454,8 @@ SELECT s.id,
        s.created_at,
        s.updated_at,
        s.deleted_at,
-       ts.teacher_id
+       ts.teacher_id,
+       ts.administrator_id
 FROM signatures s
 INNER JOIN teacher_signatures ts ON ts.signature_id = s.id
 WHERE ts.teacher_id = $1
@@ -465,16 +472,17 @@ type ListTeacherSignaturesByTeacherAndCourseParams struct {
 }
 
 type ListTeacherSignaturesByTeacherAndCourseRow struct {
-	ID        pgtype.UUID        `db:"id" json:"id"`
-	CourseID  pgtype.UUID        `db:"course_id" json:"course_id"`
-	SignedAt  pgtype.Timestamptz `db:"signed_at" json:"signed_at"`
-	Status    SignatureStatus    `db:"status" json:"status"`
-	Method    SignatureMethod    `db:"method" json:"method"`
-	ImageUrl  pgtype.Text        `db:"image_url" json:"image_url"`
-	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	DeletedAt pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
-	TeacherID pgtype.UUID        `db:"teacher_id" json:"teacher_id"`
+	ID              pgtype.UUID        `db:"id" json:"id"`
+	CourseID        pgtype.UUID        `db:"course_id" json:"course_id"`
+	SignedAt        pgtype.Timestamptz `db:"signed_at" json:"signed_at"`
+	Status          SignatureStatus    `db:"status" json:"status"`
+	Method          SignatureMethod    `db:"method" json:"method"`
+	ImageUrl        pgtype.Text        `db:"image_url" json:"image_url"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt       pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+	TeacherID       pgtype.UUID        `db:"teacher_id" json:"teacher_id"`
+	AdministratorID pgtype.UUID        `db:"administrator_id" json:"administrator_id"`
 }
 
 func (q *Queries) ListTeacherSignaturesByTeacherAndCourse(ctx context.Context, arg ListTeacherSignaturesByTeacherAndCourseParams) ([]ListTeacherSignaturesByTeacherAndCourseRow, error) {
@@ -497,6 +505,7 @@ func (q *Queries) ListTeacherSignaturesByTeacherAndCourse(ctx context.Context, a
 			&i.UpdatedAt,
 			&i.DeletedAt,
 			&i.TeacherID,
+			&i.AdministratorID,
 		); err != nil {
 			return nil, err
 		}

@@ -153,7 +153,7 @@ message SchoolPreferences {
   bool teacher_can_modify_closing_delay = 3;
   bool students_can_sign_before_teacher = 4;
   bool enable_flash = 5;
-  bool enable_qrcode = 6;
+  bool disable_course_modification_from_ui = 6;
   bool enable_nfc = 7;
 }
 

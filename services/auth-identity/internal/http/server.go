@@ -63,7 +63,7 @@ func (s *Server) Router() http.Handler {
 
 	r.Post("/auth/login", s.handleLogin)
 	r.Post("/auth/refresh", s.handleRefresh)
-	r.Post("/auth/logout", s.handleLogout)
+	r.With(s.authMiddleware).Post("/auth/logout", s.handleLogout)
 
 	r.With(s.authMiddleware).Get("/auth/me", s.handleGetMe)
 	r.With(s.authMiddleware).Post("/students/me/devices", s.handleRegisterDevice)
@@ -114,8 +114,8 @@ type loginRequest struct {
 }
 
 type authResponse struct {
-	AccessToken  string      `json:"access_token"`
-	RefreshToken string      `json:"refresh_token"`
+	AccessToken  string      `json:"accessToken"`
+	RefreshToken string      `json:"refreshToken"`
 	User         userSummary `json:"user"`
 }
 
@@ -216,7 +216,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 type refreshRequest struct {
-	RefreshToken string `json:"refresh_token"`
+	RefreshToken string `json:"refreshToken"`
 }
 
 func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
@@ -287,24 +287,13 @@ func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
-	var req refreshRequest
-	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request")
-		return
-	}
-	if req.RefreshToken == "" {
-		writeError(w, http.StatusBadRequest, "missing_refresh_token")
+	claims := claimsFromContext(r.Context())
+	if claims == nil {
+		writeError(w, http.StatusUnauthorized, "missing_token")
 		return
 	}
 
-	tokenHash := crypto.HashToken(req.RefreshToken)
-	session, err := s.store.GetRefreshSession(r.Context(), tokenHash)
-	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-		return
-	}
-
-	_ = s.store.RevokeRefreshSession(r.Context(), session.ID, time.Now().UTC())
+	_ = s.store.RevokeRefreshSessionsByUser(r.Context(), claims.UserID, time.Now().UTC())
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 

@@ -127,6 +127,7 @@ type StudentSignature struct {
 }
 
 type TeacherSignature struct {
-	SignatureID pgtype.UUID `db:"signature_id" json:"signature_id"`
-	TeacherID   pgtype.UUID `db:"teacher_id" json:"teacher_id"`
+	SignatureID     pgtype.UUID `db:"signature_id" json:"signature_id"`
+	TeacherID       pgtype.UUID `db:"teacher_id" json:"teacher_id"`
+	AdministratorID pgtype.UUID `db:"administrator_id" json:"administrator_id"`
 }
