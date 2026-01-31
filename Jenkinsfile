@@ -123,7 +123,7 @@ pipeline {
               --local context=. \\
               --local dockerfile=. \\
               --opt filename=docker/Dockerfile.migrations \\
-              --output 'type=image,\"name=${env.REGISTRY_PUSH_HOST}/${env.MIGRATIONS_IMAGE}:${env.BUILD_NUMBER},${env.REGISTRY_PUSH_HOST}/${env.MIGRATIONS_IMAGE}:latest\",push=true,registry.insecure=true'
+              --output 'type=image,\"name=${env.REGISTRY_PUSH_HOST}/${env.MIGRATIONS_IMAGE}:${env.BUILD_NUMBER},${env.REGISTRY_PUSH_HOST}/${env.MIGRATIONS_IMAGE}:latest,${env.REGISTRY_HOST}/${env.MIGRATIONS_IMAGE}:${env.BUILD_NUMBER},${env.REGISTRY_HOST}/${env.MIGRATIONS_IMAGE}:latest\",push=true,registry.insecure=true'
           """
         }
       }
@@ -140,7 +140,17 @@ pipeline {
               sh '''
                 set -e
                 kubectl delete job semaphore-migrations -n "${K8S_NAMESPACE}" --ignore-not-found
-                kubectl apply -k .
+                kubectl kustomize . | \
+                  kubectl set image --local -f - job/semaphore-migrations \
+                    migrate=${REGISTRY_HOST}/${MIGRATIONS_IMAGE}:${BUILD_NUMBER} -o yaml | \
+                  kubectl apply -f -
+
+                kubectl wait --for=condition=complete job/semaphore-migrations \
+                  -n "${K8S_NAMESPACE}" --timeout=10m || {
+                    kubectl logs job/semaphore-migrations -n "${K8S_NAMESPACE}" --all-containers --tail=-1 || true
+                    kubectl describe job semaphore-migrations -n "${K8S_NAMESPACE}" || true
+                    exit 1
+                  }
                 kubectl apply -k k8s/monitoring
                 kubectl apply -k k8s/istio
                 kubectl rollout restart statefulset/postgres statefulset/redis -n "${K8S_NAMESPACE}"

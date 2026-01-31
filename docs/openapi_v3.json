@@ -530,6 +530,42 @@
         }
       }
     },
+    "/auth/me": {
+      "get": {
+        "tags": [
+          "Authentification"
+        ],
+        "summary": "Profil utilisateur courant",
+        "description": "Retourne le profil utilisateur associé au jeton\n-\nQui peux exécuter la requête ?\n  - Étudiants : Oui\n  - Enseignants: Oui\n  - Administration: Oui\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+        "operationId": "getAuthMe",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Profil utilisateur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserSummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnknownError"
+          }
+        }
+      }
+    },
     "/auth/refresh": {
       "post": {
         "tags": [
@@ -4612,6 +4648,46 @@
                 "example": "student"
               }
             }
+          }
+        }
+      },
+      "UserSummary": {
+        "type": "object",
+        "description": "Profil utilisateur courant",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          },
+          "schoolId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+          },
+          "email": {
+            "type": "string",
+            "example": "semaphore@mail.com"
+          },
+          "firstName": {
+            "type": "string",
+            "example": "Marc"
+          },
+          "lastName": {
+            "type": "string",
+            "example": "DUPONT"
+          },
+          "userType": {
+            "type": "string",
+            "example": "student"
+          },
+          "adminRole": {
+            "type": "string",
+            "example": "school_admin"
+          },
+          "studentNumber": {
+            "type": "string",
+            "example": "20210894"
           }
         }
       },

@@ -295,6 +295,18 @@
       }
     },
     {
+      "_id": "req_get_auth_me",
+      "_type": "request",
+      "parentId": "grp_authentification",
+      "name": "GET /auth/me",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/auth/me",
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.accessToken }}"
+      }
+    },
+    {
       "_id": "req_post_auth_logout",
       "_type": "request",
       "parentId": "grp_authentification",
