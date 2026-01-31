@@ -141,7 +141,7 @@ pipeline {
                 set -e
                 kubectl delete job semaphore-migrations -n "${K8S_NAMESPACE}" --ignore-not-found
                 kubectl kustomize . | \
-                  kubectl set image --local -f - job/semaphore-migrations \
+                  kubectl set image --local -f - \
                     migrate=${REGISTRY_HOST}/${MIGRATIONS_IMAGE}:${BUILD_NUMBER} -o yaml | \
                   kubectl apply -f -
 
