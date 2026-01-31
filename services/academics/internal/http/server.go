@@ -833,13 +833,13 @@ func (s *Server) listCoursesForSchool(ctx context.Context, schoolID string, limi
 	}
 	if fromDate != nil && toDate != nil {
 		return s.store.Queries.ListCoursesBySchoolWithinRange(ctx, db.ListCoursesBySchoolWithinRangeParams{
-			SchoolID:  pgUUID(schoolUUID),
+			SchoolID:  schoolUUID,
 			StartAt:   pgTime(fromDate.UTC()),
 			StartAt_2: pgTime(toDate.UTC()),
 			Limit:     int32(limit),
 		})
 	}
-	return s.store.Queries.ListCoursesBySchool(ctx, db.ListCoursesBySchoolParams{SchoolID: pgUUID(schoolUUID), Limit: int32(limit)})
+	return s.store.Queries.ListCoursesBySchool(ctx, db.ListCoursesBySchoolParams{SchoolID: schoolUUID, Limit: int32(limit)})
 }
 
 type courseIncludes struct {
@@ -914,10 +914,10 @@ func (s *Server) listCourseStudents(ctx context.Context, courseID pgtype.UUID) (
 	return groups, all, solo, nil
 }
 
-func (s *Server) addSingleStudentsToCourse(ctx context.Context, q *db.Queries, course db.Course, studentIDs []uuid.UUID) error {
+func (s *Server) addSingleStudentsToCourse(ctx context.Context, q *db.Queries, course db.Course, studentIDs []pgtype.UUID) error {
 	for _, studentID := range studentIDs {
 		matchedGroups, err := q.ListMatchedStudentCourseGroups(ctx, db.ListMatchedStudentCourseGroupsParams{
-			StudentID: pgUUID(studentID),
+			StudentID: studentID,
 			CourseID:  course.ID,
 		})
 		if err != nil {
@@ -929,7 +929,7 @@ func (s *Server) addSingleStudentsToCourse(ctx context.Context, q *db.Queries, c
 		group, err := q.CreateStudentGroup(ctx, db.CreateStudentGroupParams{
 			ID:                 pgUUID(uuid.New()),
 			SchoolID:           course.SchoolID,
-			Name:               "single-" + studentID.String(),
+			Name:               "single-" + uuidString(studentID),
 			SingleStudentGroup: true,
 			CreatedAt:          nowPgTime(),
 			UpdatedAt:          nowPgTime(),
@@ -939,7 +939,7 @@ func (s *Server) addSingleStudentsToCourse(ctx context.Context, q *db.Queries, c
 		}
 		if err := q.AddStudentGroupMembers(ctx, db.AddStudentGroupMembersParams{
 			ID:             pgUUID(uuid.New()),
-			StudentID:      pgUUID(studentID),
+			StudentID:      studentID,
 			StudentGroupID: group.ID,
 			CreatedAt:      nowPgTime(),
 		}); err != nil {
@@ -994,7 +994,7 @@ func (s *Server) handleCreateCourse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	classroomUUIDs := make([]uuid.UUID, 0, len(req.ClassroomsID))
+	classroomUUIDs := make([]pgtype.UUID, 0, len(req.ClassroomsID))
 	for _, classroomID := range req.ClassroomsID {
 		classroomUUID, err := parseUUID(classroomID)
 		if err != nil {
@@ -1004,7 +1004,7 @@ func (s *Server) handleCreateCourse(w http.ResponseWriter, r *http.Request) {
 		classroomUUIDs = append(classroomUUIDs, classroomUUID)
 	}
 
-	teacherUUIDs := make([]uuid.UUID, 0, len(req.TeachersID))
+	teacherUUIDs := make([]pgtype.UUID, 0, len(req.TeachersID))
 	for _, teacherID := range req.TeachersID {
 		teacherUUID, err := parseUUID(teacherID)
 		if err != nil {
@@ -1014,7 +1014,7 @@ func (s *Server) handleCreateCourse(w http.ResponseWriter, r *http.Request) {
 		teacherUUIDs = append(teacherUUIDs, teacherUUID)
 	}
 
-	studentGroupUUIDs := make([]uuid.UUID, 0, len(req.StudentGroupsID))
+	studentGroupUUIDs := make([]pgtype.UUID, 0, len(req.StudentGroupsID))
 	for _, groupID := range req.StudentGroupsID {
 		groupUUID, err := parseUUID(groupID)
 		if err != nil {
@@ -1024,7 +1024,7 @@ func (s *Server) handleCreateCourse(w http.ResponseWriter, r *http.Request) {
 		studentGroupUUIDs = append(studentGroupUUIDs, groupUUID)
 	}
 
-	studentUUIDs := make([]uuid.UUID, 0, len(req.StudentsID))
+	studentUUIDs := make([]pgtype.UUID, 0, len(req.StudentsID))
 	for _, studentID := range req.StudentsID {
 		studentUUID, err := parseUUID(studentID)
 		if err != nil {
@@ -1064,7 +1064,7 @@ func (s *Server) handleCreateCourse(w http.ResponseWriter, r *http.Request) {
 			if err := q.AddCourseClassroom(r.Context(), db.AddCourseClassroomParams{
 				ID:          pgUUID(uuid.New()),
 				CourseID:    course.ID,
-				ClassroomID: pgUUID(classroomUUID),
+				ClassroomID: classroomUUID,
 				CreatedAt:   nowPgTime(),
 			}); err != nil {
 				return err
@@ -1074,7 +1074,7 @@ func (s *Server) handleCreateCourse(w http.ResponseWriter, r *http.Request) {
 		for _, teacherUUID := range teacherUUIDs {
 			if err := q.AddCourseTeacher(r.Context(), db.AddCourseTeacherParams{
 				ID:        pgUUID(uuid.New()),
-				TeacherID: pgUUID(teacherUUID),
+				TeacherID: teacherUUID,
 				CourseID:  course.ID,
 				CreatedAt: nowPgTime(),
 			}); err != nil {
@@ -1086,7 +1086,7 @@ func (s *Server) handleCreateCourse(w http.ResponseWriter, r *http.Request) {
 			if err := q.AddCourseStudentGroup(r.Context(), db.AddCourseStudentGroupParams{
 				ID:             pgUUID(uuid.New()),
 				CourseID:       course.ID,
-				StudentGroupID: pgUUID(groupUUID),
+				StudentGroupID: groupUUID,
 				CreatedAt:      nowPgTime(),
 			}); err != nil {
 				return err
@@ -1466,7 +1466,7 @@ func (s *Server) handleAddCourseStudents(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	studentUUIDs := make([]uuid.UUID, 0, len(req.StudentsID))
+	studentUUIDs := make([]pgtype.UUID, 0, len(req.StudentsID))
 	for _, studentID := range req.StudentsID {
 		studentUUID, err := parseUUID(studentID)
 		if err != nil {
@@ -1511,7 +1511,7 @@ func (s *Server) handleRemoveCourseStudent(w http.ResponseWriter, r *http.Reques
 
 	if err := s.store.WithTx(r.Context(), func(q *db.Queries) error {
 		matchedGroups, err := q.ListMatchedStudentCourseGroups(r.Context(), db.ListMatchedStudentCourseGroupsParams{
-			StudentID: pgUUID(studentUUID),
+			StudentID: studentUUID,
 			CourseID:  courseUUID,
 		})
 		if err != nil {
@@ -1536,7 +1536,7 @@ func (s *Server) handleRemoveCourseStudent(w http.ResponseWriter, r *http.Reques
 			}
 			if err := q.RemoveStudentGroupMember(r.Context(), db.RemoveStudentGroupMemberParams{
 				StudentGroupID: groupID,
-				StudentID:      pgUUID(studentUUID),
+				StudentID:      studentUUID,
 			}); err != nil {
 				return err
 			}

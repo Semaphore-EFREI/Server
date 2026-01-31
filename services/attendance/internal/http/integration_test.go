@@ -71,7 +71,7 @@ func TestStudentSignatureRules(t *testing.T) {
 		"date":    tooEarly,
 		"course":  courseID,
 		"status":  "signed",
-		"method":  "qrCode",
+		"method":  "beacon",
 		"student": studentID,
 	}
 	resp, body := doRequest(t, attendanceURL+"/signature", token, "demo-device-1", reqBody)
@@ -91,7 +91,7 @@ func TestStudentSignatureRules(t *testing.T) {
 		"date":    onTime,
 		"course":  course2ID,
 		"status":  "signed",
-		"method":  "qrCode",
+		"method":  "beacon",
 		"student": studentID,
 	})
 	if onTimeResp.Status != "signed" {
@@ -103,7 +103,7 @@ func TestStudentSignatureRules(t *testing.T) {
 		"date":    late,
 		"course":  courseID,
 		"status":  "signed",
-		"method":  "qrCode",
+		"method":  "beacon",
 		"student": studentID,
 	})
 	if lateResp.Status != "late" {
@@ -196,7 +196,7 @@ func TestAdminSignatureOverrides(t *testing.T) {
 		"date":    onTime,
 		"course":  courseID,
 		"status":  "signed",
-		"method":  "qrCode",
+		"method":  "beacon",
 		"student": studentID,
 	})
 

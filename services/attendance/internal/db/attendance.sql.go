@@ -108,7 +108,12 @@ type CreateTeacherSignatureParams struct {
 }
 
 func (q *Queries) CreateTeacherSignature(ctx context.Context, arg CreateTeacherSignatureParams) error {
-	_, err := q.db.Exec(ctx, createTeacherSignature, arg.SignatureID, arg.TeacherID, arg.AdministratorID, arg.CourseID)
+	_, err := q.db.Exec(ctx, createTeacherSignature,
+		arg.SignatureID,
+		arg.TeacherID,
+		arg.AdministratorID,
+		arg.CourseID,
+	)
 	return err
 }
 

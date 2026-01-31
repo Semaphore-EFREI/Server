@@ -33,7 +33,7 @@ Tables:
 - `beacon_idempotency_keys`: idempotency tracking for beacon submissions (endpoint + response).
 
 ## Enums
-- `signature_method`: `flash`, `qrcode`, `nfc`, `beacon`, `buzzLightyear`, `qrCode`, `teacher`, `web`, `self`, `admin`.
+- `signature_method`: `nfc`, `beacon`, `buzzLightyear`, `teacher`, `web`, `self`, `admin`.
 - `signature_status`: `signed`, `present`, `absent`, `late`, `excused`, `invalid`.
 - `admin_role`: `super_admin`, `school_admin`.
 

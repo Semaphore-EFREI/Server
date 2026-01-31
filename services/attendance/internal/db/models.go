@@ -14,12 +14,9 @@ import (
 type SignatureMethod string
 
 const (
-	SignatureMethodFlash         SignatureMethod = "flash"
-	SignatureMethodQrcode        SignatureMethod = "qrcode"
 	SignatureMethodNfc           SignatureMethod = "nfc"
 	SignatureMethodBeacon        SignatureMethod = "beacon"
 	SignatureMethodBuzzLightyear SignatureMethod = "buzzLightyear"
-	SignatureMethodQrCode        SignatureMethod = "qrCode"
 	SignatureMethodTeacher       SignatureMethod = "teacher"
 	SignatureMethodWeb           SignatureMethod = "web"
 	SignatureMethodSelf          SignatureMethod = "self"
@@ -124,10 +121,12 @@ type StudentSignature struct {
 	StudentID       pgtype.UUID `db:"student_id" json:"student_id"`
 	TeacherID       pgtype.UUID `db:"teacher_id" json:"teacher_id"`
 	AdministratorID pgtype.UUID `db:"administrator_id" json:"administrator_id"`
+	CourseID        pgtype.UUID `db:"course_id" json:"course_id"`
 }
 
 type TeacherSignature struct {
 	SignatureID     pgtype.UUID `db:"signature_id" json:"signature_id"`
 	TeacherID       pgtype.UUID `db:"teacher_id" json:"teacher_id"`
+	CourseID        pgtype.UUID `db:"course_id" json:"course_id"`
 	AdministratorID pgtype.UUID `db:"administrator_id" json:"administrator_id"`
 }

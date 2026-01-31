@@ -22,12 +22,9 @@ func TestNormalizeStatus(t *testing.T) {
 
 func TestNormalizeMethod(t *testing.T) {
 	cases := map[string]string{
-		"flash":         "buzzLightyear",
-		"qrcode":        "qrCode",
 		"nfc":           "nfc",
 		"beacon":        "beacon",
 		"buzzLightyear": "buzzLightyear",
-		"qrCode":        "qrCode",
 		"teacher":       "teacher",
 		"web":           "web",
 		"self":          "self",
@@ -44,6 +41,15 @@ func TestNormalizeMethod(t *testing.T) {
 	}
 	if _, err := normalizeMethod(""); err == nil {
 		t.Fatalf("expected empty method to error")
+	}
+	if _, err := normalizeMethod("qrcode"); err == nil {
+		t.Fatalf("expected qrcode method to error")
+	}
+	if _, err := normalizeMethod("qrCode"); err == nil {
+		t.Fatalf("expected qrCode method to error")
+	}
+	if _, err := normalizeMethod("flash"); err == nil {
+		t.Fatalf("expected flash method to error")
 	}
 }
 

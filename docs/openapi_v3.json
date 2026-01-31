@@ -4875,7 +4875,7 @@
             "enum": [
               "beacon",
               "buzzLightyear",
-              "qrCode",
+              "admin",
               "teacher",
               "web",
               "self"

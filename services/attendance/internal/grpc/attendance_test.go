@@ -26,7 +26,6 @@ func TestStatusToGRPC(t *testing.T) {
 
 func TestMethodFromGRPC(t *testing.T) {
 	cases := map[attendancev1.SignatureMethod]string{
-		attendancev1.SignatureMethod_SIGNATURE_METHOD_QR:         "qrCode",
 		attendancev1.SignatureMethod_SIGNATURE_METHOD_NFC:        "nfc",
 		attendancev1.SignatureMethod_SIGNATURE_METHOD_FLASHLIGHT: "buzzLightyear",
 		attendancev1.SignatureMethod_SIGNATURE_METHOD_BEACON:     "beacon",
@@ -44,5 +43,8 @@ func TestMethodFromGRPC(t *testing.T) {
 	}
 	if _, err := methodFromGRPC(attendancev1.SignatureMethod_SIGNATURE_METHOD_UNSPECIFIED); err == nil {
 		t.Fatalf("expected error for unspecified method")
+	}
+	if _, err := methodFromGRPC(attendancev1.SignatureMethod_SIGNATURE_METHOD_QR); err == nil {
+		t.Fatalf("expected error for QR method")
 	}
 }

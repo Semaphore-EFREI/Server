@@ -1210,13 +1210,9 @@ func normalizeMethod(value string) (db.SignatureMethod, error) {
 		return "", errInvalid
 	}
 	switch value {
-	case "flash":
-		return db.SignatureMethod("buzzLightyear"), nil
-	case "qrcode":
-		return db.SignatureMethod("qrCode"), nil
 	case "nfc":
 		return db.SignatureMethod("nfc"), nil
-	case "beacon", "buzzLightyear", "qrCode", "teacher", "web", "self", "admin":
+	case "beacon", "buzzLightyear", "teacher", "web", "self", "admin":
 		return db.SignatureMethod(value), nil
 	default:
 		return "", errInvalid
@@ -1271,10 +1267,8 @@ func (s *Server) loadSchoolPreferences(ctx context.Context, schoolID string) (*a
 
 func methodAllowedForStudent(method db.SignatureMethod, prefs *academicsv1.SchoolPreferences) bool {
 	switch string(method) {
-	case "buzzLightyear", "flash", "beacon":
+	case "buzzLightyear", "beacon":
 		return prefs.GetEnableFlash()
-	case "qrCode", "qrcode":
-		return prefs.GetEnableQrcode()
 	case "nfc":
 		return prefs.GetEnableNfc()
 	default:

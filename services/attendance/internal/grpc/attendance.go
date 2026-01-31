@@ -147,8 +147,6 @@ func evaluateStatus(course *academicsv1.Course, allowed bool, signedAt time.Time
 
 func methodFromGRPC(method attendancev1.SignatureMethod) (db.SignatureMethod, error) {
 	switch method {
-	case attendancev1.SignatureMethod_SIGNATURE_METHOD_QR:
-		return db.SignatureMethod("qrCode"), nil
 	case attendancev1.SignatureMethod_SIGNATURE_METHOD_NFC:
 		return db.SignatureMethod("nfc"), nil
 	case attendancev1.SignatureMethod_SIGNATURE_METHOD_FLASHLIGHT:
@@ -181,10 +179,8 @@ func statusToGRPC(statusValue db.SignatureStatus) attendancev1.SignatureStatus {
 
 func methodAllowedForStudent(method db.SignatureMethod, prefs *academicsv1.SchoolPreferences) bool {
 	switch string(method) {
-	case "buzzLightyear", "flash", "beacon":
+	case "buzzLightyear", "beacon":
 		return prefs.GetEnableFlash()
-	case "qrCode", "qrcode":
-		return prefs.GetEnableQrcode()
 	case "nfc":
 		return prefs.GetEnableNfc()
 	default:
