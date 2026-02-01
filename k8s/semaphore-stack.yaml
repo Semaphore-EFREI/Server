@@ -53,10 +53,14 @@ metadata:
   namespace: semaphore
 data:
   init-dbs.sql: |
-    CREATE DATABASE auth_identity;
-    CREATE DATABASE academics;
-    CREATE DATABASE attendance;
-    CREATE DATABASE beacon;
+    SELECT format('CREATE DATABASE %I', 'auth_identity')
+    WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'auth_identity')\gexec
+    SELECT format('CREATE DATABASE %I', 'academics')
+    WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'academics')\gexec
+    SELECT format('CREATE DATABASE %I', 'attendance')
+    WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'attendance')\gexec
+    SELECT format('CREATE DATABASE %I', 'beacon')
+    WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'beacon')\gexec
 
 ---
 apiVersion: batch/v1
