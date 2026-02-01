@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package beacon.api.v1;
+
+option go_package = "semaphore/beacon/beacon/v1;beaconv1";
+
+message Beacon {
+  string id = 1;
+  int64 serial_number = 2;
+  string classroom_id = 3;
+  string program_version = 4;
+}
+
+message ListBeaconsByClassroomRequest {
+  string classroom_id = 1;
+}
+
+message ListBeaconsByClassroomResponse {
+  repeated Beacon beacons = 1;
+}
+
+// BeaconQueryService exposes read-only beacon data.
+service BeaconQueryService {
+  // ListBeaconsByClassroom returns all beacons assigned to a classroom.
+  rpc ListBeaconsByClassroom(ListBeaconsByClassroomRequest) returns (ListBeaconsByClassroomResponse);
+}

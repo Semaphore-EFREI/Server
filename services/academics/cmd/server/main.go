@@ -33,13 +33,13 @@ func main() {
 	defer pool.Close()
 
 	store := db.NewStore(pool)
-	clients, err := clients.New(ctx, cfg.AttendanceGRPCAddr, cfg.GRPCDialTimeout)
+	clients, err := clients.New(ctx, cfg.AttendanceGRPCAddr, cfg.BeaconGRPCAddr, cfg.GRPCDialTimeout)
 	if err != nil {
 		log.Fatalf("grpc dial failed: %v", err)
 	}
 	defer clients.Close()
 
-	server, err := internalhttp.NewServer(cfg, store, clients.Attendance)
+	server, err := internalhttp.NewServer(cfg, store, clients.Attendance, clients.Beacon)
 	if err != nil {
 		log.Fatalf("server init failed: %v", err)
 	}

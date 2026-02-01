@@ -11,6 +11,7 @@ require (
 	google.golang.org/grpc v1.62.1
 	google.golang.org/protobuf v1.36.8
 	semaphore/attendance v0.0.0
+	semaphore/beacon v0.0.0
 )
 
 require (
@@ -35,3 +36,5 @@ require (
 )
 
 replace semaphore/attendance => ../attendance
+
+replace semaphore/beacon => ../beacon

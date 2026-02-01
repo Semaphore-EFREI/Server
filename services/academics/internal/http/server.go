@@ -22,17 +22,19 @@ import (
 	"semaphore/academics/internal/config"
 	"semaphore/academics/internal/db"
 	attendancev1 "semaphore/attendance/attendance/v1"
+	beaconv1 "semaphore/beacon/beacon/v1"
 )
 
 type Server struct {
 	cfg          config.Config
 	store        *db.Store
 	attendance   attendancev1.AttendanceQueryServiceClient
+	beacon       beaconv1.BeaconQueryServiceClient
 	jwtPublicKey *rsa.PublicKey
 	httpClient   *http.Client
 }
 
-func NewServer(cfg config.Config, store *db.Store, attendance attendancev1.AttendanceQueryServiceClient) (*Server, error) {
+func NewServer(cfg config.Config, store *db.Store, attendance attendancev1.AttendanceQueryServiceClient, beacon beaconv1.BeaconQueryServiceClient) (*Server, error) {
 	publicKey, err := auth.ParseRSAPublicKey(cfg.JWTPublicKey)
 	if err != nil {
 		return nil, err
@@ -41,6 +43,7 @@ func NewServer(cfg config.Config, store *db.Store, attendance attendancev1.Atten
 		cfg:          cfg,
 		store:        store,
 		attendance:   attendance,
+		beacon:       beacon,
 		jwtPublicKey: publicKey,
 		httpClient:   &http.Client{Timeout: 10 * time.Second},
 	}, nil
@@ -477,7 +480,12 @@ func (s *Server) handleGetClassrooms(w http.ResponseWriter, r *http.Request) {
 	for _, room := range classrooms {
 		if includeBeacons {
 			entry := mapClassroomBase(room)
-			entry["beacons"] = []any{}
+			beacons, err := s.listClassroomBeacons(r.Context(), room.ID)
+			if err != nil {
+				writeError(w, http.StatusBadGateway, "beacon_lookup_failed")
+				return
+			}
+			entry["beacons"] = beacons
 			resp = append(resp, entry)
 			continue
 		}
@@ -585,7 +593,12 @@ func (s *Server) handleGetClassroom(w http.ResponseWriter, r *http.Request) {
 	includeBeacons := contains(include, "beacons")
 	if includeBeacons {
 		entry := mapClassroomBase(room)
-		entry["beacons"] = []any{}
+		beacons, err := s.listClassroomBeacons(r.Context(), room.ID)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "beacon_lookup_failed")
+			return
+		}
+		entry["beacons"] = beacons
 		writeJSON(w, http.StatusOK, entry)
 		return
 	}
@@ -938,6 +951,22 @@ func (s *Server) listCourseSignatures(ctx context.Context, courseID pgtype.UUID)
 	}
 	for _, sig := range resp.GetTeacherSignatures() {
 		items = append(items, mapTeacherSignatureFromGRPC(sig))
+	}
+	return items, nil
+}
+
+func (s *Server) listClassroomBeacons(ctx context.Context, classroomID pgtype.UUID) ([]any, error) {
+	if s.beacon == nil {
+		return nil, errors.New("beacon client not configured")
+	}
+
+	resp, err := s.beacon.ListBeaconsByClassroom(ctx, &beaconv1.ListBeaconsByClassroomRequest{ClassroomId: uuidString(classroomID)})
+	if err != nil {
+		return nil, err
+	}
+	items := make([]any, 0, len(resp.GetBeacons()))
+	for _, beacon := range resp.GetBeacons() {
+		items = append(items, mapBeaconFromGRPC(beacon))
 	}
 	return items, nil
 }
@@ -2122,6 +2151,20 @@ func mapSignatureBaseFromGRPC(id, courseID string, signedAt *timestamppb.Timesta
 	}
 	if administrator != "" {
 		entry["administrator"] = administrator
+	}
+	return entry
+}
+
+func mapBeaconFromGRPC(beacon *beaconv1.Beacon) map[string]interface{} {
+	entry := map[string]interface{}{
+		"id":           beacon.GetId(),
+		"serialNumber": beacon.GetSerialNumber(),
+	}
+	if beacon.GetClassroomId() != "" {
+		entry["classroom"] = beacon.GetClassroomId()
+	}
+	if beacon.GetProgramVersion() != "" {
+		entry["programVersion"] = beacon.GetProgramVersion()
 	}
 	return entry
 }

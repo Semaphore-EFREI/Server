@@ -29,6 +29,13 @@ WHERE deleted_at IS NULL
 ORDER BY created_at DESC
 LIMIT $1;
 
+-- name: ListBeaconsByClassroom :many
+SELECT id, serial_number, signature_key, totp_key, classroom_id, program_version, created_at, updated_at, last_seen_at, deleted_at
+FROM beacons
+WHERE classroom_id = $1
+  AND deleted_at IS NULL
+ORDER BY created_at DESC;
+
 -- name: UpdateBeacon :one
 UPDATE beacons
 SET serial_number = COALESCE($2, serial_number),

@@ -427,6 +427,8 @@ spec:
                   key: jwt-issuer
             - name: ATTENDANCE_GRPC_ADDR
               value: attendance:9093
+            - name: BEACON_GRPC_ADDR
+              value: beacon:9094
             - name: GRPC_DIAL_TIMEOUT
               value: 5s
             - name: REDIS_ADDR
@@ -583,9 +585,13 @@ spec:
           ports:
             - name: http
               containerPort: 8084
+            - name: grpc
+              containerPort: 9094
           env:
             - name: HTTP_ADDR
               value: ":8084"
+            - name: GRPC_ADDR
+              value: ":9094"
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -638,3 +644,6 @@ spec:
     - name: http
       port: 8084
       targetPort: 8084
+    - name: grpc
+      port: 9094
+      targetPort: 9094
