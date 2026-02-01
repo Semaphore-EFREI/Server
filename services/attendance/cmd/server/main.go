@@ -71,6 +71,7 @@ func main() {
 
 	grpcServer := grpc.NewServer()
 	attendancev1.RegisterAttendanceCommandServiceServer(grpcServer, attendancegrpc.NewAttendanceServer(store, clients.Academics))
+	attendancev1.RegisterAttendanceQueryServiceServer(grpcServer, attendancegrpc.NewAttendanceQueryServer(store))
 
 	go func() {
 		log.Printf("attendance http listening on %s", cfg.HTTPAddr)

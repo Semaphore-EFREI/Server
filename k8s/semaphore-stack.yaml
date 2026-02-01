@@ -425,6 +425,10 @@ spec:
                 secretKeyRef:
                   name: jwt-secrets
                   key: jwt-issuer
+            - name: ATTENDANCE_GRPC_ADDR
+              value: attendance:9093
+            - name: GRPC_DIAL_TIMEOUT
+              value: 5s
             - name: REDIS_ADDR
               value: redis:6379
             - name: REDIS_PASSWORD

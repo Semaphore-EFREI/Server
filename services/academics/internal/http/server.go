@@ -16,20 +16,23 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"semaphore/academics/internal/auth"
 	"semaphore/academics/internal/config"
 	"semaphore/academics/internal/db"
+	attendancev1 "semaphore/attendance/attendance/v1"
 )
 
 type Server struct {
 	cfg          config.Config
 	store        *db.Store
+	attendance   attendancev1.AttendanceQueryServiceClient
 	jwtPublicKey *rsa.PublicKey
 	httpClient   *http.Client
 }
 
-func NewServer(cfg config.Config, store *db.Store) (*Server, error) {
+func NewServer(cfg config.Config, store *db.Store, attendance attendancev1.AttendanceQueryServiceClient) (*Server, error) {
 	publicKey, err := auth.ParseRSAPublicKey(cfg.JWTPublicKey)
 	if err != nil {
 		return nil, err
@@ -37,6 +40,7 @@ func NewServer(cfg config.Config, store *db.Store) (*Server, error) {
 	return &Server{
 		cfg:          cfg,
 		store:        store,
+		attendance:   attendance,
 		jwtPublicKey: publicKey,
 		httpClient:   &http.Client{Timeout: 10 * time.Second},
 	}, nil
@@ -154,13 +158,13 @@ func ensureSchoolAccess(claims *auth.Claims, schoolID string) bool {
 // Schools
 
 type schoolPreferencesResponse struct {
-	ID                               string `json:"id"`
-	DefaultSignatureClosingDelay     int32  `json:"defaultSignatureClosingDelay"`
-	TeacherCanModifyClosingdelay     bool   `json:"teacherCanModifyClosingdelay"`
-	StudentsCanSignBeforeTeacher     bool   `json:"studentsCanSignBeforeTeacher"`
-	NfcEnabled                       bool   `json:"nfcEnabled"`
-	FlashlightEnabled                bool   `json:"flashlightEnabled"`
-	DisableCourseModificationFromUI  bool   `json:"disableCourseModificationFromUI"`
+	ID                              string `json:"id"`
+	DefaultSignatureClosingDelay    int32  `json:"defaultSignatureClosingDelay"`
+	TeacherCanModifyClosingdelay    bool   `json:"teacherCanModifyClosingdelay"`
+	StudentsCanSignBeforeTeacher    bool   `json:"studentsCanSignBeforeTeacher"`
+	NfcEnabled                      bool   `json:"nfcEnabled"`
+	FlashlightEnabled               bool   `json:"flashlightEnabled"`
+	DisableCourseModificationFromUI bool   `json:"disableCourseModificationFromUI"`
 }
 
 type schoolResponse struct {
@@ -894,7 +898,11 @@ func (s *Server) buildCourseEntry(ctx context.Context, course db.Course, include
 		entry["classrooms"] = mapClassroomResponses(classrooms)
 	}
 	if includes.Signatures {
-		entry["signature"] = []any{}
+		signatures, err := s.listCourseSignatures(ctx, course.ID)
+		if err != nil {
+			return nil, err
+		}
+		entry["signature"] = signatures
 	}
 	if includes.Students || includes.SoloStudents || includes.StudentGroups {
 		groups, students, soloStudents, err := s.listCourseStudents(ctx, course.ID)
@@ -912,6 +920,26 @@ func (s *Server) buildCourseEntry(ctx context.Context, course db.Course, include
 		}
 	}
 	return entry, nil
+}
+
+func (s *Server) listCourseSignatures(ctx context.Context, courseID pgtype.UUID) ([]any, error) {
+	if s.attendance == nil {
+		return nil, errors.New("attendance client not configured")
+	}
+
+	resp, err := s.attendance.ListCourseSignatures(ctx, &attendancev1.ListCourseSignaturesRequest{CourseId: uuidString(courseID)})
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]any, 0, len(resp.GetStudentSignatures())+len(resp.GetTeacherSignatures()))
+	for _, sig := range resp.GetStudentSignatures() {
+		items = append(items, mapStudentSignatureFromGRPC(sig))
+	}
+	for _, sig := range resp.GetTeacherSignatures() {
+		items = append(items, mapTeacherSignatureFromGRPC(sig))
+	}
+	return items, nil
 }
 
 func (s *Server) listCourseStudents(ctx context.Context, courseID pgtype.UUID) ([]db.StudentGroup, []string, []string, error) {
@@ -1986,12 +2014,12 @@ func (s *Server) handleRemoveStudentGroupStudent(w http.ResponseWriter, r *http.
 
 func mapPreferences(prefs db.SchoolPreference) *schoolPreferencesResponse {
 	return &schoolPreferencesResponse{
-		ID:                           uuidString(prefs.ID),
-		DefaultSignatureClosingDelay: prefs.DefaultSignatureClosingDelayMinutes,
-		TeacherCanModifyClosingdelay: prefs.TeacherCanModifyClosingDelay,
-		StudentsCanSignBeforeTeacher: prefs.StudentsCanSignBeforeTeacher,
-		NfcEnabled:                   prefs.EnableNfc,
-		FlashlightEnabled:            prefs.EnableFlash,
+		ID:                              uuidString(prefs.ID),
+		DefaultSignatureClosingDelay:    prefs.DefaultSignatureClosingDelayMinutes,
+		TeacherCanModifyClosingdelay:    prefs.TeacherCanModifyClosingDelay,
+		StudentsCanSignBeforeTeacher:    prefs.StudentsCanSignBeforeTeacher,
+		NfcEnabled:                      prefs.EnableNfc,
+		FlashlightEnabled:               prefs.EnableFlash,
 		DisableCourseModificationFromUI: prefs.DisableCourseModificationFromUI,
 	}
 }
@@ -2060,6 +2088,42 @@ func mapCourseBase(course db.Course) map[string]interface{} {
 		"signatureClosed":       course.SignatureClosed,
 		"school":                uuidString(course.SchoolID),
 	}
+}
+
+func mapStudentSignatureFromGRPC(sig *attendancev1.StudentSignature) map[string]interface{} {
+	entry := mapSignatureBaseFromGRPC(sig.GetId(), sig.GetCourseId(), sig.GetSignedAt(), sig.GetStatus(), sig.GetMethod(), sig.GetImage(), sig.GetAdministratorId())
+	entry["student"] = sig.GetStudentId()
+	if sig.GetTeacherId() != "" {
+		entry["teacher"] = sig.GetTeacherId()
+	}
+	entry["type"] = "student"
+	return entry
+}
+
+func mapTeacherSignatureFromGRPC(sig *attendancev1.TeacherSignature) map[string]interface{} {
+	entry := mapSignatureBaseFromGRPC(sig.GetId(), sig.GetCourseId(), sig.GetSignedAt(), sig.GetStatus(), sig.GetMethod(), sig.GetImage(), sig.GetAdministratorId())
+	entry["teacher"] = sig.GetTeacherId()
+	entry["type"] = "teacher"
+	return entry
+}
+
+func mapSignatureBaseFromGRPC(id, courseID string, signedAt *timestamppb.Timestamp, status, method, image, administrator string) map[string]interface{} {
+	entry := map[string]interface{}{
+		"id":     id,
+		"course": courseID,
+		"status": status,
+		"method": method,
+	}
+	if signedAt != nil {
+		entry["date"] = signedAt.AsTime().Unix()
+	}
+	if image != "" {
+		entry["image"] = image
+	}
+	if administrator != "" {
+		entry["administrator"] = administrator
+	}
+	return entry
 }
 
 func mapClassroomBase(room db.Classroom) map[string]interface{} {

@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc"
 
 	academicsv1 "semaphore/academics/academics/v1"
+	"semaphore/academics/internal/clients"
 	"semaphore/academics/internal/config"
 	"semaphore/academics/internal/db"
 	academicsgrpc "semaphore/academics/internal/grpc"
@@ -32,7 +33,13 @@ func main() {
 	defer pool.Close()
 
 	store := db.NewStore(pool)
-	server, err := internalhttp.NewServer(cfg, store)
+	clients, err := clients.New(ctx, cfg.AttendanceGRPCAddr, cfg.GRPCDialTimeout)
+	if err != nil {
+		log.Fatalf("grpc dial failed: %v", err)
+	}
+	defer clients.Close()
+
+	server, err := internalhttp.NewServer(cfg, store, clients.Attendance)
 	if err != nil {
 		log.Fatalf("server init failed: %v", err)
 	}
