@@ -67,6 +67,9 @@ metadata:
 spec:
   backoffLimit: 3
   template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       restartPolicy: OnFailure
       containers:
@@ -103,6 +106,9 @@ spec:
   backoffLimit: 3
   ttlSecondsAfterFinished: 300
   template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       restartPolicy: OnFailure
       initContainers:
@@ -299,7 +305,7 @@ spec:
     spec:
       containers:
         - name: auth-identity
-          image: ghcr.io/example/semaphore-auth-identity:latest
+          image: registry.burrito.deway.fr/semaphore-auth-identity:latest
           imagePullPolicy: Always
           ports:
             - name: http
@@ -388,7 +394,7 @@ spec:
     spec:
       containers:
         - name: academics
-          image: ghcr.io/example/semaphore-academics:latest
+          image: registry.burrito.deway.fr/semaphore-academics:latest
           imagePullPolicy: Always
           ports:
             - name: http
@@ -472,7 +478,7 @@ spec:
     spec:
       containers:
         - name: attendance
-          image: ghcr.io/example/semaphore-attendance:latest
+          image: registry.burrito.deway.fr/semaphore-attendance:latest
           imagePullPolicy: Always
           ports:
             - name: http
@@ -564,7 +570,7 @@ spec:
     spec:
       containers:
         - name: beacon
-          image: ghcr.io/example/semaphore-beacon:latest
+          image: registry.burrito.deway.fr/semaphore-beacon:latest
           imagePullPolicy: Always
           ports:
             - name: http
