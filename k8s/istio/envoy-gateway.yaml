@@ -235,6 +235,9 @@ spec:
         - path:
             type: PathPrefix
             value: /beacon
+        - path:
+            type: PathPrefix
+            value: /beacons
       backendRefs:
         - name: beacon
           port: 8084
