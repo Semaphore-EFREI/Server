@@ -276,7 +276,34 @@ Beacons **never** write attendance directly.
 The API Gateway is the **single public entry point** for all clients (web/mobile/beacon).
 It sits in front of the 4 services and provides **edge concerns** only.
 
-In production, this gateway is expected to be **Envoy** (or another edge proxy with equivalent features).
+In production, this gateway is expected to be **Envoy Gateway** (Gateway API-backed Envoy) or another edge proxy with equivalent features.
+
+### 11.1.1 Envoy Gateway install (Helm)
+Use the official Helm chart (latest at install time):
+
+```
+helm install eg oci://docker.io/envoyproxy/gateway-helm --version v0.0.0-latest -n envoy-gateway-system --create-namespace
+```
+
+Note: Gateway API CRDs must be present in the cluster. If the chart does not install them, install the standard CRDs separately before applying the gateway manifests.
+
+If Istio mTLS is enabled:
+- keep the Envoy Gateway control plane out of the mesh (disable injection on its pods)
+- allow sidecar injection for data-plane pods (EnvoyProxy annotations already request injection)
+
+Example values (control plane + certgen only):
+
+```
+deployment:
+  pod:
+    annotations:
+      sidecar.istio.io/inject: "false"
+certgen:
+  job:
+    pod:
+      annotations:
+        sidecar.istio.io/inject: "false"
+```
 
 ### 11.2 Public API style
 - **Public endpoints are HTTP REST (JSON)**.
@@ -308,7 +335,7 @@ Route by prefix (example):
 - `/auth/*`, `/users/*` → auth-identity
 - `/schools/*`, `/school/*`, `/courses/*`, `/classrooms/*`, `/groups/*` → academics
 - `/signatures/*`, `/signature/*` → attendance
-- `/beacon/*`, `/dev/beacon*` → beacon
+- `/beacon/*` → beacon
 
 ### 11.6 Retry policy (important)
 - **Never retry non-idempotent writes** (e.g., create signature) at the gateway.

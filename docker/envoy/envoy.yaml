@@ -179,7 +179,7 @@ static_resources:
                           forward: true
                           remote_jwks:
                             http_uri:
-                              uri: http://auth-identity:8081/.well-known/jwks.json
+                              uri: http://auth-identity.semaphore.svc.cluster.local:8081/.well-known/jwks.json
                               cluster: auth-identity
                               timeout: 2s
                             cache_duration: 300s
@@ -220,7 +220,7 @@ static_resources:
               - endpoint:
                   address:
                     socket_address:
-                      address: auth-identity
+                      address: auth-identity.semaphore.svc.cluster.local
                       port_value: 8081
 
     - name: academics
@@ -234,7 +234,7 @@ static_resources:
               - endpoint:
                   address:
                     socket_address:
-                      address: academics
+                      address: academics.semaphore.svc.cluster.local
                       port_value: 8082
 
     - name: attendance
@@ -248,7 +248,7 @@ static_resources:
               - endpoint:
                   address:
                     socket_address:
-                      address: attendance
+                      address: attendance.semaphore.svc.cluster.local
                       port_value: 8083
 
     - name: beacon
@@ -262,7 +262,7 @@ static_resources:
               - endpoint:
                   address:
                     socket_address:
-                      address: beacon
+                      address: beacon.semaphore.svc.cluster.local
                       port_value: 8084
 
 admin:

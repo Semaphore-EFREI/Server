@@ -554,7 +554,7 @@
       "pluginVersion": "12.3.0",
       "targets": [
         {
-          "expr": "sum(rate(istio_requests_total{source_workload=\"envoy-gateway\", source_workload_namespace=\"semaphore\", reporter=\"destination\", destination_workload_namespace=\"$namespace\"}[5m]))",
+          "expr": "sum(rate(istio_requests_total{source_canonical_service=\"envoy\", source_workload_namespace=\"envoy-gateway-system\", reporter=\"destination\", destination_workload_namespace=\"$namespace\"}[5m]))",
           "legendFormat": "gateway",
           "refId": "A"
         }
