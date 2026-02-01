@@ -159,7 +159,7 @@ pipeline {
                   if [ "${CURRENT}" != "true" ]; then
                     kubectl -n monitoring patch sts "${PROM_STS}" \
                       -p '{"spec":{"template":{"metadata":{"annotations":{"sidecar.istio.io/inject":"true"}}}}}'
-                    kubectl -n monitoring rollout restart sts "${PROM_STS}"
+                    kubectl -n monitoring rollout status sts "${PROM_STS}" --timeout=5m || true
                   fi
                 fi
               '''

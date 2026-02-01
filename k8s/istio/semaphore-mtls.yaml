@@ -56,6 +56,19 @@ spec:
 
 ---
 apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: envoy-gateway-permissive
+  namespace: semaphore
+spec:
+  selector:
+    matchLabels:
+      app: envoy-gateway
+  mtls:
+    mode: PERMISSIVE
+
+---
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: allow-envoy-gateway-public
