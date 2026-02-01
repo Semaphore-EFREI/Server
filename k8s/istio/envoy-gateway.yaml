@@ -1,117 +1,84 @@
-apiVersion: v1
-kind: ServiceAccount
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
 metadata:
-  name: envoy-gateway
+  name: semaphore-gateway
   namespace: semaphore
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        type: LoadBalancer
+      envoyDeployment:
+        name: envoy-semaphore-gateway
+        replicas: 2
+        pod:
+          annotations:
+            sidecar.istio.io/inject: "true"
+            traffic.sidecar.istio.io/includeInboundPorts: "*"
+            traffic.sidecar.istio.io/includeOutboundIPRanges: "*"
+            proxy.istio.io/config: '{"proxyMetadata":{"ISTIO_META_DNS_CAPTURE":"true","ISTIO_META_DNS_AUTO_ALLOCATE":"true"}}'
 
 ---
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
 metadata:
-  name: envoy-gateway
-  namespace: semaphore
-  labels:
-    app: envoy-gateway
+  name: semaphore-gateway
 spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: envoy-gateway
-  template:
-    metadata:
-      labels:
-        app: envoy-gateway
-      annotations:
-        sidecar.istio.io/inject: "true"
-        traffic.sidecar.istio.io/includeOutboundIPRanges: "*"
-        proxy.istio.io/config: '{"proxyMetadata":{"ISTIO_META_DNS_CAPTURE":"true","ISTIO_META_DNS_AUTO_ALLOCATE":"true"}}'
-    spec:
-      serviceAccountName: envoy-gateway
-      containers:
-        - name: envoy
-          image: envoyproxy/envoy:v1.29.2
-          args:
-            - "-c"
-            - "/etc/envoy/envoy.yaml"
-            - "--service-cluster"
-            - "envoy-gateway"
-            - "--service-node"
-            - "envoy-gateway"
-          ports:
-            - name: http
-              containerPort: 8080
-            - name: envoy-admin
-              containerPort: 9901
-          readinessProbe:
-            httpGet:
-              path: /ready
-              port: 9901
-          livenessProbe:
-            httpGet:
-              path: /ready
-              port: 9901
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 500m
-              memory: 512Mi
-          volumeMounts:
-            - name: envoy-config
-              mountPath: /etc/envoy/envoy.yaml
-              subPath: envoy.yaml
-      volumes:
-        - name: envoy-config
-          configMap:
-            name: envoy-gateway-config
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+  parametersRef:
+    group: gateway.envoyproxy.io
+    kind: EnvoyProxy
+    name: semaphore-gateway
+    namespace: semaphore
+
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: semaphore-gateway
+  namespace: semaphore
+spec:
+  gatewayClassName: semaphore-gateway
+  listeners:
+    - name: http
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: envoy-gateway
-  namespace: semaphore
+  name: envoy-semaphore-gateway
+  namespace: envoy-gateway-system
   labels:
-    app: envoy-gateway
+    app.kubernetes.io/name: envoy
+    app.kubernetes.io/component: proxy
+    app.kubernetes.io/managed-by: envoy-gateway
 spec:
-  type: LoadBalancer
   selector:
-    app: envoy-gateway
+    app.kubernetes.io/name: envoy
+    app.kubernetes.io/component: proxy
+    app.kubernetes.io/managed-by: envoy-gateway
   ports:
     - name: http
       port: 80
-      targetPort: 8080
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: envoy-gateway-admin
-  namespace: semaphore
-  labels:
-    app: envoy-gateway
-    component: admin
-spec:
-  type: ClusterIP
-  selector:
-    app: envoy-gateway
-  ports:
-    - name: envoy-admin
-      port: 9901
-      targetPort: 9901
+      targetPort: 10080
 
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: envoy-gateway
-  namespace: semaphore
+  name: envoy-semaphore-gateway
+  namespace: envoy-gateway-system
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: envoy-gateway
+    name: envoy-semaphore-gateway
   minReplicas: 2
   maxReplicas: 5
   metrics:
@@ -121,9 +88,245 @@ spec:
         target:
           type: Utilization
           averageUtilization: 70
-    - type: Resource
-      resource:
-        name: memory
-        target:
-          type: Utilization
-          averageUtilization: 80
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: envoy-gateway-mtls
+  namespace: envoy-gateway-system
+spec:
+  host: "*.envoy-gateway-system.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: semaphore-auth-identity-public
+  namespace: semaphore
+spec:
+  parentRefs:
+    - name: semaphore-gateway
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /.well-known
+        - path:
+            type: PathPrefix
+            value: /auth
+      backendRefs:
+        - name: auth-identity
+          port: 8081
+
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: semaphore-auth-identity-protected
+  namespace: semaphore
+spec:
+  parentRefs:
+    - name: semaphore-gateway
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /users
+        - path:
+            type: PathPrefix
+            value: /students
+        - path:
+            type: PathPrefix
+            value: /student
+        - path:
+            type: PathPrefix
+            value: /teachers
+        - path:
+            type: PathPrefix
+            value: /teacher
+        - path:
+            type: PathPrefix
+            value: /admins
+        - path:
+            type: PathPrefix
+            value: /admin
+      backendRefs:
+        - name: auth-identity
+          port: 8081
+
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: semaphore-academics
+  namespace: semaphore
+spec:
+  parentRefs:
+    - name: semaphore-gateway
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /studentGroups
+        - path:
+            type: PathPrefix
+            value: /studentGroup
+        - path:
+            type: PathPrefix
+            value: /schools
+        - path:
+            type: PathPrefix
+            value: /school
+        - path:
+            type: PathPrefix
+            value: /courses
+        - path:
+            type: PathPrefix
+            value: /course
+        - path:
+            type: PathPrefix
+            value: /classrooms
+        - path:
+            type: PathPrefix
+            value: /classroom
+      backendRefs:
+        - name: academics
+          port: 8082
+
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: semaphore-attendance
+  namespace: semaphore
+spec:
+  parentRefs:
+    - name: semaphore-gateway
+  rules:
+    - matches:
+        - path:
+            type: RegularExpression
+            value: ^/course/[^/]+/status$
+        - path:
+            type: PathPrefix
+            value: /signatures
+        - path:
+            type: PathPrefix
+            value: /signature
+      backendRefs:
+        - name: attendance
+          port: 8083
+
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: semaphore-beacon
+  namespace: semaphore
+spec:
+  parentRefs:
+    - name: semaphore-gateway
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /beacon
+      backendRefs:
+        - name: beacon
+          port: 8084
+
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: semaphore-jwt-public
+  namespace: semaphore
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: semaphore-auth-identity-public
+  jwt:
+    optional: true
+    providers:
+      - name: semaphore_jwt
+        issuer: semaphore-auth-identity
+        remoteJWKS:
+          uri: http://auth-identity.semaphore.svc.cluster.local:8081/.well-known/jwks.json
+
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: semaphore-jwt-protected
+  namespace: semaphore
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: semaphore-auth-identity-protected
+  jwt:
+    providers:
+      - name: semaphore_jwt
+        issuer: semaphore-auth-identity
+        remoteJWKS:
+          uri: http://auth-identity.semaphore.svc.cluster.local:8081/.well-known/jwks.json
+
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: semaphore-jwt-academics
+  namespace: semaphore
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: semaphore-academics
+  jwt:
+    providers:
+      - name: semaphore_jwt
+        issuer: semaphore-auth-identity
+        remoteJWKS:
+          uri: http://auth-identity.semaphore.svc.cluster.local:8081/.well-known/jwks.json
+
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: semaphore-jwt-attendance
+  namespace: semaphore
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: semaphore-attendance
+  jwt:
+    providers:
+      - name: semaphore_jwt
+        issuer: semaphore-auth-identity
+        remoteJWKS:
+          uri: http://auth-identity.semaphore.svc.cluster.local:8081/.well-known/jwks.json
+
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: semaphore-jwt-beacon
+  namespace: semaphore
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: semaphore-beacon
+  jwt:
+    optional: true
+    providers:
+      - name: semaphore_jwt
+        issuer: semaphore-auth-identity
+        remoteJWKS:
+          uri: http://auth-identity.semaphore.svc.cluster.local:8081/.well-known/jwks.json

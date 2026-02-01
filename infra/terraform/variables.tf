@@ -59,6 +59,12 @@ variable "istio_namespace" {
   default     = "istio-system"
 }
 
+variable "envoy_gateway_namespace" {
+  type        = string
+  description = "Namespace for Envoy Gateway data plane services"
+  default     = "envoy-gateway-system"
+}
+
 variable "istio_chart_version" {
   type        = string
   description = "Istio chart version (base, istiod, gateway)"
