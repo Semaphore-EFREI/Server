@@ -802,6 +802,116 @@
       ],
       "title": "Pod Restarts (1h)",
       "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 35
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "expr": "sum(kube_pod_status_phase{namespace=~\"$namespace|envoy-gateway-system\", phase=\"Running\"})",
+          "legendFormat": "pods_running (semaphore + envoy-gateway-system)",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (deployment) (kube_deployment_status_replicas{namespace=\"$namespace\", deployment=~\"auth-identity|academics|attendance|beacon\"})",
+          "legendFormat": "replicas_desired: {{deployment}}",
+          "refId": "B"
+        },
+        {
+          "expr": "sum by (deployment) (kube_deployment_status_replicas_available{namespace=\"$namespace\", deployment=~\"auth-identity|academics|attendance|beacon\"})",
+          "legendFormat": "replicas_available: {{deployment}}",
+          "refId": "C"
+        },
+        {
+          "expr": "sum by (deployment) (kube_deployment_status_replicas{namespace=\"envoy-gateway-system\", deployment=~\"envoy-semaphore-gateway\"})",
+          "legendFormat": "replicas_desired: {{deployment}} (envoy-gateway-system)",
+          "refId": "D"
+        },
+        {
+          "expr": "sum by (deployment) (kube_deployment_status_replicas_available{namespace=\"envoy-gateway-system\", deployment=~\"envoy-semaphore-gateway\"})",
+          "legendFormat": "replicas_available: {{deployment}} (envoy-gateway-system)",
+          "refId": "E"
+        }
+      ],
+      "title": "Pods Running + Replicas (Desired/Available)",
+      "type": "timeseries"
     }
   ],
   "preload": false,
@@ -871,5 +981,5 @@
   "timezone": "browser",
   "title": "Semaphore - Istio Service Mesh",
   "uid": "semaphore-istio-mesh",
-  "version": 1
+  "version": 2
 }
