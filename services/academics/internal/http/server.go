@@ -1,6 +1,7 @@
 package http
 
 import (
+	"bytes"
 	"context"
 	"crypto/rsa"
 	"encoding/json"
@@ -25,6 +26,7 @@ type Server struct {
 	cfg          config.Config
 	store        *db.Store
 	jwtPublicKey *rsa.PublicKey
+	httpClient   *http.Client
 }
 
 func NewServer(cfg config.Config, store *db.Store) (*Server, error) {
@@ -32,7 +34,12 @@ func NewServer(cfg config.Config, store *db.Store) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Server{cfg: cfg, store: store, jwtPublicKey: publicKey}, nil
+	return &Server{
+		cfg:          cfg,
+		store:        store,
+		jwtPublicKey: publicKey,
+		httpClient:   &http.Client{Timeout: 10 * time.Second},
+	}, nil
 }
 
 func (s *Server) Router() http.Handler {
@@ -516,6 +523,31 @@ func (s *Server) handleCreateClassroom(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error")
 		return
+	}
+
+	if len(req.BeaconsID) > 0 {
+		authHeader := r.Header.Get("Authorization")
+		classroomID := uuidString(room.ID)
+		assigned := make([]string, 0, len(req.BeaconsID))
+		for _, beaconID := range req.BeaconsID {
+			if err := s.assignBeaconToClassroom(r.Context(), authHeader, beaconID, classroomID); err != nil {
+				for _, assignedID := range assigned {
+					_ = s.removeBeaconFromClassroom(r.Context(), authHeader, assignedID, classroomID)
+				}
+				_ = s.store.Queries.SoftDeleteClassroom(r.Context(), db.SoftDeleteClassroomParams{
+					ID:        room.ID,
+					DeletedAt: nowPgTime(),
+				})
+				var beaconErr *beaconRequestError
+				if errors.As(err, &beaconErr) {
+					writeError(w, beaconErr.status, beaconErr.code)
+					return
+				}
+				writeError(w, http.StatusBadGateway, "beacon_assignment_failed")
+				return
+			}
+			assigned = append(assigned, beaconID)
+		}
 	}
 
 	writeJSON(w, http.StatusOK, classroomResponse{ID: uuidString(room.ID), Name: room.Name, School: uuidString(room.SchoolID)})
@@ -2091,6 +2123,15 @@ func contains(values []string, target string) bool {
 	return false
 }
 
+type beaconRequestError struct {
+	status int
+	code   string
+}
+
+func (e *beaconRequestError) Error() string {
+	return e.code
+}
+
 func pgUUID(id uuid.UUID) pgtype.UUID {
 	return pgtype.UUID{Bytes: id, Valid: true}
 }
@@ -2116,6 +2157,64 @@ func uuidString(id pgtype.UUID) string {
 		return ""
 	}
 	return uuid.UUID(id.Bytes).String()
+}
+
+func (s *Server) assignBeaconToClassroom(ctx context.Context, authHeader, beaconID, classroomID string) error {
+	payload, err := json.Marshal(map[string]string{"classroomId": classroomID})
+	if err != nil {
+		return err
+	}
+	url := strings.TrimRight(s.cfg.BeaconHTTPAddr, "/") + "/beacon/" + beaconID + "/classroom"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if authHeader != "" {
+		req.Header.Set("Authorization", authHeader)
+	}
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNoContent {
+		return nil
+	}
+	return beaconErrorFromResponse(resp)
+}
+
+func (s *Server) removeBeaconFromClassroom(ctx context.Context, authHeader, beaconID, classroomID string) error {
+	url := strings.TrimRight(s.cfg.BeaconHTTPAddr, "/") + "/beacon/" + beaconID + "/classroom/" + classroomID
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
+	if err != nil {
+		return err
+	}
+	if authHeader != "" {
+		req.Header.Set("Authorization", authHeader)
+	}
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNoContent {
+		return nil
+	}
+	return beaconErrorFromResponse(resp)
+}
+
+func beaconErrorFromResponse(resp *http.Response) error {
+	code := "beacon_assignment_failed"
+	if resp.Body != nil {
+		var payload struct {
+			Error string `json:"error"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&payload); err == nil && payload.Error != "" {
+			code = payload.Error
+		}
+	}
+	return &beaconRequestError{status: resp.StatusCode, code: code}
 }
 
 func nowPgTime() pgtype.Timestamptz {

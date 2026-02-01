@@ -13,6 +13,7 @@ type Config struct {
 	DatabaseURL            string
 	JWTPublicKey           string
 	JWTIssuer              string
+	BeaconHTTPAddr         string
 	CourseDuration         time.Duration
 	CourseDefaultRangeDays int
 }
@@ -24,6 +25,7 @@ func Load() Config {
 		DatabaseURL:            getenv("DATABASE_URL", "postgres://postgres:postgres@127.0.0.1:5432/academics?sslmode=disable"),
 		JWTPublicKey:           getenvKey("JWT_PUBLIC_KEY", ""),
 		JWTIssuer:              getenv("JWT_ISSUER", "semaphore-auth-identity"),
+		BeaconHTTPAddr:         getenv("BEACON_HTTP_ADDR", "http://beacon:8084"),
 		CourseDuration:         getenvDuration("COURSE_DURATION", time.Hour),
 		CourseDefaultRangeDays: getenvInt("COURSE_DEFAULT_RANGE_DAYS", 10),
 	}
