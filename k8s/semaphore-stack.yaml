@@ -526,6 +526,12 @@ spec:
                 secretKeyRef:
                   name: redis-credentials
                   key: redis-password
+            - name: SIGNATURE_CLOSE_JOB_ENABLED
+              value: "true"
+            - name: SIGNATURE_CLOSE_JOB_INTERVAL
+              value: "1m"
+            - name: SIGNATURE_CLOSE_JOB_TIMEOUT
+              value: "10s"
             - name: GRPC_DIAL_TIMEOUT
               value: 5s
             - name: BUZZLIGHTYEAR_TTL

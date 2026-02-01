@@ -111,6 +111,7 @@ INSERT INTO courses (
   is_online,
   signature_closing_delay_minutes,
   signature_closed,
+  signature_closed_override,
   created_at,
   updated_at
 ) VALUES (
@@ -123,24 +124,25 @@ INSERT INTO courses (
   $7,
   $8,
   $9,
-  $10
+  $10,
+  $11
 )
-RETURNING id, school_id, name, start_at, end_at, is_online, signature_closing_delay_minutes, signature_closed, created_at, updated_at, deleted_at;
+RETURNING id, school_id, name, start_at, end_at, is_online, signature_closing_delay_minutes, signature_closed, signature_closed_override, created_at, updated_at, deleted_at;
 
 -- name: GetCourse :one
-SELECT id, school_id, name, start_at, end_at, is_online, signature_closing_delay_minutes, signature_closed, created_at, updated_at, deleted_at
+SELECT id, school_id, name, start_at, end_at, is_online, signature_closing_delay_minutes, signature_closed, signature_closed_override, created_at, updated_at, deleted_at
 FROM courses
 WHERE id = $1 AND deleted_at IS NULL;
 
 -- name: ListCoursesBySchool :many
-SELECT id, school_id, name, start_at, end_at, is_online, signature_closing_delay_minutes, signature_closed, created_at, updated_at, deleted_at
+SELECT id, school_id, name, start_at, end_at, is_online, signature_closing_delay_minutes, signature_closed, signature_closed_override, created_at, updated_at, deleted_at
 FROM courses
 WHERE school_id = $1 AND deleted_at IS NULL
 ORDER BY start_at DESC
 LIMIT $2;
 
 -- name: ListCoursesByTeacher :many
-SELECT c.id, c.school_id, c.name, c.start_at, c.end_at, c.is_online, c.signature_closing_delay_minutes, c.signature_closed, c.created_at, c.updated_at, c.deleted_at
+SELECT c.id, c.school_id, c.name, c.start_at, c.end_at, c.is_online, c.signature_closing_delay_minutes, c.signature_closed, c.signature_closed_override, c.created_at, c.updated_at, c.deleted_at
 FROM courses c
 INNER JOIN teachers_courses tc ON tc.course_id = c.id
 WHERE tc.teacher_id = $1 AND c.deleted_at IS NULL
@@ -148,7 +150,7 @@ ORDER BY c.start_at DESC
 LIMIT $2;
 
 -- name: ListCoursesByStudent :many
-SELECT c.id, c.school_id, c.name, c.start_at, c.end_at, c.is_online, c.signature_closing_delay_minutes, c.signature_closed, c.created_at, c.updated_at, c.deleted_at
+SELECT c.id, c.school_id, c.name, c.start_at, c.end_at, c.is_online, c.signature_closing_delay_minutes, c.signature_closed, c.signature_closed_override, c.created_at, c.updated_at, c.deleted_at
 FROM courses c
 INNER JOIN courses_student_groups csg ON csg.course_id = c.id
 INNER JOIN students_groups sg ON sg.student_group_id = csg.student_group_id
@@ -157,7 +159,7 @@ ORDER BY c.start_at DESC
 LIMIT $2;
 
 -- name: ListCoursesByStudentWithinRange :many
-SELECT c.id, c.school_id, c.name, c.start_at, c.end_at, c.is_online, c.signature_closing_delay_minutes, c.signature_closed, c.created_at, c.updated_at, c.deleted_at
+SELECT c.id, c.school_id, c.name, c.start_at, c.end_at, c.is_online, c.signature_closing_delay_minutes, c.signature_closed, c.signature_closed_override, c.created_at, c.updated_at, c.deleted_at
 FROM courses c
 INNER JOIN courses_student_groups csg ON csg.course_id = c.id
 INNER JOIN students_groups sg ON sg.student_group_id = csg.student_group_id
@@ -168,7 +170,7 @@ ORDER BY c.start_at DESC
 LIMIT $4;
 
 -- name: ListCoursesByTeacherWithinRange :many
-SELECT c.id, c.school_id, c.name, c.start_at, c.end_at, c.is_online, c.signature_closing_delay_minutes, c.signature_closed, c.created_at, c.updated_at, c.deleted_at
+SELECT c.id, c.school_id, c.name, c.start_at, c.end_at, c.is_online, c.signature_closing_delay_minutes, c.signature_closed, c.signature_closed_override, c.created_at, c.updated_at, c.deleted_at
 FROM courses c
 INNER JOIN teachers_courses tc ON tc.course_id = c.id
 WHERE tc.teacher_id = $1
@@ -178,7 +180,7 @@ ORDER BY c.start_at DESC
 LIMIT $4;
 
 -- name: ListCoursesBySchoolWithinRange :many
-SELECT id, school_id, name, start_at, end_at, is_online, signature_closing_delay_minutes, signature_closed, created_at, updated_at, deleted_at
+SELECT id, school_id, name, start_at, end_at, is_online, signature_closing_delay_minutes, signature_closed, signature_closed_override, created_at, updated_at, deleted_at
 FROM courses
 WHERE school_id = $1
   AND deleted_at IS NULL
@@ -194,9 +196,23 @@ SET name = $2,
     is_online = $5,
     signature_closing_delay_minutes = $6,
     signature_closed = $7,
-    updated_at = $8
+    signature_closed_override = $8,
+    updated_at = $9
 WHERE id = $1 AND deleted_at IS NULL
-RETURNING id, school_id, name, start_at, end_at, is_online, signature_closing_delay_minutes, signature_closed, created_at, updated_at, deleted_at;
+RETURNING id, school_id, name, start_at, end_at, is_online, signature_closing_delay_minutes, signature_closed, signature_closed_override, created_at, updated_at, deleted_at;
+
+-- name: CloseExpiredCourses :one
+WITH updated AS (
+  UPDATE courses
+  SET signature_closed = true,
+      updated_at = $1
+  WHERE deleted_at IS NULL
+    AND signature_closed = false
+    AND signature_closed_override = false
+    AND start_at + make_interval(mins => signature_closing_delay_minutes) < $1
+  RETURNING 1
+)
+SELECT COUNT(*) FROM updated;
 
 -- name: SoftDeleteCourse :exec
 UPDATE courses

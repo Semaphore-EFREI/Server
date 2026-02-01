@@ -12,10 +12,11 @@ import (
 )
 
 type Clients struct {
-	AcademicsConn *grpc.ClientConn
-	IdentityConn  *grpc.ClientConn
-	Academics     academicsv1.AcademicsQueryServiceClient
-	Identity      identityv1.IdentityQueryServiceClient
+	AcademicsConn    *grpc.ClientConn
+	IdentityConn     *grpc.ClientConn
+	Academics        academicsv1.AcademicsQueryServiceClient
+	AcademicsCommand academicsv1.AcademicsCommandServiceClient
+	Identity         identityv1.IdentityQueryServiceClient
 }
 
 func New(ctx context.Context, academicsAddr, identityAddr string, timeout time.Duration) (*Clients, error) {
@@ -30,10 +31,11 @@ func New(ctx context.Context, academicsAddr, identityAddr string, timeout time.D
 	}
 
 	return &Clients{
-		AcademicsConn: academicsConn,
-		IdentityConn:  identityConn,
-		Academics:     academicsv1.NewAcademicsQueryServiceClient(academicsConn),
-		Identity:      identityv1.NewIdentityQueryServiceClient(identityConn),
+		AcademicsConn:    academicsConn,
+		IdentityConn:     identityConn,
+		Academics:        academicsv1.NewAcademicsQueryServiceClient(academicsConn),
+		AcademicsCommand: academicsv1.NewAcademicsCommandServiceClient(academicsConn),
+		Identity:         identityv1.NewIdentityQueryServiceClient(identityConn),
 	}, nil
 }
 

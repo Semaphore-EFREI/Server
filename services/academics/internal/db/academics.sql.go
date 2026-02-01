@@ -103,6 +103,27 @@ func (q *Queries) AddStudentGroupMembers(ctx context.Context, arg AddStudentGrou
 	return err
 }
 
+const closeExpiredCourses = `-- name: CloseExpiredCourses :one
+WITH updated AS (
+  UPDATE courses
+  SET signature_closed = true,
+      updated_at = $1
+  WHERE deleted_at IS NULL
+    AND signature_closed = false
+    AND signature_closed_override = false
+    AND start_at + make_interval(mins => signature_closing_delay_minutes) < $1
+  RETURNING 1
+)
+SELECT COUNT(*) FROM updated
+`
+
+func (q *Queries) CloseExpiredCourses(ctx context.Context, updatedAt pgtype.Timestamptz) (int64, error) {
+	row := q.db.QueryRow(ctx, closeExpiredCourses, updatedAt)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createClassroom = `-- name: CreateClassroom :one
 INSERT INTO classrooms (id, school_id, name, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5)
@@ -147,6 +168,7 @@ INSERT INTO courses (
   is_online,
   signature_closing_delay_minutes,
   signature_closed,
+  signature_closed_override,
   created_at,
   updated_at
 ) VALUES (
@@ -159,9 +181,10 @@ INSERT INTO courses (
   $7,
   $8,
   $9,
-  $10
+  $10,
+  $11
 )
-RETURNING id, school_id, name, start_at, end_at, is_online, signature_closing_delay_minutes, signature_closed, created_at, updated_at, deleted_at
+RETURNING id, school_id, name, start_at, end_at, is_online, signature_closing_delay_minutes, signature_closed, signature_closed_override, created_at, updated_at, deleted_at
 `
 
 type CreateCourseParams struct {
@@ -173,11 +196,27 @@ type CreateCourseParams struct {
 	IsOnline                     bool               `db:"is_online" json:"is_online"`
 	SignatureClosingDelayMinutes int32              `db:"signature_closing_delay_minutes" json:"signature_closing_delay_minutes"`
 	SignatureClosed              bool               `db:"signature_closed" json:"signature_closed"`
+	SignatureClosedOverride      bool               `db:"signature_closed_override" json:"signature_closed_override"`
 	CreatedAt                    pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt                    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
-func (q *Queries) CreateCourse(ctx context.Context, arg CreateCourseParams) (Course, error) {
+type CreateCourseRow struct {
+	ID                           pgtype.UUID        `db:"id" json:"id"`
+	SchoolID                     pgtype.UUID        `db:"school_id" json:"school_id"`
+	Name                         string             `db:"name" json:"name"`
+	StartAt                      pgtype.Timestamptz `db:"start_at" json:"start_at"`
+	EndAt                        pgtype.Timestamptz `db:"end_at" json:"end_at"`
+	IsOnline                     bool               `db:"is_online" json:"is_online"`
+	SignatureClosingDelayMinutes int32              `db:"signature_closing_delay_minutes" json:"signature_closing_delay_minutes"`
+	SignatureClosed              bool               `db:"signature_closed" json:"signature_closed"`
+	SignatureClosedOverride      bool               `db:"signature_closed_override" json:"signature_closed_override"`
+	CreatedAt                    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt                    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt                    pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+func (q *Queries) CreateCourse(ctx context.Context, arg CreateCourseParams) (CreateCourseRow, error) {
 	row := q.db.QueryRow(ctx, createCourse,
 		arg.ID,
 		arg.SchoolID,
@@ -187,10 +226,11 @@ func (q *Queries) CreateCourse(ctx context.Context, arg CreateCourseParams) (Cou
 		arg.IsOnline,
 		arg.SignatureClosingDelayMinutes,
 		arg.SignatureClosed,
+		arg.SignatureClosedOverride,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
-	var i Course
+	var i CreateCourseRow
 	err := row.Scan(
 		&i.ID,
 		&i.SchoolID,
@@ -200,6 +240,7 @@ func (q *Queries) CreateCourse(ctx context.Context, arg CreateCourseParams) (Cou
 		&i.IsOnline,
 		&i.SignatureClosingDelayMinutes,
 		&i.SignatureClosed,
+		&i.SignatureClosedOverride,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -271,32 +312,45 @@ type CreateSchoolPreferencesParams struct {
 	TeacherCanModifyClosingDelay        bool               `db:"teacher_can_modify_closing_delay" json:"teacher_can_modify_closing_delay"`
 	StudentsCanSignBeforeTeacher        bool               `db:"students_can_sign_before_teacher" json:"students_can_sign_before_teacher"`
 	EnableFlash                         bool               `db:"enable_flash" json:"enable_flash"`
-	DisableCourseModificationFromUI     bool               `db:"disable_course_modification_from_ui" json:"disable_course_modification_from_ui"`
+	DisableCourseModificationFromUi     bool               `db:"disable_course_modification_from_ui" json:"disable_course_modification_from_ui"`
 	EnableNfc                           bool               `db:"enable_nfc" json:"enable_nfc"`
 	CreatedAt                           pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt                           pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
-func (q *Queries) CreateSchoolPreferences(ctx context.Context, arg CreateSchoolPreferencesParams) (SchoolPreference, error) {
+type CreateSchoolPreferencesRow struct {
+	ID                                  pgtype.UUID        `db:"id" json:"id"`
+	DefaultSignatureClosingDelayMinutes int32              `db:"default_signature_closing_delay_minutes" json:"default_signature_closing_delay_minutes"`
+	TeacherCanModifyClosingDelay        bool               `db:"teacher_can_modify_closing_delay" json:"teacher_can_modify_closing_delay"`
+	StudentsCanSignBeforeTeacher        bool               `db:"students_can_sign_before_teacher" json:"students_can_sign_before_teacher"`
+	EnableFlash                         bool               `db:"enable_flash" json:"enable_flash"`
+	DisableCourseModificationFromUi     bool               `db:"disable_course_modification_from_ui" json:"disable_course_modification_from_ui"`
+	EnableNfc                           bool               `db:"enable_nfc" json:"enable_nfc"`
+	CreatedAt                           pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt                           pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt                           pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+func (q *Queries) CreateSchoolPreferences(ctx context.Context, arg CreateSchoolPreferencesParams) (CreateSchoolPreferencesRow, error) {
 	row := q.db.QueryRow(ctx, createSchoolPreferences,
 		arg.ID,
-	arg.DefaultSignatureClosingDelayMinutes,
-	arg.TeacherCanModifyClosingDelay,
-	arg.StudentsCanSignBeforeTeacher,
-	arg.EnableFlash,
-	arg.DisableCourseModificationFromUI,
-	arg.EnableNfc,
-	arg.CreatedAt,
-	arg.UpdatedAt,
-)
-	var i SchoolPreference
+		arg.DefaultSignatureClosingDelayMinutes,
+		arg.TeacherCanModifyClosingDelay,
+		arg.StudentsCanSignBeforeTeacher,
+		arg.EnableFlash,
+		arg.DisableCourseModificationFromUi,
+		arg.EnableNfc,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	var i CreateSchoolPreferencesRow
 	err := row.Scan(
 		&i.ID,
 		&i.DefaultSignatureClosingDelayMinutes,
 		&i.TeacherCanModifyClosingDelay,
 		&i.StudentsCanSignBeforeTeacher,
 		&i.EnableFlash,
-		&i.DisableCourseModificationFromUI,
+		&i.DisableCourseModificationFromUi,
 		&i.EnableNfc,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -363,14 +417,29 @@ func (q *Queries) GetClassroom(ctx context.Context, id pgtype.UUID) (Classroom, 
 }
 
 const getCourse = `-- name: GetCourse :one
-SELECT id, school_id, name, start_at, end_at, is_online, signature_closing_delay_minutes, signature_closed, created_at, updated_at, deleted_at
+SELECT id, school_id, name, start_at, end_at, is_online, signature_closing_delay_minutes, signature_closed, signature_closed_override, created_at, updated_at, deleted_at
 FROM courses
 WHERE id = $1 AND deleted_at IS NULL
 `
 
-func (q *Queries) GetCourse(ctx context.Context, id pgtype.UUID) (Course, error) {
+type GetCourseRow struct {
+	ID                           pgtype.UUID        `db:"id" json:"id"`
+	SchoolID                     pgtype.UUID        `db:"school_id" json:"school_id"`
+	Name                         string             `db:"name" json:"name"`
+	StartAt                      pgtype.Timestamptz `db:"start_at" json:"start_at"`
+	EndAt                        pgtype.Timestamptz `db:"end_at" json:"end_at"`
+	IsOnline                     bool               `db:"is_online" json:"is_online"`
+	SignatureClosingDelayMinutes int32              `db:"signature_closing_delay_minutes" json:"signature_closing_delay_minutes"`
+	SignatureClosed              bool               `db:"signature_closed" json:"signature_closed"`
+	SignatureClosedOverride      bool               `db:"signature_closed_override" json:"signature_closed_override"`
+	CreatedAt                    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt                    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt                    pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+func (q *Queries) GetCourse(ctx context.Context, id pgtype.UUID) (GetCourseRow, error) {
 	row := q.db.QueryRow(ctx, getCourse, id)
-	var i Course
+	var i GetCourseRow
 	err := row.Scan(
 		&i.ID,
 		&i.SchoolID,
@@ -380,6 +449,7 @@ func (q *Queries) GetCourse(ctx context.Context, id pgtype.UUID) (Course, error)
 		&i.IsOnline,
 		&i.SignatureClosingDelayMinutes,
 		&i.SignatureClosed,
+		&i.SignatureClosedOverride,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -413,16 +483,29 @@ FROM school_preferences
 WHERE id = $1 AND deleted_at IS NULL
 `
 
-func (q *Queries) GetSchoolPreferences(ctx context.Context, id pgtype.UUID) (SchoolPreference, error) {
+type GetSchoolPreferencesRow struct {
+	ID                                  pgtype.UUID        `db:"id" json:"id"`
+	DefaultSignatureClosingDelayMinutes int32              `db:"default_signature_closing_delay_minutes" json:"default_signature_closing_delay_minutes"`
+	TeacherCanModifyClosingDelay        bool               `db:"teacher_can_modify_closing_delay" json:"teacher_can_modify_closing_delay"`
+	StudentsCanSignBeforeTeacher        bool               `db:"students_can_sign_before_teacher" json:"students_can_sign_before_teacher"`
+	EnableFlash                         bool               `db:"enable_flash" json:"enable_flash"`
+	DisableCourseModificationFromUi     bool               `db:"disable_course_modification_from_ui" json:"disable_course_modification_from_ui"`
+	EnableNfc                           bool               `db:"enable_nfc" json:"enable_nfc"`
+	CreatedAt                           pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt                           pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt                           pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+func (q *Queries) GetSchoolPreferences(ctx context.Context, id pgtype.UUID) (GetSchoolPreferencesRow, error) {
 	row := q.db.QueryRow(ctx, getSchoolPreferences, id)
-	var i SchoolPreference
+	var i GetSchoolPreferencesRow
 	err := row.Scan(
 		&i.ID,
 		&i.DefaultSignatureClosingDelayMinutes,
 		&i.TeacherCanModifyClosingDelay,
 		&i.StudentsCanSignBeforeTeacher,
 		&i.EnableFlash,
-		&i.DisableCourseModificationFromUI,
+		&i.DisableCourseModificationFromUi,
 		&i.EnableNfc,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -528,7 +611,7 @@ func (q *Queries) ListClassroomsBySchool(ctx context.Context, arg ListClassrooms
 }
 
 const listCoursesBySchool = `-- name: ListCoursesBySchool :many
-SELECT id, school_id, name, start_at, end_at, is_online, signature_closing_delay_minutes, signature_closed, created_at, updated_at, deleted_at
+SELECT id, school_id, name, start_at, end_at, is_online, signature_closing_delay_minutes, signature_closed, signature_closed_override, created_at, updated_at, deleted_at
 FROM courses
 WHERE school_id = $1 AND deleted_at IS NULL
 ORDER BY start_at DESC
@@ -540,15 +623,30 @@ type ListCoursesBySchoolParams struct {
 	Limit    int32       `db:"limit" json:"limit"`
 }
 
-func (q *Queries) ListCoursesBySchool(ctx context.Context, arg ListCoursesBySchoolParams) ([]Course, error) {
+type ListCoursesBySchoolRow struct {
+	ID                           pgtype.UUID        `db:"id" json:"id"`
+	SchoolID                     pgtype.UUID        `db:"school_id" json:"school_id"`
+	Name                         string             `db:"name" json:"name"`
+	StartAt                      pgtype.Timestamptz `db:"start_at" json:"start_at"`
+	EndAt                        pgtype.Timestamptz `db:"end_at" json:"end_at"`
+	IsOnline                     bool               `db:"is_online" json:"is_online"`
+	SignatureClosingDelayMinutes int32              `db:"signature_closing_delay_minutes" json:"signature_closing_delay_minutes"`
+	SignatureClosed              bool               `db:"signature_closed" json:"signature_closed"`
+	SignatureClosedOverride      bool               `db:"signature_closed_override" json:"signature_closed_override"`
+	CreatedAt                    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt                    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt                    pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+func (q *Queries) ListCoursesBySchool(ctx context.Context, arg ListCoursesBySchoolParams) ([]ListCoursesBySchoolRow, error) {
 	rows, err := q.db.Query(ctx, listCoursesBySchool, arg.SchoolID, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Course
+	var items []ListCoursesBySchoolRow
 	for rows.Next() {
-		var i Course
+		var i ListCoursesBySchoolRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.SchoolID,
@@ -558,6 +656,7 @@ func (q *Queries) ListCoursesBySchool(ctx context.Context, arg ListCoursesByScho
 			&i.IsOnline,
 			&i.SignatureClosingDelayMinutes,
 			&i.SignatureClosed,
+			&i.SignatureClosedOverride,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
@@ -573,7 +672,7 @@ func (q *Queries) ListCoursesBySchool(ctx context.Context, arg ListCoursesByScho
 }
 
 const listCoursesBySchoolWithinRange = `-- name: ListCoursesBySchoolWithinRange :many
-SELECT id, school_id, name, start_at, end_at, is_online, signature_closing_delay_minutes, signature_closed, created_at, updated_at, deleted_at
+SELECT id, school_id, name, start_at, end_at, is_online, signature_closing_delay_minutes, signature_closed, signature_closed_override, created_at, updated_at, deleted_at
 FROM courses
 WHERE school_id = $1
   AND deleted_at IS NULL
@@ -589,7 +688,22 @@ type ListCoursesBySchoolWithinRangeParams struct {
 	Limit     int32              `db:"limit" json:"limit"`
 }
 
-func (q *Queries) ListCoursesBySchoolWithinRange(ctx context.Context, arg ListCoursesBySchoolWithinRangeParams) ([]Course, error) {
+type ListCoursesBySchoolWithinRangeRow struct {
+	ID                           pgtype.UUID        `db:"id" json:"id"`
+	SchoolID                     pgtype.UUID        `db:"school_id" json:"school_id"`
+	Name                         string             `db:"name" json:"name"`
+	StartAt                      pgtype.Timestamptz `db:"start_at" json:"start_at"`
+	EndAt                        pgtype.Timestamptz `db:"end_at" json:"end_at"`
+	IsOnline                     bool               `db:"is_online" json:"is_online"`
+	SignatureClosingDelayMinutes int32              `db:"signature_closing_delay_minutes" json:"signature_closing_delay_minutes"`
+	SignatureClosed              bool               `db:"signature_closed" json:"signature_closed"`
+	SignatureClosedOverride      bool               `db:"signature_closed_override" json:"signature_closed_override"`
+	CreatedAt                    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt                    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt                    pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+func (q *Queries) ListCoursesBySchoolWithinRange(ctx context.Context, arg ListCoursesBySchoolWithinRangeParams) ([]ListCoursesBySchoolWithinRangeRow, error) {
 	rows, err := q.db.Query(ctx, listCoursesBySchoolWithinRange,
 		arg.SchoolID,
 		arg.StartAt,
@@ -600,9 +714,9 @@ func (q *Queries) ListCoursesBySchoolWithinRange(ctx context.Context, arg ListCo
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Course
+	var items []ListCoursesBySchoolWithinRangeRow
 	for rows.Next() {
-		var i Course
+		var i ListCoursesBySchoolWithinRangeRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.SchoolID,
@@ -612,6 +726,7 @@ func (q *Queries) ListCoursesBySchoolWithinRange(ctx context.Context, arg ListCo
 			&i.IsOnline,
 			&i.SignatureClosingDelayMinutes,
 			&i.SignatureClosed,
+			&i.SignatureClosedOverride,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
@@ -627,7 +742,7 @@ func (q *Queries) ListCoursesBySchoolWithinRange(ctx context.Context, arg ListCo
 }
 
 const listCoursesByStudent = `-- name: ListCoursesByStudent :many
-SELECT c.id, c.school_id, c.name, c.start_at, c.end_at, c.is_online, c.signature_closing_delay_minutes, c.signature_closed, c.created_at, c.updated_at, c.deleted_at
+SELECT c.id, c.school_id, c.name, c.start_at, c.end_at, c.is_online, c.signature_closing_delay_minutes, c.signature_closed, c.signature_closed_override, c.created_at, c.updated_at, c.deleted_at
 FROM courses c
 INNER JOIN courses_student_groups csg ON csg.course_id = c.id
 INNER JOIN students_groups sg ON sg.student_group_id = csg.student_group_id
@@ -641,15 +756,30 @@ type ListCoursesByStudentParams struct {
 	Limit     int32       `db:"limit" json:"limit"`
 }
 
-func (q *Queries) ListCoursesByStudent(ctx context.Context, arg ListCoursesByStudentParams) ([]Course, error) {
+type ListCoursesByStudentRow struct {
+	ID                           pgtype.UUID        `db:"id" json:"id"`
+	SchoolID                     pgtype.UUID        `db:"school_id" json:"school_id"`
+	Name                         string             `db:"name" json:"name"`
+	StartAt                      pgtype.Timestamptz `db:"start_at" json:"start_at"`
+	EndAt                        pgtype.Timestamptz `db:"end_at" json:"end_at"`
+	IsOnline                     bool               `db:"is_online" json:"is_online"`
+	SignatureClosingDelayMinutes int32              `db:"signature_closing_delay_minutes" json:"signature_closing_delay_minutes"`
+	SignatureClosed              bool               `db:"signature_closed" json:"signature_closed"`
+	SignatureClosedOverride      bool               `db:"signature_closed_override" json:"signature_closed_override"`
+	CreatedAt                    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt                    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt                    pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+func (q *Queries) ListCoursesByStudent(ctx context.Context, arg ListCoursesByStudentParams) ([]ListCoursesByStudentRow, error) {
 	rows, err := q.db.Query(ctx, listCoursesByStudent, arg.StudentID, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Course
+	var items []ListCoursesByStudentRow
 	for rows.Next() {
-		var i Course
+		var i ListCoursesByStudentRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.SchoolID,
@@ -659,6 +789,7 @@ func (q *Queries) ListCoursesByStudent(ctx context.Context, arg ListCoursesByStu
 			&i.IsOnline,
 			&i.SignatureClosingDelayMinutes,
 			&i.SignatureClosed,
+			&i.SignatureClosedOverride,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
@@ -681,15 +812,29 @@ WHERE csg.student_group_id = $1 AND c.deleted_at IS NULL
 ORDER BY c.start_at DESC
 `
 
-func (q *Queries) ListCoursesByStudentGroup(ctx context.Context, studentGroupID pgtype.UUID) ([]Course, error) {
+type ListCoursesByStudentGroupRow struct {
+	ID                           pgtype.UUID        `db:"id" json:"id"`
+	SchoolID                     pgtype.UUID        `db:"school_id" json:"school_id"`
+	Name                         string             `db:"name" json:"name"`
+	StartAt                      pgtype.Timestamptz `db:"start_at" json:"start_at"`
+	EndAt                        pgtype.Timestamptz `db:"end_at" json:"end_at"`
+	IsOnline                     bool               `db:"is_online" json:"is_online"`
+	SignatureClosingDelayMinutes int32              `db:"signature_closing_delay_minutes" json:"signature_closing_delay_minutes"`
+	SignatureClosed              bool               `db:"signature_closed" json:"signature_closed"`
+	CreatedAt                    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt                    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt                    pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+func (q *Queries) ListCoursesByStudentGroup(ctx context.Context, studentGroupID pgtype.UUID) ([]ListCoursesByStudentGroupRow, error) {
 	rows, err := q.db.Query(ctx, listCoursesByStudentGroup, studentGroupID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Course
+	var items []ListCoursesByStudentGroupRow
 	for rows.Next() {
-		var i Course
+		var i ListCoursesByStudentGroupRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.SchoolID,
@@ -714,7 +859,7 @@ func (q *Queries) ListCoursesByStudentGroup(ctx context.Context, studentGroupID 
 }
 
 const listCoursesByStudentWithinRange = `-- name: ListCoursesByStudentWithinRange :many
-SELECT c.id, c.school_id, c.name, c.start_at, c.end_at, c.is_online, c.signature_closing_delay_minutes, c.signature_closed, c.created_at, c.updated_at, c.deleted_at
+SELECT c.id, c.school_id, c.name, c.start_at, c.end_at, c.is_online, c.signature_closing_delay_minutes, c.signature_closed, c.signature_closed_override, c.created_at, c.updated_at, c.deleted_at
 FROM courses c
 INNER JOIN courses_student_groups csg ON csg.course_id = c.id
 INNER JOIN students_groups sg ON sg.student_group_id = csg.student_group_id
@@ -732,7 +877,22 @@ type ListCoursesByStudentWithinRangeParams struct {
 	Limit     int32              `db:"limit" json:"limit"`
 }
 
-func (q *Queries) ListCoursesByStudentWithinRange(ctx context.Context, arg ListCoursesByStudentWithinRangeParams) ([]Course, error) {
+type ListCoursesByStudentWithinRangeRow struct {
+	ID                           pgtype.UUID        `db:"id" json:"id"`
+	SchoolID                     pgtype.UUID        `db:"school_id" json:"school_id"`
+	Name                         string             `db:"name" json:"name"`
+	StartAt                      pgtype.Timestamptz `db:"start_at" json:"start_at"`
+	EndAt                        pgtype.Timestamptz `db:"end_at" json:"end_at"`
+	IsOnline                     bool               `db:"is_online" json:"is_online"`
+	SignatureClosingDelayMinutes int32              `db:"signature_closing_delay_minutes" json:"signature_closing_delay_minutes"`
+	SignatureClosed              bool               `db:"signature_closed" json:"signature_closed"`
+	SignatureClosedOverride      bool               `db:"signature_closed_override" json:"signature_closed_override"`
+	CreatedAt                    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt                    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt                    pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+func (q *Queries) ListCoursesByStudentWithinRange(ctx context.Context, arg ListCoursesByStudentWithinRangeParams) ([]ListCoursesByStudentWithinRangeRow, error) {
 	rows, err := q.db.Query(ctx, listCoursesByStudentWithinRange,
 		arg.StudentID,
 		arg.StartAt,
@@ -743,9 +903,9 @@ func (q *Queries) ListCoursesByStudentWithinRange(ctx context.Context, arg ListC
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Course
+	var items []ListCoursesByStudentWithinRangeRow
 	for rows.Next() {
-		var i Course
+		var i ListCoursesByStudentWithinRangeRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.SchoolID,
@@ -755,6 +915,7 @@ func (q *Queries) ListCoursesByStudentWithinRange(ctx context.Context, arg ListC
 			&i.IsOnline,
 			&i.SignatureClosingDelayMinutes,
 			&i.SignatureClosed,
+			&i.SignatureClosedOverride,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
@@ -770,7 +931,7 @@ func (q *Queries) ListCoursesByStudentWithinRange(ctx context.Context, arg ListC
 }
 
 const listCoursesByTeacher = `-- name: ListCoursesByTeacher :many
-SELECT c.id, c.school_id, c.name, c.start_at, c.end_at, c.is_online, c.signature_closing_delay_minutes, c.signature_closed, c.created_at, c.updated_at, c.deleted_at
+SELECT c.id, c.school_id, c.name, c.start_at, c.end_at, c.is_online, c.signature_closing_delay_minutes, c.signature_closed, c.signature_closed_override, c.created_at, c.updated_at, c.deleted_at
 FROM courses c
 INNER JOIN teachers_courses tc ON tc.course_id = c.id
 WHERE tc.teacher_id = $1 AND c.deleted_at IS NULL
@@ -783,15 +944,30 @@ type ListCoursesByTeacherParams struct {
 	Limit     int32       `db:"limit" json:"limit"`
 }
 
-func (q *Queries) ListCoursesByTeacher(ctx context.Context, arg ListCoursesByTeacherParams) ([]Course, error) {
+type ListCoursesByTeacherRow struct {
+	ID                           pgtype.UUID        `db:"id" json:"id"`
+	SchoolID                     pgtype.UUID        `db:"school_id" json:"school_id"`
+	Name                         string             `db:"name" json:"name"`
+	StartAt                      pgtype.Timestamptz `db:"start_at" json:"start_at"`
+	EndAt                        pgtype.Timestamptz `db:"end_at" json:"end_at"`
+	IsOnline                     bool               `db:"is_online" json:"is_online"`
+	SignatureClosingDelayMinutes int32              `db:"signature_closing_delay_minutes" json:"signature_closing_delay_minutes"`
+	SignatureClosed              bool               `db:"signature_closed" json:"signature_closed"`
+	SignatureClosedOverride      bool               `db:"signature_closed_override" json:"signature_closed_override"`
+	CreatedAt                    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt                    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt                    pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+func (q *Queries) ListCoursesByTeacher(ctx context.Context, arg ListCoursesByTeacherParams) ([]ListCoursesByTeacherRow, error) {
 	rows, err := q.db.Query(ctx, listCoursesByTeacher, arg.TeacherID, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Course
+	var items []ListCoursesByTeacherRow
 	for rows.Next() {
-		var i Course
+		var i ListCoursesByTeacherRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.SchoolID,
@@ -801,6 +977,7 @@ func (q *Queries) ListCoursesByTeacher(ctx context.Context, arg ListCoursesByTea
 			&i.IsOnline,
 			&i.SignatureClosingDelayMinutes,
 			&i.SignatureClosed,
+			&i.SignatureClosedOverride,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
@@ -816,7 +993,7 @@ func (q *Queries) ListCoursesByTeacher(ctx context.Context, arg ListCoursesByTea
 }
 
 const listCoursesByTeacherWithinRange = `-- name: ListCoursesByTeacherWithinRange :many
-SELECT c.id, c.school_id, c.name, c.start_at, c.end_at, c.is_online, c.signature_closing_delay_minutes, c.signature_closed, c.created_at, c.updated_at, c.deleted_at
+SELECT c.id, c.school_id, c.name, c.start_at, c.end_at, c.is_online, c.signature_closing_delay_minutes, c.signature_closed, c.signature_closed_override, c.created_at, c.updated_at, c.deleted_at
 FROM courses c
 INNER JOIN teachers_courses tc ON tc.course_id = c.id
 WHERE tc.teacher_id = $1
@@ -833,7 +1010,22 @@ type ListCoursesByTeacherWithinRangeParams struct {
 	Limit     int32              `db:"limit" json:"limit"`
 }
 
-func (q *Queries) ListCoursesByTeacherWithinRange(ctx context.Context, arg ListCoursesByTeacherWithinRangeParams) ([]Course, error) {
+type ListCoursesByTeacherWithinRangeRow struct {
+	ID                           pgtype.UUID        `db:"id" json:"id"`
+	SchoolID                     pgtype.UUID        `db:"school_id" json:"school_id"`
+	Name                         string             `db:"name" json:"name"`
+	StartAt                      pgtype.Timestamptz `db:"start_at" json:"start_at"`
+	EndAt                        pgtype.Timestamptz `db:"end_at" json:"end_at"`
+	IsOnline                     bool               `db:"is_online" json:"is_online"`
+	SignatureClosingDelayMinutes int32              `db:"signature_closing_delay_minutes" json:"signature_closing_delay_minutes"`
+	SignatureClosed              bool               `db:"signature_closed" json:"signature_closed"`
+	SignatureClosedOverride      bool               `db:"signature_closed_override" json:"signature_closed_override"`
+	CreatedAt                    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt                    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt                    pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+func (q *Queries) ListCoursesByTeacherWithinRange(ctx context.Context, arg ListCoursesByTeacherWithinRangeParams) ([]ListCoursesByTeacherWithinRangeRow, error) {
 	rows, err := q.db.Query(ctx, listCoursesByTeacherWithinRange,
 		arg.TeacherID,
 		arg.StartAt,
@@ -844,9 +1036,9 @@ func (q *Queries) ListCoursesByTeacherWithinRange(ctx context.Context, arg ListC
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Course
+	var items []ListCoursesByTeacherWithinRangeRow
 	for rows.Next() {
-		var i Course
+		var i ListCoursesByTeacherWithinRangeRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.SchoolID,
@@ -856,6 +1048,7 @@ func (q *Queries) ListCoursesByTeacherWithinRange(ctx context.Context, arg ListC
 			&i.IsOnline,
 			&i.SignatureClosingDelayMinutes,
 			&i.SignatureClosed,
+			&i.SignatureClosedOverride,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
@@ -937,6 +1130,42 @@ func (q *Queries) ListSchools(ctx context.Context, limit int32) ([]School, error
 	return items, nil
 }
 
+const listStudentGroupsByCourse = `-- name: ListStudentGroupsByCourse :many
+SELECT sg.id, sg.school_id, sg.name, sg.single_student_group, sg.created_at, sg.updated_at, sg.deleted_at
+FROM student_groups sg
+INNER JOIN courses_student_groups csg ON csg.student_group_id = sg.id
+WHERE csg.course_id = $1 AND sg.deleted_at IS NULL
+ORDER BY sg.created_at DESC
+`
+
+func (q *Queries) ListStudentGroupsByCourse(ctx context.Context, courseID pgtype.UUID) ([]StudentGroup, error) {
+	rows, err := q.db.Query(ctx, listStudentGroupsByCourse, courseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []StudentGroup
+	for rows.Next() {
+		var i StudentGroup
+		if err := rows.Scan(
+			&i.ID,
+			&i.SchoolID,
+			&i.Name,
+			&i.SingleStudentGroup,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listStudentGroupsBySchool = `-- name: ListStudentGroupsBySchool :many
 SELECT id, school_id, name, single_student_group, created_at, updated_at, deleted_at
 FROM student_groups
@@ -997,42 +1226,6 @@ func (q *Queries) ListStudentIDsByStudentGroup(ctx context.Context, studentGroup
 			return nil, err
 		}
 		items = append(items, student_id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listStudentGroupsByCourse = `-- name: ListStudentGroupsByCourse :many
-SELECT sg.id, sg.school_id, sg.name, sg.single_student_group, sg.created_at, sg.updated_at, sg.deleted_at
-FROM student_groups sg
-INNER JOIN courses_student_groups csg ON csg.student_group_id = sg.id
-WHERE csg.course_id = $1 AND sg.deleted_at IS NULL
-ORDER BY sg.created_at DESC
-`
-
-func (q *Queries) ListStudentGroupsByCourse(ctx context.Context, courseID pgtype.UUID) ([]StudentGroup, error) {
-	rows, err := q.db.Query(ctx, listStudentGroupsByCourse, courseID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []StudentGroup
-	for rows.Next() {
-		var i StudentGroup
-		if err := rows.Scan(
-			&i.ID,
-			&i.SchoolID,
-			&i.Name,
-			&i.SingleStudentGroup,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.DeletedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -1216,9 +1409,10 @@ SET name = $2,
     is_online = $5,
     signature_closing_delay_minutes = $6,
     signature_closed = $7,
-    updated_at = $8
+    signature_closed_override = $8,
+    updated_at = $9
 WHERE id = $1 AND deleted_at IS NULL
-RETURNING id, school_id, name, start_at, end_at, is_online, signature_closing_delay_minutes, signature_closed, created_at, updated_at, deleted_at
+RETURNING id, school_id, name, start_at, end_at, is_online, signature_closing_delay_minutes, signature_closed, signature_closed_override, created_at, updated_at, deleted_at
 `
 
 type UpdateCourseParams struct {
@@ -1229,10 +1423,26 @@ type UpdateCourseParams struct {
 	IsOnline                     bool               `db:"is_online" json:"is_online"`
 	SignatureClosingDelayMinutes int32              `db:"signature_closing_delay_minutes" json:"signature_closing_delay_minutes"`
 	SignatureClosed              bool               `db:"signature_closed" json:"signature_closed"`
+	SignatureClosedOverride      bool               `db:"signature_closed_override" json:"signature_closed_override"`
 	UpdatedAt                    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
-func (q *Queries) UpdateCourse(ctx context.Context, arg UpdateCourseParams) (Course, error) {
+type UpdateCourseRow struct {
+	ID                           pgtype.UUID        `db:"id" json:"id"`
+	SchoolID                     pgtype.UUID        `db:"school_id" json:"school_id"`
+	Name                         string             `db:"name" json:"name"`
+	StartAt                      pgtype.Timestamptz `db:"start_at" json:"start_at"`
+	EndAt                        pgtype.Timestamptz `db:"end_at" json:"end_at"`
+	IsOnline                     bool               `db:"is_online" json:"is_online"`
+	SignatureClosingDelayMinutes int32              `db:"signature_closing_delay_minutes" json:"signature_closing_delay_minutes"`
+	SignatureClosed              bool               `db:"signature_closed" json:"signature_closed"`
+	SignatureClosedOverride      bool               `db:"signature_closed_override" json:"signature_closed_override"`
+	CreatedAt                    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt                    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt                    pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+func (q *Queries) UpdateCourse(ctx context.Context, arg UpdateCourseParams) (UpdateCourseRow, error) {
 	row := q.db.QueryRow(ctx, updateCourse,
 		arg.ID,
 		arg.Name,
@@ -1241,9 +1451,10 @@ func (q *Queries) UpdateCourse(ctx context.Context, arg UpdateCourseParams) (Cou
 		arg.IsOnline,
 		arg.SignatureClosingDelayMinutes,
 		arg.SignatureClosed,
+		arg.SignatureClosedOverride,
 		arg.UpdatedAt,
 	)
-	var i Course
+	var i UpdateCourseRow
 	err := row.Scan(
 		&i.ID,
 		&i.SchoolID,
@@ -1253,6 +1464,7 @@ func (q *Queries) UpdateCourse(ctx context.Context, arg UpdateCourseParams) (Cou
 		&i.IsOnline,
 		&i.SignatureClosingDelayMinutes,
 		&i.SignatureClosed,
+		&i.SignatureClosedOverride,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -1307,30 +1519,43 @@ type UpdateSchoolPreferencesParams struct {
 	TeacherCanModifyClosingDelay        bool               `db:"teacher_can_modify_closing_delay" json:"teacher_can_modify_closing_delay"`
 	StudentsCanSignBeforeTeacher        bool               `db:"students_can_sign_before_teacher" json:"students_can_sign_before_teacher"`
 	EnableFlash                         bool               `db:"enable_flash" json:"enable_flash"`
-	DisableCourseModificationFromUI     bool               `db:"disable_course_modification_from_ui" json:"disable_course_modification_from_ui"`
+	DisableCourseModificationFromUi     bool               `db:"disable_course_modification_from_ui" json:"disable_course_modification_from_ui"`
 	EnableNfc                           bool               `db:"enable_nfc" json:"enable_nfc"`
 	UpdatedAt                           pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
-func (q *Queries) UpdateSchoolPreferences(ctx context.Context, arg UpdateSchoolPreferencesParams) (SchoolPreference, error) {
+type UpdateSchoolPreferencesRow struct {
+	ID                                  pgtype.UUID        `db:"id" json:"id"`
+	DefaultSignatureClosingDelayMinutes int32              `db:"default_signature_closing_delay_minutes" json:"default_signature_closing_delay_minutes"`
+	TeacherCanModifyClosingDelay        bool               `db:"teacher_can_modify_closing_delay" json:"teacher_can_modify_closing_delay"`
+	StudentsCanSignBeforeTeacher        bool               `db:"students_can_sign_before_teacher" json:"students_can_sign_before_teacher"`
+	EnableFlash                         bool               `db:"enable_flash" json:"enable_flash"`
+	DisableCourseModificationFromUi     bool               `db:"disable_course_modification_from_ui" json:"disable_course_modification_from_ui"`
+	EnableNfc                           bool               `db:"enable_nfc" json:"enable_nfc"`
+	CreatedAt                           pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt                           pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt                           pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+func (q *Queries) UpdateSchoolPreferences(ctx context.Context, arg UpdateSchoolPreferencesParams) (UpdateSchoolPreferencesRow, error) {
 	row := q.db.QueryRow(ctx, updateSchoolPreferences,
 		arg.ID,
-	arg.DefaultSignatureClosingDelayMinutes,
-	arg.TeacherCanModifyClosingDelay,
-	arg.StudentsCanSignBeforeTeacher,
-	arg.EnableFlash,
-	arg.DisableCourseModificationFromUI,
-	arg.EnableNfc,
-	arg.UpdatedAt,
-)
-	var i SchoolPreference
+		arg.DefaultSignatureClosingDelayMinutes,
+		arg.TeacherCanModifyClosingDelay,
+		arg.StudentsCanSignBeforeTeacher,
+		arg.EnableFlash,
+		arg.DisableCourseModificationFromUi,
+		arg.EnableNfc,
+		arg.UpdatedAt,
+	)
+	var i UpdateSchoolPreferencesRow
 	err := row.Scan(
 		&i.ID,
 		&i.DefaultSignatureClosingDelayMinutes,
 		&i.TeacherCanModifyClosingDelay,
 		&i.StudentsCanSignBeforeTeacher,
 		&i.EnableFlash,
-		&i.DisableCourseModificationFromUI,
+		&i.DisableCourseModificationFromUi,
 		&i.EnableNfc,
 		&i.CreatedAt,
 		&i.UpdatedAt,

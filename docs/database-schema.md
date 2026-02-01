@@ -14,7 +14,7 @@ Device binding lives in **auth-identity** (source of truth). Attendance validate
 ## Academics DB
 Tables:
 - `school_preferences`, `schools`.
-- `classrooms`, `courses`.
+- `classrooms`, `courses` (incl. `signature_closed` + `signature_closed_override`).
 - `student_groups`, `students_groups` (student membership).
 - `teachers_courses`, `courses_student_groups`, `courses_classrooms`.
 

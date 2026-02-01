@@ -46,6 +46,7 @@ func main() {
 
 	grpcServer := grpc.NewServer()
 	academicsv1.RegisterAcademicsQueryServiceServer(grpcServer, academicsgrpc.NewAcademicsServer(store.Queries))
+	academicsv1.RegisterAcademicsCommandServiceServer(grpcServer, academicsgrpc.NewAcademicsCommandServer(store.Queries))
 
 	httpServer := &http.Server{
 		Addr:              cfg.HTTPAddr,
