@@ -316,6 +316,10 @@ spec:
               containerPort: 8081
             - name: grpc
               containerPort: 9091
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
           env:
             - name: HTTP_ADDR
               value: ":8081"
@@ -381,6 +385,40 @@ spec:
       targetPort: 9091
 
 ---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: auth-identity
+  namespace: semaphore
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: auth-identity
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 30
+          periodSeconds: 60
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -405,6 +443,10 @@ spec:
               containerPort: 8082
             - name: grpc
               containerPort: 9092
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
           env:
             - name: HTTP_ADDR
               value: ":8082"
@@ -471,6 +513,40 @@ spec:
       targetPort: 9092
 
 ---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: academics
+  namespace: semaphore
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: academics
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 30
+          periodSeconds: 60
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -495,6 +571,10 @@ spec:
               containerPort: 8083
             - name: grpc
               containerPort: 9093
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
           env:
             - name: HTTP_ADDR
               value: ":8083"
@@ -569,6 +649,40 @@ spec:
       targetPort: 9093
 
 ---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: attendance
+  namespace: semaphore
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: attendance
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 30
+          periodSeconds: 60
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -593,6 +707,10 @@ spec:
               containerPort: 8084
             - name: grpc
               containerPort: 9094
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
           env:
             - name: HTTP_ADDR
               value: ":8084"
@@ -653,3 +771,37 @@ spec:
     - name: grpc
       port: 9094
       targetPort: 9094
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: beacon
+  namespace: semaphore
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: beacon
+  minReplicas: 2
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 30
+          periodSeconds: 60
