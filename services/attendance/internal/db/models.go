@@ -117,16 +117,18 @@ type Signature struct {
 }
 
 type StudentSignature struct {
-	SignatureID     pgtype.UUID `db:"signature_id" json:"signature_id"`
-	StudentID       pgtype.UUID `db:"student_id" json:"student_id"`
-	TeacherID       pgtype.UUID `db:"teacher_id" json:"teacher_id"`
-	AdministratorID pgtype.UUID `db:"administrator_id" json:"administrator_id"`
-	CourseID        pgtype.UUID `db:"course_id" json:"course_id"`
+	SignatureID     pgtype.UUID        `db:"signature_id" json:"signature_id"`
+	StudentID       pgtype.UUID        `db:"student_id" json:"student_id"`
+	TeacherID       pgtype.UUID        `db:"teacher_id" json:"teacher_id"`
+	AdministratorID pgtype.UUID        `db:"administrator_id" json:"administrator_id"`
+	CourseID        pgtype.UUID        `db:"course_id" json:"course_id"`
+	DeletedAt       pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
 }
 
 type TeacherSignature struct {
-	SignatureID     pgtype.UUID `db:"signature_id" json:"signature_id"`
-	TeacherID       pgtype.UUID `db:"teacher_id" json:"teacher_id"`
-	CourseID        pgtype.UUID `db:"course_id" json:"course_id"`
-	AdministratorID pgtype.UUID `db:"administrator_id" json:"administrator_id"`
+	SignatureID     pgtype.UUID        `db:"signature_id" json:"signature_id"`
+	TeacherID       pgtype.UUID        `db:"teacher_id" json:"teacher_id"`
+	CourseID        pgtype.UUID        `db:"course_id" json:"course_id"`
+	AdministratorID pgtype.UUID        `db:"administrator_id" json:"administrator_id"`
+	DeletedAt       pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
 }

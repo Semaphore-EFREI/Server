@@ -14,6 +14,9 @@ type Config struct {
 	JWTPublicKey           string
 	JWTIssuer              string
 	BeaconHTTPAddr         string
+	AttendanceGRPCAddr     string
+	BeaconGRPCAddr         string
+	GRPCDialTimeout        time.Duration
 	CourseDuration         time.Duration
 	CourseDefaultRangeDays int
 }
@@ -26,6 +29,9 @@ func Load() Config {
 		JWTPublicKey:           getenvKey("JWT_PUBLIC_KEY", ""),
 		JWTIssuer:              getenv("JWT_ISSUER", "semaphore-auth-identity"),
 		BeaconHTTPAddr:         getenv("BEACON_HTTP_ADDR", "http://beacon:8084"),
+		AttendanceGRPCAddr:     getenv("ATTENDANCE_GRPC_ADDR", "127.0.0.1:9093"),
+		BeaconGRPCAddr:         getenv("BEACON_GRPC_ADDR", "127.0.0.1:9094"),
+		GRPCDialTimeout:        getenvDuration("GRPC_DIAL_TIMEOUT", 5*time.Second),
 		CourseDuration:         getenvDuration("COURSE_DURATION", time.Hour),
 		CourseDefaultRangeDays: getenvInt("COURSE_DEFAULT_RANGE_DAYS", 10),
 	}

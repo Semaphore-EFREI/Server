@@ -3,15 +3,20 @@ package main
 import (
 	"context"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"google.golang.org/grpc"
+
+	beaconv1 "semaphore/beacon/beacon/v1"
 	"semaphore/beacon/internal/clients"
 	"semaphore/beacon/internal/config"
 	"semaphore/beacon/internal/db"
+	beacongrpc "semaphore/beacon/internal/grpc"
 	internalhttp "semaphore/beacon/internal/http"
 )
 
@@ -44,10 +49,24 @@ func main() {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
+	grpcServer := grpc.NewServer()
+	beaconv1.RegisterBeaconQueryServiceServer(grpcServer, beacongrpc.NewBeaconQueryServer(store))
+
 	go func() {
 		log.Printf("beacon http listening on %s", cfg.HTTPAddr)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("http server error: %v", err)
+		}
+	}()
+
+	go func() {
+		listener, err := net.Listen("tcp", cfg.GRPCAddr)
+		if err != nil {
+			log.Fatalf("grpc listen error: %v", err)
+		}
+		log.Printf("beacon grpc listening on %s", cfg.GRPCAddr)
+		if err := grpcServer.Serve(listener); err != nil {
+			log.Fatalf("grpc server error: %v", err)
 		}
 	}()
 
@@ -59,4 +78,5 @@ func main() {
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		log.Printf("shutdown error: %v", err)
 	}
+	grpcServer.GracefulStop()
 }

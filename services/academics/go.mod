@@ -10,6 +10,8 @@ require (
 	github.com/prometheus/client_golang v1.23.2
 	google.golang.org/grpc v1.62.1
 	google.golang.org/protobuf v1.36.8
+	semaphore/attendance v0.0.0
+	semaphore/beacon v0.0.0
 )
 
 require (
@@ -32,3 +34,7 @@ require (
 	golang.org/x/text v0.28.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240123012728-ef4313101c80 // indirect
 )
+
+replace semaphore/attendance => ../attendance
+
+replace semaphore/beacon => ../beacon

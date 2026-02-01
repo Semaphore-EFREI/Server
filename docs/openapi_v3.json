@@ -729,6 +729,7 @@
                 "enum": [
                   "classrooms",
                   "signatures",
+                  "teachers",
                   "students",
                   "soloStudents",
                   "studentGroups"
@@ -737,6 +738,7 @@
               "default": [
                 "classrooms",
                 "signatures",
+                "teachers",
                 "students",
                 "soloStudents",
                 "studentGroups"
@@ -1029,6 +1031,7 @@
                 "enum": [
                   "classrooms",
                   "signatures",
+                  "teachers",
                   "students",
                   "soloStudents",
                   "studentGroups"
@@ -1037,6 +1040,7 @@
               "default": [
                 "classrooms",
                 "signatures",
+                "teachers",
                 "students",
                 "soloStudents",
                 "studentGroups"
@@ -4830,6 +4834,13 @@
                   "discriminator": {
                     "propertyName": "type"
                   }
+                }
+              },
+              "teachers": {
+                "type": "array",
+                "description": "Liste des enseignants associés au cours",
+                "items": {
+                  "$ref": "#/components/schemas/Teacher"
                 }
               },
               "students": {

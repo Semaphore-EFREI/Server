@@ -16,20 +16,25 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"semaphore/academics/internal/auth"
 	"semaphore/academics/internal/config"
 	"semaphore/academics/internal/db"
+	attendancev1 "semaphore/attendance/attendance/v1"
+	beaconv1 "semaphore/beacon/beacon/v1"
 )
 
 type Server struct {
 	cfg          config.Config
 	store        *db.Store
+	attendance   attendancev1.AttendanceQueryServiceClient
+	beacon       beaconv1.BeaconQueryServiceClient
 	jwtPublicKey *rsa.PublicKey
 	httpClient   *http.Client
 }
 
-func NewServer(cfg config.Config, store *db.Store) (*Server, error) {
+func NewServer(cfg config.Config, store *db.Store, attendance attendancev1.AttendanceQueryServiceClient, beacon beaconv1.BeaconQueryServiceClient) (*Server, error) {
 	publicKey, err := auth.ParseRSAPublicKey(cfg.JWTPublicKey)
 	if err != nil {
 		return nil, err
@@ -37,6 +42,8 @@ func NewServer(cfg config.Config, store *db.Store) (*Server, error) {
 	return &Server{
 		cfg:          cfg,
 		store:        store,
+		attendance:   attendance,
+		beacon:       beacon,
 		jwtPublicKey: publicKey,
 		httpClient:   &http.Client{Timeout: 10 * time.Second},
 	}, nil
@@ -154,13 +161,23 @@ func ensureSchoolAccess(claims *auth.Claims, schoolID string) bool {
 // Schools
 
 type schoolPreferencesResponse struct {
-	ID                               string `json:"id"`
-	DefaultSignatureClosingDelay     int32  `json:"defaultSignatureClosingDelay"`
-	TeacherCanModifyClosingdelay     bool   `json:"teacherCanModifyClosingdelay"`
-	StudentsCanSignBeforeTeacher     bool   `json:"studentsCanSignBeforeTeacher"`
-	NfcEnabled                       bool   `json:"nfcEnabled"`
-	FlashlightEnabled                bool   `json:"flashlightEnabled"`
-	DisableCourseModificationFromUI  bool   `json:"disableCourseModificationFromUI"`
+	ID                              string `json:"id"`
+	DefaultSignatureClosingDelay    int32  `json:"defaultSignatureClosingDelay"`
+	TeacherCanModifyClosingdelay    bool   `json:"teacherCanModifyClosingdelay"`
+	StudentsCanSignBeforeTeacher    bool   `json:"studentsCanSignBeforeTeacher"`
+	NfcEnabled                      bool   `json:"nfcEnabled"`
+	FlashlightEnabled               bool   `json:"flashlightEnabled"`
+	DisableCourseModificationFromUI bool   `json:"disableCourseModificationFromUI"`
+}
+
+type preferencesEntry struct {
+	ID                                  pgtype.UUID
+	DefaultSignatureClosingDelayMinutes int32
+	TeacherCanModifyClosingDelay        bool
+	StudentsCanSignBeforeTeacher        bool
+	EnableFlash                         bool
+	DisableCourseModificationFromUi     bool
+	EnableNfc                           bool
 }
 
 type schoolResponse struct {
@@ -197,7 +214,7 @@ func (s *Server) handleGetSchools(w http.ResponseWriter, r *http.Request) {
 		if includePreferences {
 			prefs, err := s.store.Queries.GetSchoolPreferences(r.Context(), school.PreferencesID)
 			if err == nil {
-				entry.Preferences = mapPreferences(prefs)
+				entry.Preferences = mapPreferences(preferencesEntryFromGetSchoolPreferences(prefs))
 			}
 		}
 		resp = append(resp, entry)
@@ -226,7 +243,7 @@ func (s *Server) handleCreateSchool(w http.ResponseWriter, r *http.Request) {
 			TeacherCanModifyClosingDelay:        true,
 			StudentsCanSignBeforeTeacher:        false,
 			EnableFlash:                         true,
-			DisableCourseModificationFromUI:     false,
+			DisableCourseModificationFromUi:     false,
 			EnableNfc:                           true,
 			CreatedAt:                           nowPgTime(),
 			UpdatedAt:                           nowPgTime(),
@@ -249,7 +266,7 @@ func (s *Server) handleCreateSchool(w http.ResponseWriter, r *http.Request) {
 			ID:            uuidString(school.ID),
 			Name:          school.Name,
 			PreferencesID: uuidString(school.PreferencesID),
-			Preferences:   mapPreferences(prefs),
+			Preferences:   mapPreferences(preferencesEntryFromCreateSchoolPreferences(prefs)),
 		}
 		return nil
 	})
@@ -295,7 +312,7 @@ func (s *Server) handleGetSchool(w http.ResponseWriter, r *http.Request) {
 	if includePreferences {
 		prefs, err := s.store.Queries.GetSchoolPreferences(r.Context(), school.PreferencesID)
 		if err == nil {
-			resp.Preferences = mapPreferences(prefs)
+			resp.Preferences = mapPreferences(preferencesEntryFromGetSchoolPreferences(prefs))
 		}
 	}
 
@@ -414,7 +431,7 @@ func (s *Server) handlePatchSchoolPreferences(w http.ResponseWriter, r *http.Req
 		TeacherCanModifyClosingDelay:        req.TeacherCanModifyClosingdelay,
 		StudentsCanSignBeforeTeacher:        req.StudentsCanSignBeforeTeacher,
 		EnableFlash:                         req.FlashlightEnabled,
-		DisableCourseModificationFromUI:     req.DisableCourseModificationFromUI,
+		DisableCourseModificationFromUi:     req.DisableCourseModificationFromUI,
 		EnableNfc:                           req.NfcEnabled,
 		UpdatedAt:                           nowPgTime(),
 	}
@@ -473,7 +490,12 @@ func (s *Server) handleGetClassrooms(w http.ResponseWriter, r *http.Request) {
 	for _, room := range classrooms {
 		if includeBeacons {
 			entry := mapClassroomBase(room)
-			entry["beacons"] = []any{}
+			beacons, err := s.listClassroomBeacons(r.Context(), room.ID)
+			if err != nil {
+				writeError(w, http.StatusBadGateway, "beacon_lookup_failed")
+				return
+			}
+			entry["beacons"] = beacons
 			resp = append(resp, entry)
 			continue
 		}
@@ -581,7 +603,12 @@ func (s *Server) handleGetClassroom(w http.ResponseWriter, r *http.Request) {
 	includeBeacons := contains(include, "beacons")
 	if includeBeacons {
 		entry := mapClassroomBase(room)
-		entry["beacons"] = []any{}
+		beacons, err := s.listClassroomBeacons(r.Context(), room.ID)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "beacon_lookup_failed")
+			return
+		}
+		entry["beacons"] = beacons
 		writeJSON(w, http.StatusOK, entry)
 		return
 	}
@@ -679,6 +706,18 @@ type courseResponse struct {
 	School                string `json:"school"`
 }
 
+type courseEntry struct {
+	ID                           pgtype.UUID
+	SchoolID                     pgtype.UUID
+	Name                         string
+	StartAt                      pgtype.Timestamptz
+	EndAt                        pgtype.Timestamptz
+	IsOnline                     bool
+	SignatureClosingDelayMinutes int32
+	SignatureClosed              bool
+	SignatureClosedOverride      bool
+}
+
 type createCourseRequest struct {
 	Name            string   `json:"name"`
 	Date            int64    `json:"date"`
@@ -716,10 +755,11 @@ func (s *Server) handleGetCourses(w http.ResponseWriter, r *http.Request) {
 
 	include := r.URL.Query()["include"]
 	if len(include) == 0 {
-		include = []string{"classrooms", "signatures", "students", "soloStudents", "studentGroups"}
+		include = []string{"classrooms", "signatures", "teachers", "students", "soloStudents", "studentGroups"}
 	}
 	includeClassrooms := contains(include, "classrooms")
 	includeSignatures := contains(include, "signatures")
+	includeTeachers := contains(include, "teachers")
 	includeStudents := contains(include, "students")
 	includeSoloStudents := contains(include, "soloStudents")
 	includeStudentGroups := contains(include, "studentGroups")
@@ -756,7 +796,7 @@ func (s *Server) handleGetCourses(w http.ResponseWriter, r *http.Request) {
 		toDate = &end
 	}
 
-	var courses []db.Course
+	var courses []courseEntry
 	var err error
 	if userID == "" && isAdminDev {
 		courses, err = s.listCoursesForSchool(r.Context(), claims.SchoolID, limit, fromDate, toDate)
@@ -773,13 +813,14 @@ func (s *Server) handleGetCourses(w http.ResponseWriter, r *http.Request) {
 
 	resp := make([]any, 0, len(courses))
 	for _, course := range courses {
-		if !includeClassrooms && !includeSignatures && !includeStudents && !includeSoloStudents && !includeStudentGroups {
+		if !includeClassrooms && !includeSignatures && !includeTeachers && !includeStudents && !includeSoloStudents && !includeStudentGroups {
 			resp = append(resp, mapCourse(course))
 			continue
 		}
 		entry, err := s.buildCourseEntry(r.Context(), course, courseIncludes{
 			Classrooms:    includeClassrooms,
 			Signatures:    includeSignatures,
+			Teachers:      includeTeachers,
 			Students:      includeStudents,
 			SoloStudents:  includeSoloStudents,
 			StudentGroups: includeStudentGroups,
@@ -793,7 +834,7 @@ func (s *Server) handleGetCourses(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
-func (s *Server) listCoursesForUser(ctx context.Context, claims *auth.Claims, userID string, limit int, fromDate, toDate *time.Time) ([]db.Course, error) {
+func (s *Server) listCoursesForUser(ctx context.Context, claims *auth.Claims, userID string, limit int, fromDate, toDate *time.Time) ([]courseEntry, error) {
 	userUUID, err := parseUUID(userID)
 	if err != nil {
 		return nil, err
@@ -809,7 +850,7 @@ func (s *Server) listCoursesForUser(ctx context.Context, claims *auth.Claims, us
 				Limit:     int32(limit),
 			})
 			if err == nil && len(teacherCourses) > 0 {
-				return teacherCourses, nil
+				return courseEntriesFromListCoursesByTeacherWithinRange(teacherCourses), nil
 			}
 			studentCourses, err := s.store.Queries.ListCoursesByStudentWithinRange(ctx, db.ListCoursesByStudentWithinRangeParams{
 				StudentID: userUUID,
@@ -817,74 +858,113 @@ func (s *Server) listCoursesForUser(ctx context.Context, claims *auth.Claims, us
 				StartAt_2: pgTime(toDate.UTC()),
 				Limit:     int32(limit),
 			})
-			return studentCourses, err
+			if err != nil {
+				return nil, err
+			}
+			return courseEntriesFromListCoursesByStudentWithinRange(studentCourses), nil
 		}
 		if claims.UserType == "teacher" {
-			return s.store.Queries.ListCoursesByTeacherWithinRange(ctx, db.ListCoursesByTeacherWithinRangeParams{
+			rows, err := s.store.Queries.ListCoursesByTeacherWithinRange(ctx, db.ListCoursesByTeacherWithinRangeParams{
 				TeacherID: userUUID,
 				StartAt:   pgTime(fromDate.UTC()),
 				StartAt_2: pgTime(toDate.UTC()),
 				Limit:     int32(limit),
 			})
+			if err != nil {
+				return nil, err
+			}
+			return courseEntriesFromListCoursesByTeacherWithinRange(rows), nil
 		}
 		if claims.UserType == "student" {
-			return s.store.Queries.ListCoursesByStudentWithinRange(ctx, db.ListCoursesByStudentWithinRangeParams{
+			rows, err := s.store.Queries.ListCoursesByStudentWithinRange(ctx, db.ListCoursesByStudentWithinRangeParams{
 				StudentID: userUUID,
 				StartAt:   pgTime(fromDate.UTC()),
 				StartAt_2: pgTime(toDate.UTC()),
 				Limit:     int32(limit),
 			})
+			if err != nil {
+				return nil, err
+			}
+			return courseEntriesFromListCoursesByStudentWithinRange(rows), nil
 		}
-		return s.store.Queries.ListCoursesBySchoolWithinRange(ctx, db.ListCoursesBySchoolWithinRangeParams{
+		rows, err := s.store.Queries.ListCoursesBySchoolWithinRange(ctx, db.ListCoursesBySchoolWithinRangeParams{
 			SchoolID:  pgUUIDFromString(claims.SchoolID),
 			StartAt:   pgTime(fromDate.UTC()),
 			StartAt_2: pgTime(toDate.UTC()),
 			Limit:     int32(limit),
 		})
+		if err != nil {
+			return nil, err
+		}
+		return courseEntriesFromListCoursesBySchoolWithinRange(rows), nil
 	}
 
 	if claims.UserType == "teacher" {
-		return s.store.Queries.ListCoursesByTeacher(ctx, db.ListCoursesByTeacherParams{TeacherID: userUUID, Limit: int32(limit)})
+		rows, err := s.store.Queries.ListCoursesByTeacher(ctx, db.ListCoursesByTeacherParams{TeacherID: userUUID, Limit: int32(limit)})
+		if err != nil {
+			return nil, err
+		}
+		return courseEntriesFromListCoursesByTeacher(rows), nil
 	}
 	if claims.UserType == "student" {
-		return s.store.Queries.ListCoursesByStudent(ctx, db.ListCoursesByStudentParams{StudentID: userUUID, Limit: int32(limit)})
+		rows, err := s.store.Queries.ListCoursesByStudent(ctx, db.ListCoursesByStudentParams{StudentID: userUUID, Limit: int32(limit)})
+		if err != nil {
+			return nil, err
+		}
+		return courseEntriesFromListCoursesByStudent(rows), nil
 	}
 	if isAdminDev {
 		teacherCourses, err := s.store.Queries.ListCoursesByTeacher(ctx, db.ListCoursesByTeacherParams{TeacherID: userUUID, Limit: int32(limit)})
 		if err == nil && len(teacherCourses) > 0 {
-			return teacherCourses, nil
+			return courseEntriesFromListCoursesByTeacher(teacherCourses), nil
 		}
 		studentCourses, err := s.store.Queries.ListCoursesByStudent(ctx, db.ListCoursesByStudentParams{StudentID: userUUID, Limit: int32(limit)})
-		return studentCourses, err
+		if err != nil {
+			return nil, err
+		}
+		return courseEntriesFromListCoursesByStudent(studentCourses), nil
 	}
-	return s.store.Queries.ListCoursesBySchool(ctx, db.ListCoursesBySchoolParams{SchoolID: pgUUIDFromString(claims.SchoolID), Limit: int32(limit)})
+	rows, err := s.store.Queries.ListCoursesBySchool(ctx, db.ListCoursesBySchoolParams{SchoolID: pgUUIDFromString(claims.SchoolID), Limit: int32(limit)})
+	if err != nil {
+		return nil, err
+	}
+	return courseEntriesFromListCoursesBySchool(rows), nil
 }
 
-func (s *Server) listCoursesForSchool(ctx context.Context, schoolID string, limit int, fromDate, toDate *time.Time) ([]db.Course, error) {
+func (s *Server) listCoursesForSchool(ctx context.Context, schoolID string, limit int, fromDate, toDate *time.Time) ([]courseEntry, error) {
 	schoolUUID, err := parseUUID(schoolID)
 	if err != nil {
 		return nil, err
 	}
 	if fromDate != nil && toDate != nil {
-		return s.store.Queries.ListCoursesBySchoolWithinRange(ctx, db.ListCoursesBySchoolWithinRangeParams{
+		rows, err := s.store.Queries.ListCoursesBySchoolWithinRange(ctx, db.ListCoursesBySchoolWithinRangeParams{
 			SchoolID:  schoolUUID,
 			StartAt:   pgTime(fromDate.UTC()),
 			StartAt_2: pgTime(toDate.UTC()),
 			Limit:     int32(limit),
 		})
+		if err != nil {
+			return nil, err
+		}
+		return courseEntriesFromListCoursesBySchoolWithinRange(rows), nil
 	}
-	return s.store.Queries.ListCoursesBySchool(ctx, db.ListCoursesBySchoolParams{SchoolID: schoolUUID, Limit: int32(limit)})
+	rows, err := s.store.Queries.ListCoursesBySchool(ctx, db.ListCoursesBySchoolParams{SchoolID: schoolUUID, Limit: int32(limit)})
+	if err != nil {
+		return nil, err
+	}
+	return courseEntriesFromListCoursesBySchool(rows), nil
 }
 
 type courseIncludes struct {
 	Classrooms    bool
 	Signatures    bool
+	Teachers      bool
 	Students      bool
 	SoloStudents  bool
 	StudentGroups bool
 }
 
-func (s *Server) buildCourseEntry(ctx context.Context, course db.Course, includes courseIncludes) (map[string]interface{}, error) {
+func (s *Server) buildCourseEntry(ctx context.Context, course courseEntry, includes courseIncludes) (map[string]interface{}, error) {
 	entry := mapCourseBase(course)
 	if includes.Classrooms {
 		classrooms, err := s.store.Queries.ListClassroomsByCourse(ctx, course.ID)
@@ -894,7 +974,18 @@ func (s *Server) buildCourseEntry(ctx context.Context, course db.Course, include
 		entry["classrooms"] = mapClassroomResponses(classrooms)
 	}
 	if includes.Signatures {
-		entry["signature"] = []any{}
+		signatures, err := s.listCourseSignatures(ctx, course.ID)
+		if err != nil {
+			return nil, err
+		}
+		entry["signature"] = signatures
+	}
+	if includes.Teachers {
+		teacherIDs, err := s.store.Queries.ListTeacherIDsByCourse(ctx, course.ID)
+		if err != nil {
+			return nil, err
+		}
+		entry["teachers"] = mapTeacherRefs(teacherIDs)
 	}
 	if includes.Students || includes.SoloStudents || includes.StudentGroups {
 		groups, students, soloStudents, err := s.listCourseStudents(ctx, course.ID)
@@ -912,6 +1003,42 @@ func (s *Server) buildCourseEntry(ctx context.Context, course db.Course, include
 		}
 	}
 	return entry, nil
+}
+
+func (s *Server) listCourseSignatures(ctx context.Context, courseID pgtype.UUID) ([]any, error) {
+	if s.attendance == nil {
+		return nil, errors.New("attendance client not configured")
+	}
+
+	resp, err := s.attendance.ListCourseSignatures(ctx, &attendancev1.ListCourseSignaturesRequest{CourseId: uuidString(courseID)})
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]any, 0, len(resp.GetStudentSignatures())+len(resp.GetTeacherSignatures()))
+	for _, sig := range resp.GetStudentSignatures() {
+		items = append(items, mapStudentSignatureFromGRPC(sig))
+	}
+	for _, sig := range resp.GetTeacherSignatures() {
+		items = append(items, mapTeacherSignatureFromGRPC(sig))
+	}
+	return items, nil
+}
+
+func (s *Server) listClassroomBeacons(ctx context.Context, classroomID pgtype.UUID) ([]any, error) {
+	if s.beacon == nil {
+		return nil, errors.New("beacon client not configured")
+	}
+
+	resp, err := s.beacon.ListBeaconsByClassroom(ctx, &beaconv1.ListBeaconsByClassroomRequest{ClassroomId: uuidString(classroomID)})
+	if err != nil {
+		return nil, err
+	}
+	items := make([]any, 0, len(resp.GetBeacons()))
+	for _, beacon := range resp.GetBeacons() {
+		items = append(items, mapBeaconFromGRPC(beacon))
+	}
+	return items, nil
 }
 
 func (s *Server) listCourseStudents(ctx context.Context, courseID pgtype.UUID) ([]db.StudentGroup, []string, []string, error) {
@@ -948,11 +1075,11 @@ func (s *Server) listCourseStudents(ctx context.Context, courseID pgtype.UUID) (
 	return groups, all, solo, nil
 }
 
-func (s *Server) addSingleStudentsToCourse(ctx context.Context, q *db.Queries, course db.Course, studentIDs []pgtype.UUID) error {
+func (s *Server) addSingleStudentsToCourse(ctx context.Context, q *db.Queries, courseID, schoolID pgtype.UUID, studentIDs []pgtype.UUID) error {
 	for _, studentID := range studentIDs {
 		matchedGroups, err := q.ListMatchedStudentCourseGroups(ctx, db.ListMatchedStudentCourseGroupsParams{
 			StudentID: studentID,
-			CourseID:  course.ID,
+			CourseID:  courseID,
 		})
 		if err != nil {
 			return err
@@ -962,7 +1089,7 @@ func (s *Server) addSingleStudentsToCourse(ctx context.Context, q *db.Queries, c
 		}
 		group, err := q.CreateStudentGroup(ctx, db.CreateStudentGroupParams{
 			ID:                 pgUUID(uuid.New()),
-			SchoolID:           course.SchoolID,
+			SchoolID:           schoolID,
 			Name:               "single-" + uuidString(studentID),
 			SingleStudentGroup: true,
 			CreatedAt:          nowPgTime(),
@@ -981,7 +1108,7 @@ func (s *Server) addSingleStudentsToCourse(ctx context.Context, q *db.Queries, c
 		}
 		if err := q.AddCourseStudentGroup(ctx, db.AddCourseStudentGroupParams{
 			ID:             pgUUID(uuid.New()),
-			CourseID:       course.ID,
+			CourseID:       courseID,
 			StudentGroupID: group.ID,
 			CreatedAt:      nowPgTime(),
 		}); err != nil {
@@ -1073,7 +1200,7 @@ func (s *Server) handleCreateCourse(w http.ResponseWriter, r *http.Request) {
 	startAt := time.Unix(req.Date, 0).UTC()
 	endAt := time.Unix(req.EndDate, 0).UTC()
 
-	var course db.Course
+	var course db.CreateCourseRow
 	err = s.store.WithTx(r.Context(), func(q *db.Queries) error {
 		var err error
 		course, err = q.CreateCourse(r.Context(), db.CreateCourseParams{
@@ -1085,6 +1212,7 @@ func (s *Server) handleCreateCourse(w http.ResponseWriter, r *http.Request) {
 			IsOnline:                     req.IsOnline,
 			SignatureClosingDelayMinutes: prefs.DefaultSignatureClosingDelayMinutes,
 			SignatureClosed:              false,
+			SignatureClosedOverride:      false,
 			CreatedAt:                    nowPgTime(),
 			UpdatedAt:                    nowPgTime(),
 		})
@@ -1126,7 +1254,7 @@ func (s *Server) handleCreateCourse(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if len(studentUUIDs) > 0 {
-			if err := s.addSingleStudentsToCourse(r.Context(), q, course, studentUUIDs); err != nil {
+			if err := s.addSingleStudentsToCourse(r.Context(), q, course.ID, course.SchoolID, studentUUIDs); err != nil {
 				return err
 			}
 		}
@@ -1138,7 +1266,7 @@ func (s *Server) handleCreateCourse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, mapCourse(course))
+	writeJSON(w, http.StatusOK, mapCourse(courseEntryFromCreateCourse(course)))
 }
 
 func (s *Server) handleGetCourse(w http.ResponseWriter, r *http.Request) {
@@ -1189,20 +1317,22 @@ func (s *Server) handleGetCourse(w http.ResponseWriter, r *http.Request) {
 
 	include := r.URL.Query()["include"]
 	if len(include) == 0 {
-		include = []string{"classrooms", "signatures", "students", "soloStudents", "studentGroups"}
+		include = []string{"classrooms", "signatures", "teachers", "students", "soloStudents", "studentGroups"}
 	}
 	includeClassrooms := contains(include, "classrooms")
 	includeSignatures := contains(include, "signatures")
+	includeTeachers := contains(include, "teachers")
 	includeStudents := contains(include, "students")
 	includeSoloStudents := contains(include, "soloStudents")
 	includeStudentGroups := contains(include, "studentGroups")
-	if !includeClassrooms && !includeSignatures && !includeStudents && !includeSoloStudents && !includeStudentGroups {
-		writeJSON(w, http.StatusOK, mapCourse(course))
+	if !includeClassrooms && !includeSignatures && !includeTeachers && !includeStudents && !includeSoloStudents && !includeStudentGroups {
+		writeJSON(w, http.StatusOK, mapCourse(courseEntryFromGetCourse(course)))
 		return
 	}
-	entry, err := s.buildCourseEntry(r.Context(), course, courseIncludes{
+	entry, err := s.buildCourseEntry(r.Context(), courseEntryFromGetCourse(course), courseIncludes{
 		Classrooms:    includeClassrooms,
 		Signatures:    includeSignatures,
+		Teachers:      includeTeachers,
 		Students:      includeStudents,
 		SoloStudents:  includeSoloStudents,
 		StudentGroups: includeStudentGroups,
@@ -1281,8 +1411,14 @@ func (s *Server) handlePatchCourse(w http.ResponseWriter, r *http.Request) {
 		signatureClosingDelay = *req.SignatureClosingDelay
 	}
 	signatureClosed := course.SignatureClosed
+	signatureClosedOverride := course.SignatureClosedOverride
 	if req.SignatureClosed != nil {
 		signatureClosed = *req.SignatureClosed
+		if *req.SignatureClosed {
+			signatureClosedOverride = false
+		} else {
+			signatureClosedOverride = true
+		}
 	}
 
 	updated, err := s.store.Queries.UpdateCourse(r.Context(), db.UpdateCourseParams{
@@ -1293,6 +1429,7 @@ func (s *Server) handlePatchCourse(w http.ResponseWriter, r *http.Request) {
 		IsOnline:                     isOnline,
 		SignatureClosingDelayMinutes: signatureClosingDelay,
 		SignatureClosed:              signatureClosed,
+		SignatureClosedOverride:      signatureClosedOverride,
 		UpdatedAt:                    nowPgTime(),
 	})
 	if err != nil {
@@ -1300,7 +1437,7 @@ func (s *Server) handlePatchCourse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, mapCourse(updated))
+	writeJSON(w, http.StatusOK, mapCourse(courseEntryFromUpdateCourse(updated)))
 }
 
 func (s *Server) handleDeleteCourse(w http.ResponseWriter, r *http.Request) {
@@ -1515,7 +1652,7 @@ func (s *Server) handleAddCourseStudents(w http.ResponseWriter, r *http.Request)
 	}
 
 	if err := s.store.WithTx(r.Context(), func(q *db.Queries) error {
-		return s.addSingleStudentsToCourse(r.Context(), q, course, studentUUIDs)
+		return s.addSingleStudentsToCourse(r.Context(), q, course.ID, course.SchoolID, studentUUIDs)
 	}); err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error")
 		return
@@ -1726,7 +1863,7 @@ func (s *Server) handleGetStudentGroups(w http.ResponseWriter, r *http.Request) 
 				writeError(w, http.StatusInternalServerError, "server_error")
 				return
 			}
-			entry["courses"] = mapCourseResponses(courses)
+			entry["courses"] = mapCourseResponses(courseEntriesFromListCoursesByStudentGroup(courses))
 		}
 		if includeStudents {
 			students, err := s.store.Queries.ListStudentIDsByStudentGroup(r.Context(), group.ID)
@@ -1832,7 +1969,7 @@ func (s *Server) handleGetStudentGroup(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, "server_error")
 			return
 		}
-		entry["courses"] = mapCourseResponses(courses)
+		entry["courses"] = mapCourseResponses(courseEntriesFromListCoursesByStudentGroup(courses))
 	}
 	if includeStudents {
 		students, err := s.store.Queries.ListStudentIDsByStudentGroup(r.Context(), group.ID)
@@ -1984,19 +2121,55 @@ func (s *Server) handleRemoveStudentGroupStudent(w http.ResponseWriter, r *http.
 
 // helpers
 
-func mapPreferences(prefs db.SchoolPreference) *schoolPreferencesResponse {
+func mapPreferences(prefs preferencesEntry) *schoolPreferencesResponse {
 	return &schoolPreferencesResponse{
-		ID:                           uuidString(prefs.ID),
-		DefaultSignatureClosingDelay: prefs.DefaultSignatureClosingDelayMinutes,
-		TeacherCanModifyClosingdelay: prefs.TeacherCanModifyClosingDelay,
-		StudentsCanSignBeforeTeacher: prefs.StudentsCanSignBeforeTeacher,
-		NfcEnabled:                   prefs.EnableNfc,
-		FlashlightEnabled:            prefs.EnableFlash,
-		DisableCourseModificationFromUI: prefs.DisableCourseModificationFromUI,
+		ID:                              uuidString(prefs.ID),
+		DefaultSignatureClosingDelay:    prefs.DefaultSignatureClosingDelayMinutes,
+		TeacherCanModifyClosingdelay:    prefs.TeacherCanModifyClosingDelay,
+		StudentsCanSignBeforeTeacher:    prefs.StudentsCanSignBeforeTeacher,
+		NfcEnabled:                      prefs.EnableNfc,
+		FlashlightEnabled:               prefs.EnableFlash,
+		DisableCourseModificationFromUI: prefs.DisableCourseModificationFromUi,
 	}
 }
 
-func mapCourse(course db.Course) courseResponse {
+func preferencesEntryFromCreateSchoolPreferences(row db.CreateSchoolPreferencesRow) preferencesEntry {
+	return preferencesEntry{
+		ID:                                  row.ID,
+		DefaultSignatureClosingDelayMinutes: row.DefaultSignatureClosingDelayMinutes,
+		TeacherCanModifyClosingDelay:        row.TeacherCanModifyClosingDelay,
+		StudentsCanSignBeforeTeacher:        row.StudentsCanSignBeforeTeacher,
+		EnableFlash:                         row.EnableFlash,
+		DisableCourseModificationFromUi:     row.DisableCourseModificationFromUi,
+		EnableNfc:                           row.EnableNfc,
+	}
+}
+
+func preferencesEntryFromGetSchoolPreferences(row db.GetSchoolPreferencesRow) preferencesEntry {
+	return preferencesEntry{
+		ID:                                  row.ID,
+		DefaultSignatureClosingDelayMinutes: row.DefaultSignatureClosingDelayMinutes,
+		TeacherCanModifyClosingDelay:        row.TeacherCanModifyClosingDelay,
+		StudentsCanSignBeforeTeacher:        row.StudentsCanSignBeforeTeacher,
+		EnableFlash:                         row.EnableFlash,
+		DisableCourseModificationFromUi:     row.DisableCourseModificationFromUi,
+		EnableNfc:                           row.EnableNfc,
+	}
+}
+
+func preferencesEntryFromUpdateSchoolPreferences(row db.UpdateSchoolPreferencesRow) preferencesEntry {
+	return preferencesEntry{
+		ID:                                  row.ID,
+		DefaultSignatureClosingDelayMinutes: row.DefaultSignatureClosingDelayMinutes,
+		TeacherCanModifyClosingDelay:        row.TeacherCanModifyClosingDelay,
+		StudentsCanSignBeforeTeacher:        row.StudentsCanSignBeforeTeacher,
+		EnableFlash:                         row.EnableFlash,
+		DisableCourseModificationFromUi:     row.DisableCourseModificationFromUi,
+		EnableNfc:                           row.EnableNfc,
+	}
+}
+
+func mapCourse(course courseEntry) courseResponse {
 	return courseResponse{
 		ID:                    uuidString(course.ID),
 		Name:                  course.Name,
@@ -2013,6 +2186,10 @@ type studentRef struct {
 	ID string `json:"id"`
 }
 
+type teacherRef struct {
+	ID string `json:"id"`
+}
+
 func mapClassroomResponses(classrooms []db.Classroom) []classroomResponse {
 	resp := make([]classroomResponse, 0, len(classrooms))
 	for _, room := range classrooms {
@@ -2025,7 +2202,7 @@ func mapClassroomResponses(classrooms []db.Classroom) []classroomResponse {
 	return resp
 }
 
-func mapCourseResponses(courses []db.Course) []courseResponse {
+func mapCourseResponses(courses []courseEntry) []courseResponse {
 	resp := make([]courseResponse, 0, len(courses))
 	for _, course := range courses {
 		resp = append(resp, mapCourse(course))
@@ -2041,6 +2218,14 @@ func mapStudentRefs(ids []pgtype.UUID) []studentRef {
 	return resp
 }
 
+func mapTeacherRefs(ids []pgtype.UUID) []teacherRef {
+	resp := make([]teacherRef, 0, len(ids))
+	for _, id := range ids {
+		resp = append(resp, teacherRef{ID: uuidString(id)})
+	}
+	return resp
+}
+
 func mapStudentRefStrings(ids []string) []studentRef {
 	resp := make([]studentRef, 0, len(ids))
 	for _, id := range ids {
@@ -2049,7 +2234,7 @@ func mapStudentRefStrings(ids []string) []studentRef {
 	return resp
 }
 
-func mapCourseBase(course db.Course) map[string]interface{} {
+func mapCourseBase(course courseEntry) map[string]interface{} {
 	return map[string]interface{}{
 		"id":                    uuidString(course.ID),
 		"name":                  course.Name,
@@ -2060,6 +2245,138 @@ func mapCourseBase(course db.Course) map[string]interface{} {
 		"signatureClosed":       course.SignatureClosed,
 		"school":                uuidString(course.SchoolID),
 	}
+}
+
+func newCourseEntry(id, schoolID pgtype.UUID, name string, startAt, endAt pgtype.Timestamptz, isOnline bool, closingDelay int32, signatureClosed, signatureClosedOverride bool) courseEntry {
+	return courseEntry{
+		ID:                           id,
+		SchoolID:                     schoolID,
+		Name:                         name,
+		StartAt:                      startAt,
+		EndAt:                        endAt,
+		IsOnline:                     isOnline,
+		SignatureClosingDelayMinutes: closingDelay,
+		SignatureClosed:              signatureClosed,
+		SignatureClosedOverride:      signatureClosedOverride,
+	}
+}
+
+func courseEntryFromCreateCourse(row db.CreateCourseRow) courseEntry {
+	return newCourseEntry(row.ID, row.SchoolID, row.Name, row.StartAt, row.EndAt, row.IsOnline, row.SignatureClosingDelayMinutes, row.SignatureClosed, row.SignatureClosedOverride)
+}
+
+func courseEntryFromGetCourse(row db.GetCourseRow) courseEntry {
+	return newCourseEntry(row.ID, row.SchoolID, row.Name, row.StartAt, row.EndAt, row.IsOnline, row.SignatureClosingDelayMinutes, row.SignatureClosed, row.SignatureClosedOverride)
+}
+
+func courseEntryFromUpdateCourse(row db.UpdateCourseRow) courseEntry {
+	return newCourseEntry(row.ID, row.SchoolID, row.Name, row.StartAt, row.EndAt, row.IsOnline, row.SignatureClosingDelayMinutes, row.SignatureClosed, row.SignatureClosedOverride)
+}
+
+func courseEntriesFromListCoursesBySchool(rows []db.ListCoursesBySchoolRow) []courseEntry {
+	entries := make([]courseEntry, 0, len(rows))
+	for _, row := range rows {
+		entries = append(entries, newCourseEntry(row.ID, row.SchoolID, row.Name, row.StartAt, row.EndAt, row.IsOnline, row.SignatureClosingDelayMinutes, row.SignatureClosed, row.SignatureClosedOverride))
+	}
+	return entries
+}
+
+func courseEntriesFromListCoursesBySchoolWithinRange(rows []db.ListCoursesBySchoolWithinRangeRow) []courseEntry {
+	entries := make([]courseEntry, 0, len(rows))
+	for _, row := range rows {
+		entries = append(entries, newCourseEntry(row.ID, row.SchoolID, row.Name, row.StartAt, row.EndAt, row.IsOnline, row.SignatureClosingDelayMinutes, row.SignatureClosed, row.SignatureClosedOverride))
+	}
+	return entries
+}
+
+func courseEntriesFromListCoursesByTeacher(rows []db.ListCoursesByTeacherRow) []courseEntry {
+	entries := make([]courseEntry, 0, len(rows))
+	for _, row := range rows {
+		entries = append(entries, newCourseEntry(row.ID, row.SchoolID, row.Name, row.StartAt, row.EndAt, row.IsOnline, row.SignatureClosingDelayMinutes, row.SignatureClosed, row.SignatureClosedOverride))
+	}
+	return entries
+}
+
+func courseEntriesFromListCoursesByTeacherWithinRange(rows []db.ListCoursesByTeacherWithinRangeRow) []courseEntry {
+	entries := make([]courseEntry, 0, len(rows))
+	for _, row := range rows {
+		entries = append(entries, newCourseEntry(row.ID, row.SchoolID, row.Name, row.StartAt, row.EndAt, row.IsOnline, row.SignatureClosingDelayMinutes, row.SignatureClosed, row.SignatureClosedOverride))
+	}
+	return entries
+}
+
+func courseEntriesFromListCoursesByStudent(rows []db.ListCoursesByStudentRow) []courseEntry {
+	entries := make([]courseEntry, 0, len(rows))
+	for _, row := range rows {
+		entries = append(entries, newCourseEntry(row.ID, row.SchoolID, row.Name, row.StartAt, row.EndAt, row.IsOnline, row.SignatureClosingDelayMinutes, row.SignatureClosed, row.SignatureClosedOverride))
+	}
+	return entries
+}
+
+func courseEntriesFromListCoursesByStudentWithinRange(rows []db.ListCoursesByStudentWithinRangeRow) []courseEntry {
+	entries := make([]courseEntry, 0, len(rows))
+	for _, row := range rows {
+		entries = append(entries, newCourseEntry(row.ID, row.SchoolID, row.Name, row.StartAt, row.EndAt, row.IsOnline, row.SignatureClosingDelayMinutes, row.SignatureClosed, row.SignatureClosedOverride))
+	}
+	return entries
+}
+
+func courseEntriesFromListCoursesByStudentGroup(rows []db.ListCoursesByStudentGroupRow) []courseEntry {
+	entries := make([]courseEntry, 0, len(rows))
+	for _, row := range rows {
+		entries = append(entries, newCourseEntry(row.ID, row.SchoolID, row.Name, row.StartAt, row.EndAt, row.IsOnline, row.SignatureClosingDelayMinutes, row.SignatureClosed, false))
+	}
+	return entries
+}
+
+func mapStudentSignatureFromGRPC(sig *attendancev1.StudentSignature) map[string]interface{} {
+	entry := mapSignatureBaseFromGRPC(sig.GetId(), sig.GetCourseId(), sig.GetSignedAt(), sig.GetStatus(), sig.GetMethod(), sig.GetImage(), sig.GetAdministratorId())
+	entry["student"] = sig.GetStudentId()
+	if sig.GetTeacherId() != "" {
+		entry["teacher"] = sig.GetTeacherId()
+	}
+	entry["type"] = "student"
+	return entry
+}
+
+func mapTeacherSignatureFromGRPC(sig *attendancev1.TeacherSignature) map[string]interface{} {
+	entry := mapSignatureBaseFromGRPC(sig.GetId(), sig.GetCourseId(), sig.GetSignedAt(), sig.GetStatus(), sig.GetMethod(), sig.GetImage(), sig.GetAdministratorId())
+	entry["teacher"] = sig.GetTeacherId()
+	entry["type"] = "teacher"
+	return entry
+}
+
+func mapSignatureBaseFromGRPC(id, courseID string, signedAt *timestamppb.Timestamp, status, method, image, administrator string) map[string]interface{} {
+	entry := map[string]interface{}{
+		"id":     id,
+		"course": courseID,
+		"status": status,
+		"method": method,
+	}
+	if signedAt != nil {
+		entry["date"] = signedAt.AsTime().Unix()
+	}
+	if image != "" {
+		entry["image"] = image
+	}
+	if administrator != "" {
+		entry["administrator"] = administrator
+	}
+	return entry
+}
+
+func mapBeaconFromGRPC(beacon *beaconv1.Beacon) map[string]interface{} {
+	entry := map[string]interface{}{
+		"id":           beacon.GetId(),
+		"serialNumber": beacon.GetSerialNumber(),
+	}
+	if beacon.GetClassroomId() != "" {
+		entry["classroom"] = beacon.GetClassroomId()
+	}
+	if beacon.GetProgramVersion() != "" {
+		entry["programVersion"] = beacon.GetProgramVersion()
+	}
+	return entry
 }
 
 func mapClassroomBase(room db.Classroom) map[string]interface{} {

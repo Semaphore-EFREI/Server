@@ -1,16 +1,17 @@
-# Project Status (2026-01-25)
+# Project Status (2026-02-01)
 
 ## Summary
 Semaphore now has three implemented microservices (auth-identity, academics, attendance) with Postgres migrations, REST endpoints per OpenAPI, and gRPC contracts for internal calls. Beacon and gateway remain unimplemented. Core documentation and database specs are in `docs/`.
 
 ## Implemented Services
 - **auth-identity**: JWT auth, refresh tokens, user CRUD, role management, student device binding, gRPC identity queries (incl. device validation).
-- **academics**: schools/preferences, classrooms, courses, student groups, assignments; gRPC AcademicsQueryService.
-- **attendance**: signature CRUD with soft delete, attendance rules (time window + closing delay), device binding validation (sync gRPC to auth-identity), gRPC AttendanceCommandService.
+- **academics**: schools/preferences, classrooms, courses, student groups, assignments; gRPC AcademicsQueryService + AcademicsCommandService (CloseExpiredCourses).
+- **attendance**: signature CRUD with soft delete, attendance rules (time window + closing delay), device binding validation (sync gRPC to auth-identity), gRPC AttendanceCommandService; signature close job (configurable).
 
 ## Data & Migrations
 - Per-service schema migrations in `migrations/` with seed data for dev.
 - Attendance schema includes soft delete and extended enums aligned with OpenAPI.
+- Academics courses support `signature_closed_override` for manual reopen behavior.
 
 ## Tests & Coverage (unit focus)
 - Some unit tests exist (JWT, crypto, HTTP integration tests behind `INTEGRATION_TESTS=1`).

@@ -160,6 +160,14 @@ message SchoolPreferences {
 message GetSchoolPreferencesRequest { string school_id = 1; }
 message GetSchoolPreferencesResponse { SchoolPreferences preferences = 1; }
 
+message CloseExpiredCoursesRequest {
+  google.protobuf.Timestamp now = 1;
+}
+
+message CloseExpiredCoursesResponse {
+  int64 closed_count = 1;
+}
+
 service AcademicsQueryService {
   rpc GetCourse(GetCourseRequest) returns (GetCourseResponse);
 
@@ -175,12 +183,18 @@ service AcademicsQueryService {
   rpc GetSchoolPreferences(GetSchoolPreferencesRequest)
     returns (GetSchoolPreferencesResponse);
 }
+
+service AcademicsCommandService {
+  rpc CloseExpiredCourses(CloseExpiredCoursesRequest)
+    returns (CloseExpiredCoursesResponse);
+}
 ```
 
 ### Notes
 - `GetCourse` is used to enforce **same school** and time window rules.
 - `ValidateStudentCourse` should check student membership in **any** group assigned to the course.
 - These are **read-only** query endpoints (idempotent).
+- `CloseExpiredCourses` is a **command** endpoint used by attendance’s signature close job.
 
 ---
 
@@ -406,16 +420,17 @@ Each service includes:
 - [ ] (Optional) gRPC IdentityQueryService
 
 ### academics
-- [ ] DB schema: school/prefs, classrooms, groups/membership, courses, link tables
-- [ ] REST endpoints for all academics features
-- [ ] gRPC AcademicsQueryService (GetCourse + Validate*)
-- [ ] Consistent `school_id` checks for admin operations
+- [x] DB schema: school/prefs, classrooms, groups/membership, courses, link tables
+- [x] REST endpoints for all academics features
+- [x] gRPC AcademicsQueryService (GetCourse + Validate*)
+- [x] gRPC AcademicsCommandService (CloseExpiredCourses)
+- [x] Consistent `school_id` checks for admin operations
 
 ### attendance
-- [ ] DB schema: signature + studentSignature + teacherSignature
-- [ ] REST endpoints for signature CRUD/patch
-- [ ] gRPC AttendanceCommandService (CreateSignatureAttempt)
-- [ ] Calls academics gRPC for validation (start with runtime checks)
+- [x] DB schema: signature + studentSignature + teacherSignature
+- [x] REST endpoints for signature CRUD/patch
+- [x] gRPC AttendanceCommandService (CreateSignatureAttempt)
+- [x] Calls academics gRPC for validation (start with runtime checks)
 - [ ] Clear rejection reasons and audit log fields
 
 ### beacon

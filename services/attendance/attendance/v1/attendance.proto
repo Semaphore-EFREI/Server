@@ -48,6 +48,46 @@ message CreateSignatureAttemptResponse {
   string message = 3;
 }
 
+// AttendanceCommandService handles signature creation and command-side actions.
 service AttendanceCommandService {
+  // CreateSignatureAttempt creates a new signature attempt for a student.
   rpc CreateSignatureAttempt(CreateSignatureAttemptRequest) returns (CreateSignatureAttemptResponse);
+}
+
+message StudentSignature {
+  string id = 1;
+  string course_id = 2;
+  google.protobuf.Timestamp signed_at = 3;
+  string status = 4;
+  string method = 5;
+  string image = 6;
+  string student_id = 7;
+  string teacher_id = 8;
+  string administrator_id = 9;
+}
+
+message TeacherSignature {
+  string id = 1;
+  string course_id = 2;
+  google.protobuf.Timestamp signed_at = 3;
+  string status = 4;
+  string method = 5;
+  string image = 6;
+  string teacher_id = 7;
+  string administrator_id = 8;
+}
+
+message ListCourseSignaturesRequest {
+  string course_id = 1;
+}
+
+message ListCourseSignaturesResponse {
+  repeated StudentSignature student_signatures = 1;
+  repeated TeacherSignature teacher_signatures = 2;
+}
+
+// AttendanceQueryService exposes read-only attendance data.
+service AttendanceQueryService {
+  // ListCourseSignatures returns all student and teacher signatures for a course.
+  rpc ListCourseSignatures(ListCourseSignaturesRequest) returns (ListCourseSignaturesResponse);
 }

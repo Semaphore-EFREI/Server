@@ -8,32 +8,38 @@ import (
 )
 
 type Config struct {
-	HTTPAddr          string
-	GRPCAddr          string
-	DatabaseURL       string
-	JWTPublicKey      string
-	JWTIssuer         string
-	AcademicsGRPCAddr string
-	IdentityGRPCAddr  string
-	GRPCDialTimeout   time.Duration
-	RedisAddr         string
-	RedisPassword     string
-	BuzzLightyearTTL  time.Duration
+	HTTPAddr                  string
+	GRPCAddr                  string
+	DatabaseURL               string
+	JWTPublicKey              string
+	JWTIssuer                 string
+	AcademicsGRPCAddr         string
+	IdentityGRPCAddr          string
+	GRPCDialTimeout           time.Duration
+	RedisAddr                 string
+	RedisPassword             string
+	BuzzLightyearTTL          time.Duration
+	SignatureCloseJobEnabled  bool
+	SignatureCloseJobInterval time.Duration
+	SignatureCloseJobTimeout  time.Duration
 }
 
 func Load() Config {
 	return Config{
-		HTTPAddr:          getenv("HTTP_ADDR", ":8083"),
-		GRPCAddr:          getenv("GRPC_ADDR", ":9093"),
-		DatabaseURL:       getenv("DATABASE_URL", "postgres://postgres:postgres@127.0.0.1:5432/attendance?sslmode=disable"),
-		JWTPublicKey:      getenvKey("JWT_PUBLIC_KEY", ""),
-		JWTIssuer:         getenv("JWT_ISSUER", "semaphore-auth-identity"),
-		AcademicsGRPCAddr: getenv("ACADEMICS_GRPC_ADDR", "127.0.0.1:9092"),
-		IdentityGRPCAddr:  getenv("IDENTITY_GRPC_ADDR", "127.0.0.1:9091"),
-		GRPCDialTimeout:   getenvDuration("GRPC_DIAL_TIMEOUT", 5*time.Second),
-		RedisAddr:         getenv("REDIS_ADDR", ""),
-		RedisPassword:     getenv("REDIS_PASSWORD", ""),
-		BuzzLightyearTTL:  getenvDuration("BUZZLIGHTYEAR_TTL", 45*time.Second),
+		HTTPAddr:                  getenv("HTTP_ADDR", ":8083"),
+		GRPCAddr:                  getenv("GRPC_ADDR", ":9093"),
+		DatabaseURL:               getenv("DATABASE_URL", "postgres://postgres:postgres@127.0.0.1:5432/attendance?sslmode=disable"),
+		JWTPublicKey:              getenvKey("JWT_PUBLIC_KEY", ""),
+		JWTIssuer:                 getenv("JWT_ISSUER", "semaphore-auth-identity"),
+		AcademicsGRPCAddr:         getenv("ACADEMICS_GRPC_ADDR", "127.0.0.1:9092"),
+		IdentityGRPCAddr:          getenv("IDENTITY_GRPC_ADDR", "127.0.0.1:9091"),
+		GRPCDialTimeout:           getenvDuration("GRPC_DIAL_TIMEOUT", 5*time.Second),
+		RedisAddr:                 getenv("REDIS_ADDR", ""),
+		RedisPassword:             getenv("REDIS_PASSWORD", ""),
+		BuzzLightyearTTL:          getenvDuration("BUZZLIGHTYEAR_TTL", 45*time.Second),
+		SignatureCloseJobEnabled:  getenvBool("SIGNATURE_CLOSE_JOB_ENABLED", true),
+		SignatureCloseJobInterval: getenvDuration("SIGNATURE_CLOSE_JOB_INTERVAL", 1*time.Minute),
+		SignatureCloseJobTimeout:  getenvDuration("SIGNATURE_CLOSE_JOB_TIMEOUT", 10*time.Second),
 	}
 }
 
@@ -53,6 +59,15 @@ func getenvDuration(key string, fallback time.Duration) time.Duration {
 	if val := os.Getenv(key + "_SECONDS"); val != "" {
 		if seconds, err := strconv.Atoi(val); err == nil {
 			return time.Duration(seconds) * time.Second
+		}
+	}
+	return fallback
+}
+
+func getenvBool(key string, fallback bool) bool {
+	if val := os.Getenv(key); val != "" {
+		if parsed, err := strconv.ParseBool(val); err == nil {
+			return parsed
 		}
 	}
 	return fallback

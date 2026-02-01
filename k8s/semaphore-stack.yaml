@@ -467,6 +467,12 @@ spec:
                 secretKeyRef:
                   name: jwt-secrets
                   key: jwt-issuer
+            - name: ATTENDANCE_GRPC_ADDR
+              value: attendance:9093
+            - name: BEACON_GRPC_ADDR
+              value: beacon:9094
+            - name: GRPC_DIAL_TIMEOUT
+              value: 5s
             - name: REDIS_ADDR
               value: redis:6379
             - name: REDIS_PASSWORD
@@ -600,6 +606,12 @@ spec:
                 secretKeyRef:
                   name: redis-credentials
                   key: redis-password
+            - name: SIGNATURE_CLOSE_JOB_ENABLED
+              value: "true"
+            - name: SIGNATURE_CLOSE_JOB_INTERVAL
+              value: "1m"
+            - name: SIGNATURE_CLOSE_JOB_TIMEOUT
+              value: "10s"
             - name: GRPC_DIAL_TIMEOUT
               value: 5s
             - name: BUZZLIGHTYEAR_TTL
@@ -693,6 +705,8 @@ spec:
           ports:
             - name: http
               containerPort: 8084
+            - name: grpc
+              containerPort: 9094
           resources:
             requests:
               cpu: 100m
@@ -700,6 +714,8 @@ spec:
           env:
             - name: HTTP_ADDR
               value: ":8084"
+            - name: GRPC_ADDR
+              value: ":9094"
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -752,6 +768,9 @@ spec:
     - name: http
       port: 8084
       targetPort: 8084
+    - name: grpc
+      port: 9094
+      targetPort: 9094
 
 ---
 apiVersion: autoscaling/v2

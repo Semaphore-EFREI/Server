@@ -54,10 +54,30 @@ message SchoolPreferences {
 message GetSchoolPreferencesRequest { string school_id = 1; }
 message GetSchoolPreferencesResponse { SchoolPreferences preferences = 1; }
 
+message CloseExpiredCoursesRequest {
+  google.protobuf.Timestamp now = 1;
+}
+
+message CloseExpiredCoursesResponse {
+  int64 closed_count = 1;
+}
+
+// AcademicsQueryService exposes read-only academic data.
 service AcademicsQueryService {
+  // GetCourse returns a course by id.
   rpc GetCourse(GetCourseRequest) returns (GetCourseResponse);
+  // ValidateTeacherCourse checks if a teacher is assigned to a course.
   rpc ValidateTeacherCourse(ValidateTeacherCourseRequest) returns (ValidateTeacherCourseResponse);
+  // ValidateStudentCourse checks if a student can access a course.
   rpc ValidateStudentCourse(ValidateStudentCourseRequest) returns (ValidateStudentCourseResponse);
+  // ValidateClassroomCourse checks if a classroom is linked to a course.
   rpc ValidateClassroomCourse(ValidateClassroomCourseRequest) returns (ValidateClassroomCourseResponse);
+  // GetSchoolPreferences returns school-level preferences.
   rpc GetSchoolPreferences(GetSchoolPreferencesRequest) returns (GetSchoolPreferencesResponse);
+}
+
+// AcademicsCommandService exposes write/command operations.
+service AcademicsCommandService {
+  // CloseExpiredCourses closes courses past their signature delay.
+  rpc CloseExpiredCourses(CloseExpiredCoursesRequest) returns (CloseExpiredCoursesResponse);
 }

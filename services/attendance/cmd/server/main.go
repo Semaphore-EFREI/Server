@@ -19,6 +19,7 @@ import (
 	"semaphore/attendance/internal/db"
 	attendancegrpc "semaphore/attendance/internal/grpc"
 	internalhttp "semaphore/attendance/internal/http"
+	"semaphore/attendance/internal/jobs"
 )
 
 func main() {
@@ -71,6 +72,8 @@ func main() {
 
 	grpcServer := grpc.NewServer()
 	attendancev1.RegisterAttendanceCommandServiceServer(grpcServer, attendancegrpc.NewAttendanceServer(store, clients.Academics))
+	attendancev1.RegisterAttendanceQueryServiceServer(grpcServer, attendancegrpc.NewAttendanceQueryServer(store))
+	jobs.StartSignatureCloseJob(ctx, cfg, clients.AcademicsCommand)
 
 	go func() {
 		log.Printf("attendance http listening on %s", cfg.HTTPAddr)

@@ -1,0 +1,362 @@
+//go:build ignore
+// +build ignore
+
+package ignore
+
+/*
+package academicsv1
+
+import (
+	context "context"
+	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
+)
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+// Requires gRPC-Go v1.32.0 or later.
+const _ = grpc.SupportPackageIsVersion7
+
+const (
+	AcademicsQueryService_GetCourse_FullMethodName               = "/academics.api.v1.AcademicsQueryService/GetCourse"
+	AcademicsQueryService_ValidateTeacherCourse_FullMethodName   = "/academics.api.v1.AcademicsQueryService/ValidateTeacherCourse"
+	AcademicsQueryService_ValidateStudentCourse_FullMethodName   = "/academics.api.v1.AcademicsQueryService/ValidateStudentCourse"
+	AcademicsQueryService_ValidateClassroomCourse_FullMethodName = "/academics.api.v1.AcademicsQueryService/ValidateClassroomCourse"
+	AcademicsQueryService_GetSchoolPreferences_FullMethodName    = "/academics.api.v1.AcademicsQueryService/GetSchoolPreferences"
+)
+
+// AcademicsQueryServiceClient is the client API for AcademicsQueryService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type AcademicsQueryServiceClient interface {
+	// GetCourse returns a course by id.
+	GetCourse(ctx context.Context, in *GetCourseRequest, opts ...grpc.CallOption) (*GetCourseResponse, error)
+	// ValidateTeacherCourse checks if a teacher is assigned to a course.
+	ValidateTeacherCourse(ctx context.Context, in *ValidateTeacherCourseRequest, opts ...grpc.CallOption) (*ValidateTeacherCourseResponse, error)
+	// ValidateStudentCourse checks if a student can access a course.
+	ValidateStudentCourse(ctx context.Context, in *ValidateStudentCourseRequest, opts ...grpc.CallOption) (*ValidateStudentCourseResponse, error)
+	// ValidateClassroomCourse checks if a classroom is linked to a course.
+	ValidateClassroomCourse(ctx context.Context, in *ValidateClassroomCourseRequest, opts ...grpc.CallOption) (*ValidateClassroomCourseResponse, error)
+	// GetSchoolPreferences returns school-level preferences.
+	GetSchoolPreferences(ctx context.Context, in *GetSchoolPreferencesRequest, opts ...grpc.CallOption) (*GetSchoolPreferencesResponse, error)
+}
+
+type academicsQueryServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewAcademicsQueryServiceClient(cc grpc.ClientConnInterface) AcademicsQueryServiceClient {
+	return &academicsQueryServiceClient{cc}
+}
+
+func (c *academicsQueryServiceClient) GetCourse(ctx context.Context, in *GetCourseRequest, opts ...grpc.CallOption) (*GetCourseResponse, error) {
+	out := new(GetCourseResponse)
+	err := c.cc.Invoke(ctx, AcademicsQueryService_GetCourse_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *academicsQueryServiceClient) ValidateTeacherCourse(ctx context.Context, in *ValidateTeacherCourseRequest, opts ...grpc.CallOption) (*ValidateTeacherCourseResponse, error) {
+	out := new(ValidateTeacherCourseResponse)
+	err := c.cc.Invoke(ctx, AcademicsQueryService_ValidateTeacherCourse_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *academicsQueryServiceClient) ValidateStudentCourse(ctx context.Context, in *ValidateStudentCourseRequest, opts ...grpc.CallOption) (*ValidateStudentCourseResponse, error) {
+	out := new(ValidateStudentCourseResponse)
+	err := c.cc.Invoke(ctx, AcademicsQueryService_ValidateStudentCourse_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *academicsQueryServiceClient) ValidateClassroomCourse(ctx context.Context, in *ValidateClassroomCourseRequest, opts ...grpc.CallOption) (*ValidateClassroomCourseResponse, error) {
+	out := new(ValidateClassroomCourseResponse)
+	err := c.cc.Invoke(ctx, AcademicsQueryService_ValidateClassroomCourse_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *academicsQueryServiceClient) GetSchoolPreferences(ctx context.Context, in *GetSchoolPreferencesRequest, opts ...grpc.CallOption) (*GetSchoolPreferencesResponse, error) {
+	out := new(GetSchoolPreferencesResponse)
+	err := c.cc.Invoke(ctx, AcademicsQueryService_GetSchoolPreferences_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AcademicsQueryServiceServer is the server API for AcademicsQueryService service.
+// All implementations must embed UnimplementedAcademicsQueryServiceServer
+// for forward compatibility
+type AcademicsQueryServiceServer interface {
+	// GetCourse returns a course by id.
+	GetCourse(context.Context, *GetCourseRequest) (*GetCourseResponse, error)
+	// ValidateTeacherCourse checks if a teacher is assigned to a course.
+	ValidateTeacherCourse(context.Context, *ValidateTeacherCourseRequest) (*ValidateTeacherCourseResponse, error)
+	// ValidateStudentCourse checks if a student can access a course.
+	ValidateStudentCourse(context.Context, *ValidateStudentCourseRequest) (*ValidateStudentCourseResponse, error)
+	// ValidateClassroomCourse checks if a classroom is linked to a course.
+	ValidateClassroomCourse(context.Context, *ValidateClassroomCourseRequest) (*ValidateClassroomCourseResponse, error)
+	// GetSchoolPreferences returns school-level preferences.
+	GetSchoolPreferences(context.Context, *GetSchoolPreferencesRequest) (*GetSchoolPreferencesResponse, error)
+	mustEmbedUnimplementedAcademicsQueryServiceServer()
+}
+
+// UnimplementedAcademicsQueryServiceServer must be embedded to have forward compatible implementations.
+type UnimplementedAcademicsQueryServiceServer struct {
+}
+
+func (UnimplementedAcademicsQueryServiceServer) GetCourse(context.Context, *GetCourseRequest) (*GetCourseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCourse not implemented")
+}
+func (UnimplementedAcademicsQueryServiceServer) ValidateTeacherCourse(context.Context, *ValidateTeacherCourseRequest) (*ValidateTeacherCourseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ValidateTeacherCourse not implemented")
+}
+func (UnimplementedAcademicsQueryServiceServer) ValidateStudentCourse(context.Context, *ValidateStudentCourseRequest) (*ValidateStudentCourseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ValidateStudentCourse not implemented")
+}
+func (UnimplementedAcademicsQueryServiceServer) ValidateClassroomCourse(context.Context, *ValidateClassroomCourseRequest) (*ValidateClassroomCourseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ValidateClassroomCourse not implemented")
+}
+func (UnimplementedAcademicsQueryServiceServer) GetSchoolPreferences(context.Context, *GetSchoolPreferencesRequest) (*GetSchoolPreferencesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSchoolPreferences not implemented")
+}
+func (UnimplementedAcademicsQueryServiceServer) mustEmbedUnimplementedAcademicsQueryServiceServer() {}
+
+// UnsafeAcademicsQueryServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AcademicsQueryServiceServer will
+// result in compilation errors.
+type UnsafeAcademicsQueryServiceServer interface {
+	mustEmbedUnimplementedAcademicsQueryServiceServer()
+}
+
+func RegisterAcademicsQueryServiceServer(s grpc.ServiceRegistrar, srv AcademicsQueryServiceServer) {
+	s.RegisterService(&AcademicsQueryService_ServiceDesc, srv)
+}
+
+func _AcademicsQueryService_GetCourse_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCourseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AcademicsQueryServiceServer).GetCourse(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AcademicsQueryService_GetCourse_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AcademicsQueryServiceServer).GetCourse(ctx, req.(*GetCourseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AcademicsQueryService_ValidateTeacherCourse_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidateTeacherCourseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AcademicsQueryServiceServer).ValidateTeacherCourse(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AcademicsQueryService_ValidateTeacherCourse_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AcademicsQueryServiceServer).ValidateTeacherCourse(ctx, req.(*ValidateTeacherCourseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AcademicsQueryService_ValidateStudentCourse_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidateStudentCourseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AcademicsQueryServiceServer).ValidateStudentCourse(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AcademicsQueryService_ValidateStudentCourse_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AcademicsQueryServiceServer).ValidateStudentCourse(ctx, req.(*ValidateStudentCourseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AcademicsQueryService_ValidateClassroomCourse_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidateClassroomCourseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AcademicsQueryServiceServer).ValidateClassroomCourse(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AcademicsQueryService_ValidateClassroomCourse_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AcademicsQueryServiceServer).ValidateClassroomCourse(ctx, req.(*ValidateClassroomCourseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AcademicsQueryService_GetSchoolPreferences_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSchoolPreferencesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AcademicsQueryServiceServer).GetSchoolPreferences(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AcademicsQueryService_GetSchoolPreferences_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AcademicsQueryServiceServer).GetSchoolPreferences(ctx, req.(*GetSchoolPreferencesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// AcademicsQueryService_ServiceDesc is the grpc.ServiceDesc for AcademicsQueryService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var AcademicsQueryService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "academics.api.v1.AcademicsQueryService",
+	HandlerType: (*AcademicsQueryServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetCourse",
+			Handler:    _AcademicsQueryService_GetCourse_Handler,
+		},
+		{
+			MethodName: "ValidateTeacherCourse",
+			Handler:    _AcademicsQueryService_ValidateTeacherCourse_Handler,
+		},
+		{
+			MethodName: "ValidateStudentCourse",
+			Handler:    _AcademicsQueryService_ValidateStudentCourse_Handler,
+		},
+		{
+			MethodName: "ValidateClassroomCourse",
+			Handler:    _AcademicsQueryService_ValidateClassroomCourse_Handler,
+		},
+		{
+			MethodName: "GetSchoolPreferences",
+			Handler:    _AcademicsQueryService_GetSchoolPreferences_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "services/academics/academics/v1/academics.proto",
+}
+
+const (
+	AcademicsCommandService_CloseExpiredCourses_FullMethodName = "/academics.api.v1.AcademicsCommandService/CloseExpiredCourses"
+)
+
+// AcademicsCommandServiceClient is the client API for AcademicsCommandService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type AcademicsCommandServiceClient interface {
+	// CloseExpiredCourses closes courses past their signature delay.
+	CloseExpiredCourses(ctx context.Context, in *CloseExpiredCoursesRequest, opts ...grpc.CallOption) (*CloseExpiredCoursesResponse, error)
+}
+
+type academicsCommandServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewAcademicsCommandServiceClient(cc grpc.ClientConnInterface) AcademicsCommandServiceClient {
+	return &academicsCommandServiceClient{cc}
+}
+
+func (c *academicsCommandServiceClient) CloseExpiredCourses(ctx context.Context, in *CloseExpiredCoursesRequest, opts ...grpc.CallOption) (*CloseExpiredCoursesResponse, error) {
+	out := new(CloseExpiredCoursesResponse)
+	err := c.cc.Invoke(ctx, AcademicsCommandService_CloseExpiredCourses_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AcademicsCommandServiceServer is the server API for AcademicsCommandService service.
+// All implementations must embed UnimplementedAcademicsCommandServiceServer
+// for forward compatibility
+type AcademicsCommandServiceServer interface {
+	// CloseExpiredCourses closes courses past their signature delay.
+	CloseExpiredCourses(context.Context, *CloseExpiredCoursesRequest) (*CloseExpiredCoursesResponse, error)
+	mustEmbedUnimplementedAcademicsCommandServiceServer()
+}
+
+// UnimplementedAcademicsCommandServiceServer must be embedded to have forward compatible implementations.
+type UnimplementedAcademicsCommandServiceServer struct {
+}
+
+func (UnimplementedAcademicsCommandServiceServer) CloseExpiredCourses(context.Context, *CloseExpiredCoursesRequest) (*CloseExpiredCoursesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CloseExpiredCourses not implemented")
+}
+func (UnimplementedAcademicsCommandServiceServer) mustEmbedUnimplementedAcademicsCommandServiceServer() {
+}
+
+// UnsafeAcademicsCommandServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AcademicsCommandServiceServer will
+// result in compilation errors.
+type UnsafeAcademicsCommandServiceServer interface {
+	mustEmbedUnimplementedAcademicsCommandServiceServer()
+}
+
+func RegisterAcademicsCommandServiceServer(s grpc.ServiceRegistrar, srv AcademicsCommandServiceServer) {
+	s.RegisterService(&AcademicsCommandService_ServiceDesc, srv)
+}
+
+func _AcademicsCommandService_CloseExpiredCourses_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CloseExpiredCoursesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AcademicsCommandServiceServer).CloseExpiredCourses(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AcademicsCommandService_CloseExpiredCourses_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AcademicsCommandServiceServer).CloseExpiredCourses(ctx, req.(*CloseExpiredCoursesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// AcademicsCommandService_ServiceDesc is the grpc.ServiceDesc for AcademicsCommandService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var AcademicsCommandService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "academics.api.v1.AcademicsCommandService",
+	HandlerType: (*AcademicsCommandServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CloseExpiredCourses",
+			Handler:    _AcademicsCommandService_CloseExpiredCourses_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "services/academics/academics/v1/academics.proto",
+}
+
+*/

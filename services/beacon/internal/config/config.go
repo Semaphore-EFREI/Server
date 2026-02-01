@@ -9,6 +9,7 @@ import (
 
 type Config struct {
 	HTTPAddr         string
+	GRPCAddr         string
 	DatabaseURL      string
 	JWTPublicKey     string
 	JWTIssuer        string
@@ -22,6 +23,7 @@ type Config struct {
 func Load() Config {
 	return Config{
 		HTTPAddr:         getenv("HTTP_ADDR", ":8084"),
+		GRPCAddr:         getenv("GRPC_ADDR", ":9094"),
 		DatabaseURL:      getenv("DATABASE_URL", "postgres://postgres:postgres@127.0.0.1:5432/beacon?sslmode=disable"),
 		JWTPublicKey:     getenvKey("JWT_PUBLIC_KEY", ""),
 		JWTIssuer:        getenv("JWT_ISSUER", "semaphore-auth-identity"),
