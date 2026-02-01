@@ -243,6 +243,11 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_method")
 		return
 	}
+	if claims.UserType == "teacher" {
+		methodValue = db.SignatureMethodTeacher
+	} else if claims.UserType == "admin" {
+		methodValue = db.SignatureMethodAdmin
+	}
 
 	if claims.UserType == "student" {
 		prefs, err := s.loadSchoolPreferences(r.Context(), course.GetSchoolId())
