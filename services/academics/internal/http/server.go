@@ -650,6 +650,7 @@ type courseResponse struct {
 type createCourseRequest struct {
 	Name            string   `json:"name"`
 	Date            int64    `json:"date"`
+	EndDate         int64    `json:"endDate"`
 	IsOnline        bool     `json:"isOnline"`
 	School          string   `json:"school"`
 	ClassroomsID    []string `json:"classroomsId,omitempty"`
@@ -661,6 +662,7 @@ type createCourseRequest struct {
 type patchCourseRequest struct {
 	Name                  *string `json:"name"`
 	Date                  *int64  `json:"date"`
+	EndDate               *int64  `json:"endDate"`
 	IsOnline              *bool   `json:"isOnline"`
 	SignatureClosingDelay *int32  `json:"signatureClosingDelay"`
 	SignatureClosed       *bool   `json:"signatureClosed"`
@@ -964,11 +966,13 @@ func (s *Server) handleCreateCourse(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request")
 		return
 	}
-	if req.Name == "" || req.Date == 0 {
+	if req.Name == "" || req.Date == 0 || req.EndDate == 0 {
 		writeError(w, http.StatusBadRequest, "missing_fields")
 		return
 	}
-	if req.School == "" && claims != nil && claims.UserType == "admin" {
+	if claims != nil && claims.UserType != "dev" {
+		req.School = claims.SchoolID
+	} else if req.School == "" && claims != nil && claims.SchoolID != "" {
 		req.School = claims.SchoolID
 	}
 	if req.School == "" {
@@ -1035,11 +1039,7 @@ func (s *Server) handleCreateCourse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	startAt := time.Unix(req.Date, 0).UTC()
-	duration := s.cfg.CourseDuration
-	if duration <= 0 {
-		duration = time.Hour
-	}
-	endAt := startAt.Add(duration)
+	endAt := time.Unix(req.EndDate, 0).UTC()
 
 	var course db.Course
 	err = s.store.WithTx(r.Context(), func(q *db.Queries) error {
@@ -1228,11 +1228,17 @@ func (s *Server) handlePatchCourse(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		startAt = time.Unix(*req.Date, 0).UTC()
-		duration := s.cfg.CourseDuration
-		if duration <= 0 {
-			duration = time.Hour
+		if req.EndDate == nil || *req.EndDate == 0 {
+			writeError(w, http.StatusBadRequest, "missing_end_date")
+			return
 		}
-		endAt = startAt.Add(duration)
+		endAt = time.Unix(*req.EndDate, 0).UTC()
+	} else if req.EndDate != nil {
+		if *req.EndDate == 0 {
+			writeError(w, http.StatusBadRequest, "missing_end_date")
+			return
+		}
+		endAt = time.Unix(*req.EndDate, 0).UTC()
 	}
 	isOnline := course.IsOnline
 	if req.IsOnline != nil {
