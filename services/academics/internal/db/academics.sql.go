@@ -1233,6 +1233,33 @@ func (q *Queries) ListStudentIDsByStudentGroup(ctx context.Context, studentGroup
 	return items, nil
 }
 
+const listTeacherIDsByCourse = `-- name: ListTeacherIDsByCourse :many
+SELECT teacher_id
+FROM teachers_courses
+WHERE course_id = $1
+ORDER BY created_at DESC
+`
+
+func (q *Queries) ListTeacherIDsByCourse(ctx context.Context, courseID pgtype.UUID) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, listTeacherIDsByCourse, courseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []pgtype.UUID
+	for rows.Next() {
+		var teacher_id pgtype.UUID
+		if err := rows.Scan(&teacher_id); err != nil {
+			return nil, err
+		}
+		items = append(items, teacher_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const removeCourseClassroom = `-- name: RemoveCourseClassroom :exec
 DELETE FROM courses_classrooms
 WHERE course_id = $1 AND classroom_id = $2

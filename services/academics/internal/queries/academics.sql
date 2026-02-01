@@ -332,6 +332,12 @@ SELECT student_id
 FROM students_groups
 WHERE student_group_id = $1;
 
+-- name: ListTeacherIDsByCourse :many
+SELECT teacher_id
+FROM teachers_courses
+WHERE course_id = $1
+ORDER BY created_at DESC;
+
 -- name: ListStudentGroupsByCourse :many
 SELECT sg.id, sg.school_id, sg.name, sg.single_student_group, sg.created_at, sg.updated_at, sg.deleted_at
 FROM student_groups sg

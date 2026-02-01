@@ -755,10 +755,11 @@ func (s *Server) handleGetCourses(w http.ResponseWriter, r *http.Request) {
 
 	include := r.URL.Query()["include"]
 	if len(include) == 0 {
-		include = []string{"classrooms", "signatures", "students", "soloStudents", "studentGroups"}
+		include = []string{"classrooms", "signatures", "teachers", "students", "soloStudents", "studentGroups"}
 	}
 	includeClassrooms := contains(include, "classrooms")
 	includeSignatures := contains(include, "signatures")
+	includeTeachers := contains(include, "teachers")
 	includeStudents := contains(include, "students")
 	includeSoloStudents := contains(include, "soloStudents")
 	includeStudentGroups := contains(include, "studentGroups")
@@ -812,13 +813,14 @@ func (s *Server) handleGetCourses(w http.ResponseWriter, r *http.Request) {
 
 	resp := make([]any, 0, len(courses))
 	for _, course := range courses {
-		if !includeClassrooms && !includeSignatures && !includeStudents && !includeSoloStudents && !includeStudentGroups {
+		if !includeClassrooms && !includeSignatures && !includeTeachers && !includeStudents && !includeSoloStudents && !includeStudentGroups {
 			resp = append(resp, mapCourse(course))
 			continue
 		}
 		entry, err := s.buildCourseEntry(r.Context(), course, courseIncludes{
 			Classrooms:    includeClassrooms,
 			Signatures:    includeSignatures,
+			Teachers:      includeTeachers,
 			Students:      includeStudents,
 			SoloStudents:  includeSoloStudents,
 			StudentGroups: includeStudentGroups,
@@ -956,6 +958,7 @@ func (s *Server) listCoursesForSchool(ctx context.Context, schoolID string, limi
 type courseIncludes struct {
 	Classrooms    bool
 	Signatures    bool
+	Teachers      bool
 	Students      bool
 	SoloStudents  bool
 	StudentGroups bool
@@ -976,6 +979,13 @@ func (s *Server) buildCourseEntry(ctx context.Context, course courseEntry, inclu
 			return nil, err
 		}
 		entry["signature"] = signatures
+	}
+	if includes.Teachers {
+		teacherIDs, err := s.store.Queries.ListTeacherIDsByCourse(ctx, course.ID)
+		if err != nil {
+			return nil, err
+		}
+		entry["teachers"] = mapTeacherRefs(teacherIDs)
 	}
 	if includes.Students || includes.SoloStudents || includes.StudentGroups {
 		groups, students, soloStudents, err := s.listCourseStudents(ctx, course.ID)
@@ -1307,20 +1317,22 @@ func (s *Server) handleGetCourse(w http.ResponseWriter, r *http.Request) {
 
 	include := r.URL.Query()["include"]
 	if len(include) == 0 {
-		include = []string{"classrooms", "signatures", "students", "soloStudents", "studentGroups"}
+		include = []string{"classrooms", "signatures", "teachers", "students", "soloStudents", "studentGroups"}
 	}
 	includeClassrooms := contains(include, "classrooms")
 	includeSignatures := contains(include, "signatures")
+	includeTeachers := contains(include, "teachers")
 	includeStudents := contains(include, "students")
 	includeSoloStudents := contains(include, "soloStudents")
 	includeStudentGroups := contains(include, "studentGroups")
-	if !includeClassrooms && !includeSignatures && !includeStudents && !includeSoloStudents && !includeStudentGroups {
+	if !includeClassrooms && !includeSignatures && !includeTeachers && !includeStudents && !includeSoloStudents && !includeStudentGroups {
 		writeJSON(w, http.StatusOK, mapCourse(courseEntryFromGetCourse(course)))
 		return
 	}
 	entry, err := s.buildCourseEntry(r.Context(), courseEntryFromGetCourse(course), courseIncludes{
 		Classrooms:    includeClassrooms,
 		Signatures:    includeSignatures,
+		Teachers:      includeTeachers,
 		Students:      includeStudents,
 		SoloStudents:  includeSoloStudents,
 		StudentGroups: includeStudentGroups,
@@ -2174,6 +2186,10 @@ type studentRef struct {
 	ID string `json:"id"`
 }
 
+type teacherRef struct {
+	ID string `json:"id"`
+}
+
 func mapClassroomResponses(classrooms []db.Classroom) []classroomResponse {
 	resp := make([]classroomResponse, 0, len(classrooms))
 	for _, room := range classrooms {
@@ -2198,6 +2214,14 @@ func mapStudentRefs(ids []pgtype.UUID) []studentRef {
 	resp := make([]studentRef, 0, len(ids))
 	for _, id := range ids {
 		resp = append(resp, studentRef{ID: uuidString(id)})
+	}
+	return resp
+}
+
+func mapTeacherRefs(ids []pgtype.UUID) []teacherRef {
+	resp := make([]teacherRef, 0, len(ids))
+	for _, id := range ids {
+		resp = append(resp, teacherRef{ID: uuidString(id)})
 	}
 	return resp
 }

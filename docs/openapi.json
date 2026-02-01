@@ -980,12 +980,14 @@
                 "type": "string",
                 "enum": [
                   "classrooms",
-                  "signatures"
+                  "signatures",
+                  "teachers"
                 ]
               },
               "default": [
                 "classrooms",
-                "signatures"
+                "signatures",
+                "teachers"
               ]
             }
           }
@@ -1241,12 +1243,14 @@
                 "type": "string",
                 "enum": [
                   "classrooms",
-                  "signatures"
+                  "signatures",
+                  "teachers"
                 ]
               },
               "default": [
                 "classrooms",
-                "signatures"
+                "signatures",
+                "teachers"
               ]
             }
           }
@@ -4694,6 +4698,12 @@
                   "discriminator": {
                     "propertyName": "type"
                   }
+                }
+              },
+              "teachers": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Teacher"
                 }
               }
             }
