@@ -1,0 +1,152 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<flow-definition plugin="workflow-job">
+  <actions/>
+  <description>Semaphore frontend pipeline</description>
+  <keepDependencies>false</keepDependencies>
+  <properties/>
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps">
+    <script>
+pipeline {
+  agent {
+    kubernetes {
+      yaml """
+        apiVersion: v1
+        kind: Pod
+        spec:
+          containers:
+          - name: builder
+            image: node:18-bullseye
+            tty: true
+            command: ["cat"]
+        """
+    }
+  }
+
+  options {
+    timeout(time: 30, unit: 'MINUTES')
+  }
+
+  parameters {
+    string(
+      name: 'K8S_NAMESPACE',
+      defaultValue: 'semaphore',
+      description: 'Namespace where Semaphore is deployed.'
+    )
+    string(
+      name: 'KUBECONFIG_CREDENTIALS_ID',
+      defaultValue: 'kubeconfig-burrito',
+      description: 'Jenkins file credential ID containing kubeconfig.'
+    )
+  }
+
+  environment {
+    BUILDKIT_VERSION = '0.26.2'
+    KUBECTL_VERSION  = 'v1.34.1'
+
+    BUILDKIT_HOST = 'tcp://buildkit:1234'
+    REGISTRY_HOST = 'registry.burrito.deway.fr'
+    REGISTRY_PUSH_HOST = 'registry.jenkins.svc.cluster.local:5000'
+
+    IMAGE_NAME = 'semaphore-frontend'
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        git branch: '${branch}', url: '${repo_url}'
+      }
+    }
+
+    stage('Install Build Tools') {
+      steps {
+        container('builder') {
+          sh '''
+            set -e
+            if ! command -v buildctl >/dev/null 2>&1; then
+              echo "Installing buildctl..."
+              curl -sL "https://github.com/moby/buildkit/releases/download/v${BUILDKIT_VERSION}/buildkit-v${BUILDKIT_VERSION}.linux-amd64.tar.gz" \
+                | tar -xz -C /usr/local
+            fi
+
+            if ! command -v kubectl >/dev/null 2>&1; then
+              echo "Installing kubectl..."
+              curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+              install -m 0755 kubectl /usr/local/bin/kubectl
+              rm kubectl
+            fi
+          '''
+        }
+      }
+    }
+
+    stage('Build Image') {
+      steps {
+        container('builder') {
+          sh '''
+            set -e
+            cat > nginx.conf <<'NGINX_CONF'
+            server {
+              listen 80;
+              server_name _;
+              root /usr/share/nginx/html;
+              index index.html;
+
+              location / {
+                try_files $uri $uri/ /index.html;
+              }
+            }
+            NGINX_CONF
+
+            cat > Dockerfile <<'DOCKERFILE'
+            FROM node:18-bullseye AS build
+            WORKDIR /app
+            COPY package*.json ./
+            RUN npm install
+            COPY . .
+            RUN npm run build
+
+            FROM nginx:1.27-alpine
+            COPY --from=build /app/dist /usr/share/nginx/html
+            COPY nginx.conf /etc/nginx/conf.d/default.conf
+            DOCKERFILE
+
+            buildctl \
+              --addr "${BUILDKIT_HOST}" \
+              build \
+              --frontend dockerfile.v0 \
+              --local context=. \
+              --local dockerfile=. \
+              --output 'type=image,"name=${REGISTRY_PUSH_HOST}/${IMAGE_NAME}:${BUILD_NUMBER},${REGISTRY_PUSH_HOST}/${IMAGE_NAME}:latest,${REGISTRY_HOST}/${IMAGE_NAME}:${BUILD_NUMBER},${REGISTRY_HOST}/${IMAGE_NAME}:latest",push=true,registry.insecure=true'
+          '''
+        }
+      }
+    }
+
+    stage('Deploy') {
+      steps {
+        container('builder') {
+          withCredentials([string(credentialsId: params.KUBECONFIG_CREDENTIALS_ID, variable: 'KUBECONFIG_CONTENT')]) {
+            script {
+              writeFile file: 'kubeconfig', text: env.KUBECONFIG_CONTENT
+            }
+            withEnv(["KUBECONFIG=${pwd()}/kubeconfig", "K8S_NAMESPACE=${params.K8S_NAMESPACE}"]) {
+              sh '''
+                set -e
+                kubectl set image deployment/frontend \
+                  frontend=${REGISTRY_HOST}/${IMAGE_NAME}:${BUILD_NUMBER} \
+                  -n "${K8S_NAMESPACE}"
+                kubectl rollout status deployment/frontend -n "${K8S_NAMESPACE}" --timeout=5m
+              '''
+            }
+          }
+        }
+      }
+    }
+  }
+}
+    </script>
+    <sandbox>true</sandbox>
+  </definition>
+  <triggers/>
+  <disabled>false</disabled>
+</flow-definition>

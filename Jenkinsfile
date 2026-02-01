@@ -168,6 +168,7 @@ pipeline {
                 string(credentialsId: 'semaphore-jwt-private-key', variable: 'JWT_PRIVATE_KEY'),
                 string(credentialsId: 'semaphore-jwt-public-key', variable: 'JWT_PUBLIC_KEY'),
                 string(credentialsId: 'semaphore-jwt-issuer', variable: 'JWT_ISSUER'),
+                string(credentialsId: 'semaphore-service-auth-token', variable: 'SERVICE_AUTH_TOKEN'),
               ]) {
                 script {
                   writeFile file: 'jwt_private.pem', text: env.JWT_PRIVATE_KEY
@@ -180,6 +181,10 @@ pipeline {
                     --from-file=jwt-private-key=jwt_private.pem \
                     --from-file=jwt-public-key=jwt_public.pem \
                     --from-literal=jwt-issuer="${JWT_ISSUER}" \
+                    --dry-run=client -o yaml | kubectl apply -n "${K8S_NAMESPACE}" -f -
+
+                  kubectl create secret generic service-auth-token \
+                    --from-literal=service-auth-token="${SERVICE_AUTH_TOKEN}" \
                     --dry-run=client -o yaml | kubectl apply -n "${K8S_NAMESPACE}" -f -
                 '''
               }

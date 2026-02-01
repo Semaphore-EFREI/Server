@@ -47,6 +47,12 @@ variable "semaphore_gateway_domain" {
   default     = "semaphore.deway.fr"
 }
 
+variable "semaphore_frontend_domain" {
+  type        = string
+  description = "Public hostname for the Semaphore frontend"
+  default     = "app.semaphore.deway.fr"
+}
+
 variable "tls_cluster_issuer" {
   type        = string
   description = "cert-manager ClusterIssuer name for TLS"
@@ -125,4 +131,29 @@ variable "semaphore_jwt_issuer" {
   type        = string
   description = "JWT issuer for Semaphore"
   default     = "semaphore-auth-identity"
+}
+
+variable "semaphore_service_auth_token" {
+  type        = string
+  description = "Shared service auth token for internal gRPC calls"
+  sensitive   = true
+  default     = "replace-me"
+}
+
+variable "semaphore_frontend_repo_url" {
+  type        = string
+  description = "Git URL for the Semaphore frontend repository"
+  default     = "https://github.com/Semaphore-EFREI/Website"
+}
+
+variable "semaphore_frontend_repo_branch" {
+  type        = string
+  description = "Branch to build for the Semaphore frontend pipeline job"
+  default     = "main"
+}
+
+variable "semaphore_frontend_jenkins_job_name" {
+  type        = string
+  description = "Jenkins job name for Semaphore frontend"
+  default     = "semaphore-frontend"
 }

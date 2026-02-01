@@ -120,6 +120,84 @@ resource "kubernetes_ingress_v1" "semaphore_gateway_https" {
   depends_on = [kubernetes_namespace.envoy_gateway_system]
 }
 
+resource "kubernetes_ingress_v1" "semaphore_frontend_http" {
+  metadata {
+    name      = "semaphore-frontend-http"
+    namespace = local.app_namespace
+    annotations = {
+      "traefik.ingress.kubernetes.io/router.entrypoints" = "web"
+      "traefik.ingress.kubernetes.io/router.middlewares" = "${var.istio_namespace}-semaphore-https-redirect@kubernetescrd"
+    }
+  }
+
+  spec {
+    ingress_class_name = "traefik"
+
+    rule {
+      host = var.semaphore_frontend_domain
+
+      http {
+        path {
+          path      = "/"
+          path_type = "Prefix"
+
+          backend {
+            service {
+              name = "frontend"
+
+              port {
+                number = 80
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+resource "kubernetes_ingress_v1" "semaphore_frontend_https" {
+  metadata {
+    name      = "semaphore-frontend-https"
+    namespace = local.app_namespace
+    annotations = {
+      "cert-manager.io/cluster-issuer"                   = var.tls_cluster_issuer
+      "traefik.ingress.kubernetes.io/router.entrypoints" = "websecure"
+      "traefik.ingress.kubernetes.io/router.tls"         = "true"
+    }
+  }
+
+  spec {
+    ingress_class_name = "traefik"
+
+    rule {
+      host = var.semaphore_frontend_domain
+
+      http {
+        path {
+          path      = "/"
+          path_type = "Prefix"
+
+          backend {
+            service {
+              name = "frontend"
+
+              port {
+                number = 80
+              }
+            }
+          }
+        }
+      }
+    }
+
+    tls {
+      hosts       = [var.semaphore_frontend_domain]
+      secret_name = "semaphore-frontend-tls"
+    }
+  }
+}
+
 resource "kubernetes_role" "jenkins_deployer" {
   metadata {
     name      = "jenkins-deployer"

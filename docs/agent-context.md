@@ -43,11 +43,18 @@ Replace the legacy static Envoy gateway with Envoy Gateway (Gateway API) while k
 - `infra/terraform/variables.tf`
   - Added `envoy_gateway_namespace` (default `envoy-gateway-system`).
   - Added `envoy_gateway_chart_version` (default `v0.0.0-latest`).
+  - Added frontend job variables (repo URL, branch, job name).
 - `infra/terraform/main.tf`
   - Ingress resources moved to `envoy-gateway-system`.
   - Backend service updated to `envoy-semaphore-gateway`.
   - Creates `envoy-gateway-system` namespace.
   - Installs Envoy Gateway via Helm (`eg` release).
+
+### Jenkins
+- `infra/terraform/jenkins.tf`
+  - Added `semaphore_frontend` job (builds Vue/Vite app into `semaphore-frontend` image).
+- `infra/terraform/jenkins-pipeline-frontend.xml`
+  - Inline pipeline to build/push frontend image and roll out `deployment/frontend`.
 
 ## Operational Notes
 - Apply gateway resources:
