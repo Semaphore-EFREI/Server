@@ -57,6 +57,6 @@ POST /refreshToken : Faudrait-il rajouter userId comme paramètre? A discuter av
 
 POST /auth/logout : y-a-t-il un paramètre requis non indiqué dans le swagger ? (tests non concluants erreur 400) 
 
-POST /admin : quels sont les valeurs acceptées de "role" ? (valeurs indiquées sur Swagger fausses, mais "super_admin" fonctionne) 
+POST /admin : valeurs acceptées de "role" : planning / absence / manager (aligné Swagger) 
 
 PATCH /student ou /teacher ou /admin : il doit y avoir un problème, erreur 400 systématique depuis ce matin 

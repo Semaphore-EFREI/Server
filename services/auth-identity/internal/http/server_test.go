@@ -154,7 +154,7 @@ func TestCreateStudentTeacher(t *testing.T) {
 		"firstname": "Test",
 		"lastname":  "Admin",
 		"createdOn": timestamp,
-		"role":      "school_admin",
+		"role":      "manager",
 		"school":    schoolID,
 	}
 	resp = doReq(t, http.MethodPost, app.URL+"/admin", adminToken, adminBody)

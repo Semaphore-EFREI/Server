@@ -16,7 +16,7 @@ Align the implementation with the current Swagger (`docs/openapi_v3.json`) and t
 - Token field naming: use `accessToken` and `refreshToken` (camelCase) in responses and requests.
 - `/auth/refresh`: Swagger lists `userId` and `userType`, server currently accepts only `refreshToken`.
 - `/auth/logout`: server expects `refreshToken` body; Swagger defines no request body.
-- Admin roles: code only accepts `super_admin` and `school_admin`; Swagger values are inconsistent.
+- Admin roles: align code/DB with Swagger (`planning`, `absence`, `manager`).
 
 ### Academics
 - `GET /courses`: admin/dev should be able to fetch all school courses without `userId`.

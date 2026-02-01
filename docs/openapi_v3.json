@@ -4683,7 +4683,7 @@
           },
           "adminRole": {
             "type": "string",
-            "example": "school_admin"
+            "example": "manager"
           },
           "studentNumber": {
             "type": "string",

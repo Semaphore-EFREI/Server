@@ -507,6 +507,10 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 
 	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
 	req.UserType = strings.TrimSpace(strings.ToLower(req.UserType))
+	if req.AdminRole != nil {
+		role := strings.TrimSpace(strings.ToLower(*req.AdminRole))
+		req.AdminRole = &role
+	}
 	if req.Email == "" || req.Password == "" || req.FirstName == "" || req.LastName == "" || req.SchoolID == "" || req.UserType == "" {
 		writeError(w, http.StatusBadRequest, "missing_fields")
 		return
@@ -1625,7 +1629,7 @@ func isAdminOrDev(claims *auth.Claims) bool {
 
 func isValidAdminRole(role string) bool {
 	switch strings.TrimSpace(strings.ToLower(role)) {
-	case "super_admin", "school_admin":
+	case "planning", "absence", "manager":
 		return true
 	default:
 		return false

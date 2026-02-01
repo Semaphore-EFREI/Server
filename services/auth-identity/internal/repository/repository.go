@@ -94,7 +94,7 @@ func (s *Store) CreateUserWithRole(ctx context.Context, user model.User, userTyp
 	case "teacher":
 		_, err = tx.Exec(ctx, `INSERT INTO teachers (user_id, created_at) VALUES ($1, $2)`, user.ID, time.Now().UTC())
 	case "admin":
-		role := "school_admin"
+		role := "manager"
 		if adminRole != nil && strings.TrimSpace(*adminRole) != "" {
 			role = strings.TrimSpace(*adminRole)
 		}

@@ -4995,8 +4995,9 @@
               "role": {
                 "type": "string",
                 "enum": [
-                  "super_admin",
-                  "school_admin"
+                  "planning",
+                  "absence",
+                  "manager"
                 ]
               }
             }

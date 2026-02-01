@@ -35,7 +35,7 @@ Tables:
 ## Enums
 - `signature_method`: `nfc`, `beacon`, `buzzLightyear`, `teacher`, `web`, `self`, `admin`.
 - `signature_status`: `signed`, `present`, `absent`, `late`, `excused`, `invalid`.
-- `admin_role`: `super_admin`, `school_admin`.
+- `admin_role`: `planning`, `absence`, `manager`.
 
 ## Constraints & Indexing (Highlights)
 - Unique: `users.email`, `beacons.serial_number`, device identifiers.

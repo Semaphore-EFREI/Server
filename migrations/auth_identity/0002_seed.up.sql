@@ -6,7 +6,7 @@ VALUES
   ('22222222-2222-2222-2222-222222222224', '11111111-1111-1111-1111-111111111111', 'dev@demo.local', '$2a$10$ewb/AtZH68CfPwzMIbQAaeILLpZdEFFlps/7L2EgpTg7YbbITR7Hy', 'Dev', 'User', now(), now());
 
 INSERT INTO administrators (user_id, role, created_at)
-VALUES ('22222222-2222-2222-2222-222222222221', 'super_admin', now());
+VALUES ('22222222-2222-2222-2222-222222222221', 'manager', now());
 
 INSERT INTO teachers (user_id, created_at)
 VALUES ('22222222-2222-2222-2222-222222222222', now());
