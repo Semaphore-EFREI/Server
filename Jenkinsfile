@@ -141,11 +141,6 @@ pipeline {
                 set -e
                 kubectl delete job semaphore-migrations -n "${K8S_NAMESPACE}" --ignore-not-found
                 kubectl apply -k .
-                kubectl set image job/semaphore-migrations \
-                  migrate=${REGISTRY_HOST}/${MIGRATIONS_IMAGE}:${BUILD_NUMBER} \
-                  -n "${K8S_NAMESPACE}"
-                kubectl delete pod -l job-name=semaphore-migrations \
-                  -n "${K8S_NAMESPACE}" --ignore-not-found
 
                 kubectl wait --for=condition=complete job/semaphore-migrations \
                   -n "${K8S_NAMESPACE}" --timeout=10m || {
