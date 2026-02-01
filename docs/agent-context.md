@@ -1,6 +1,6 @@
 # Agent Context (Envoy gateway switch)
 
-Last updated: 2026-01-29
+Last updated: 2026-02-01
 
 ## Goal
 Switch from Istio IngressGateway to a standalone Envoy API gateway with Istio sidecar, keep Envoy config as single source of truth (`docker/envoy/envoy.yaml`), and keep Grafana panels working with Istio metrics.
@@ -13,20 +13,17 @@ Switch from Istio IngressGateway to a standalone Envoy API gateway with Istio si
 - Grafana dashboard panel "Gateway Requests (RPS)" now targets `source_workload="envoy-gateway"` and namespace `semaphore`.
 
 ## Known issues / symptoms
-- When strict mTLS is enabled, upstream calls from Envoy gateway fail with:
-  - `503 upstream connect error or disconnect/reset before headers. reset reason: connection termination`
-  - Service sidecars show `filter_chain_not_found` for connections from gateway pod IPs.
-- This indicates the gateway’s outbound traffic is **plaintext** (mTLS not applied), so strict mTLS rejects it.
-- Temporary mitigations were applied to allow plaintext (PERMISSIVE) for gateway and services; RBAC was loosened to allow traffic.
-- After enabling outbound capture (`includeOutboundIPRanges: "*"`), gateway sidecar logs still show **PassthroughCluster** for `/auth/login`, meaning traffic is captured but not matched to service identity (no mTLS).
+- Strict mTLS previously failed because the gateway’s outbound traffic was **plaintext** (no service identity match).
+- Envoy sidecar logs showed **PassthroughCluster** for `/auth/login`, indicating outbound traffic did not resolve to a service identity.
 
 ## Likely root cause
-- The Envoy gateway’s outbound traffic is **not matched to the service registry**, so Istio does not apply mTLS and uses PassthroughCluster.
-- With strict mTLS, services reject plaintext, causing resets.
+- Envoy resolved short service names without namespace, and Istio DNS capture treated them as unknown hosts.
+- That caused passthrough clusters instead of service-bound clusters, so mTLS was not applied.
 
 ## Files changed (repo)
 - `docker/envoy/envoy.yaml`
   - Single source of truth for Envoy config; routes include `/auth/*`, `/users/*`, etc. `/auth/me` added.
+  - Upstream clusters now use full service FQDNs to ensure Istio service identity matching.
 - `k8s/istio/envoy-gateway.yaml`
   - Envoy gateway Deployment/Service/HPA + sidecar injection.
   - Admin service label `component: admin`.
@@ -43,7 +40,7 @@ Switch from Istio IngressGateway to a standalone Envoy API gateway with Istio si
 - `k8s/monitoring/dashboards/semaphore-dashboard.json`
   - Gateway panel now uses `source_workload="envoy-gateway"`, namespace `semaphore`.
 - `k8s/istio/semaphore-mtls.yaml`
-  - Added PERMISSIVE PeerAuthentication for `envoy-gateway` + each service (auth-identity, academics, attendance, beacon).
+  - Keeps namespace default **STRICT** mTLS and removes per-service PERMISSIVE exceptions (except postgres).
   - Added allow policy for gateway public traffic.
   - `allow-semaphore-namespace` policy currently allows **all** (no source constraints).
 - `k8s/istio/semaphore-observability-authz.yaml`
@@ -78,7 +75,6 @@ Switch from Istio IngressGateway to a standalone Envoy API gateway with Istio si
 - Service sidecar logs show `filter_chain_not_found` for gateway IPs under strict mTLS.
 - Gateway sidecar logs show `PassthroughCluster` for `/auth/login`, indicating service identity not matched.
 
-## Next steps (for strict mTLS later)
-- Re-test after DNS capture annotation; goal is to see gateway sidecar logs use `outbound|8081||auth-identity.semaphore.svc.cluster.local` instead of `PassthroughCluster`.
-- Once outbound is matched and mTLS works, remove PERMISSIVE policies and tighten AuthorizationPolicies to only allow expected sources.
-
+## Next steps
+- Re-test with strict mTLS enabled and confirm gateway sidecar logs use `outbound|8081||auth-identity.semaphore.svc.cluster.local`.
+- Tighten AuthorizationPolicies to only allow expected sources once stable.
