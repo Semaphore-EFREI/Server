@@ -684,7 +684,16 @@ func (s *Server) handleDeleteSignature(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if err := s.store.Queries.SoftDeleteSignature(r.Context(), db.SoftDeleteSignatureParams{ID: sigUUID, DeletedAt: nowPgTime()}); err != nil {
+	deletedAt := nowPgTime()
+	if err := s.store.Queries.SoftDeleteSignature(r.Context(), db.SoftDeleteSignatureParams{ID: sigUUID, DeletedAt: deletedAt}); err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+	if err := s.store.Queries.SoftDeleteStudentSignature(r.Context(), db.SoftDeleteStudentSignatureParams{SignatureID: sigUUID, DeletedAt: deletedAt}); err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+	if err := s.store.Queries.SoftDeleteTeacherSignature(r.Context(), db.SoftDeleteTeacherSignatureParams{SignatureID: sigUUID, DeletedAt: deletedAt}); err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error")
 		return
 	}

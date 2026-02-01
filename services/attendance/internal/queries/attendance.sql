@@ -36,6 +36,16 @@ SET deleted_at = $2,
     updated_at = $2
 WHERE id = $1 AND deleted_at IS NULL;
 
+-- name: SoftDeleteStudentSignature :exec
+UPDATE student_signatures
+SET deleted_at = $2
+WHERE signature_id = $1 AND deleted_at IS NULL;
+
+-- name: SoftDeleteTeacherSignature :exec
+UPDATE teacher_signatures
+SET deleted_at = $2
+WHERE signature_id = $1 AND deleted_at IS NULL;
+
 -- name: GetStudentSignature :one
 SELECT s.id,
        s.course_id,

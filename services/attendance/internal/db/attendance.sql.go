@@ -237,6 +237,38 @@ func (q *Queries) SoftDeleteSignature(ctx context.Context, arg SoftDeleteSignatu
 	return err
 }
 
+const softDeleteStudentSignature = `-- name: SoftDeleteStudentSignature :exec
+UPDATE student_signatures
+SET deleted_at = $2
+WHERE signature_id = $1 AND deleted_at IS NULL
+`
+
+type SoftDeleteStudentSignatureParams struct {
+	SignatureID pgtype.UUID        `db:"signature_id" json:"signature_id"`
+	DeletedAt   pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+func (q *Queries) SoftDeleteStudentSignature(ctx context.Context, arg SoftDeleteStudentSignatureParams) error {
+	_, err := q.db.Exec(ctx, softDeleteStudentSignature, arg.SignatureID, arg.DeletedAt)
+	return err
+}
+
+const softDeleteTeacherSignature = `-- name: SoftDeleteTeacherSignature :exec
+UPDATE teacher_signatures
+SET deleted_at = $2
+WHERE signature_id = $1 AND deleted_at IS NULL
+`
+
+type SoftDeleteTeacherSignatureParams struct {
+	SignatureID pgtype.UUID        `db:"signature_id" json:"signature_id"`
+	DeletedAt   pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+func (q *Queries) SoftDeleteTeacherSignature(ctx context.Context, arg SoftDeleteTeacherSignatureParams) error {
+	_, err := q.db.Exec(ctx, softDeleteTeacherSignature, arg.SignatureID, arg.DeletedAt)
+	return err
+}
+
 const updateSignature = `-- name: UpdateSignature :one
 UPDATE signatures
 SET status = $2,

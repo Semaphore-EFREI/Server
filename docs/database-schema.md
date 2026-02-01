@@ -23,8 +23,8 @@ All student/teacher references are UUIDs from auth-identity with **no FK constra
 ## Attendance DB
 Tables:
 - `signatures`: base attendance events (course_id, signed_at, status, method, soft delete).
-- `student_signatures`: links a signature to a student; may include `teacher_id` or `administrator_id` when manual overrides occur.
-- `teacher_signatures`: links a signature to a teacher (presence validation).
+- `student_signatures`: links a signature to a student; may include `teacher_id` or `administrator_id` when manual overrides occur; soft deletes mirror the parent `signatures` row so the `(course_id, student_id)` uniqueness only applies to active records.
+- `teacher_signatures`: links a signature to a teacher (presence validation); soft deletes mirror `signatures` and keep `(course_id, teacher_id)` uniqueness scoped to active rows.
 
 ## Beacon DB
 Tables:
