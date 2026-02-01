@@ -330,3 +330,19 @@ func (q *Queries) UpdateStudentSignature(ctx context.Context, arg UpdateStudentS
 	_, err := q.db.Exec(ctx, updateStudentSignature, arg.SignatureID, arg.TeacherID, arg.AdministratorID)
 	return err
 }
+
+const updateTeacherSignature = `-- name: UpdateTeacherSignature :exec
+UPDATE teacher_signatures
+SET administrator_id = $2
+WHERE signature_id = $1
+`
+
+type UpdateTeacherSignatureParams struct {
+	SignatureID     pgtype.UUID `db:"signature_id" json:"signature_id"`
+	AdministratorID pgtype.UUID `db:"administrator_id" json:"administrator_id"`
+}
+
+func (q *Queries) UpdateTeacherSignature(ctx context.Context, arg UpdateTeacherSignatureParams) error {
+	_, err := q.db.Exec(ctx, updateTeacherSignature, arg.SignatureID, arg.AdministratorID)
+	return err
+}

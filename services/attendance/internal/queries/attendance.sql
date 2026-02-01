@@ -92,3 +92,8 @@ UPDATE student_signatures
 SET teacher_id = $2,
     administrator_id = $3
 WHERE signature_id = $1;
+
+-- name: UpdateTeacherSignature :exec
+UPDATE teacher_signatures
+SET administrator_id = $2
+WHERE signature_id = $1;

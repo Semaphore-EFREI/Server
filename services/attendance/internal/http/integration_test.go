@@ -188,7 +188,6 @@ func TestAdminSignatureOverrides(t *testing.T) {
 	studentToken := login(t, authURL, "student@demo.local", "dev-password")
 	courseID := "11111111-1111-1111-1111-111111111114"
 	studentID := "22222222-2222-2222-2222-222222222223"
-	adminID := "22222222-2222-2222-2222-222222222221"
 
 	onTime := time.Date(2026, 1, 25, 9, 7, 0, 0, time.UTC).Unix()
 
@@ -201,8 +200,7 @@ func TestAdminSignatureOverrides(t *testing.T) {
 	})
 
 	patchBody := map[string]interface{}{
-		"status":        "absent",
-		"administrator": adminID,
+		"status": "absent",
 	}
 	patchResp, _ := doRequestWithMethod(t, http.MethodPatch, attendanceURL+"/signature/"+sig.ID, adminToken, "", patchBody)
 	if patchResp.StatusCode != http.StatusNoContent {

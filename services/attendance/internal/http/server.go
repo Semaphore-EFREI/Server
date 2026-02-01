@@ -133,13 +133,11 @@ type createSignatureRequest struct {
 	Method        string  `json:"method"`
 	Student       string  `json:"student"`
 	Teacher       string  `json:"teacher"`
-	Administrator *string `json:"administrator"`
 }
 
 type patchSignatureRequest struct {
-	Status        *string `json:"status"`
-	Image         *string `json:"image"`
-	Administrator *string `json:"administrator"`
+	Status *string `json:"status"`
+	Image  *string `json:"image"`
 }
 
 // Handlers
@@ -164,6 +162,7 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "missing_fields")
 		return
 	}
+	var adminID *string
 	if claims.UserType == "student" {
 		if req.Student == "" {
 			req.Student = claims.UserID
@@ -172,7 +171,6 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusForbidden, "forbidden")
 			return
 		}
-		req.Administrator = nil
 		if !s.validateStudentDevice(r.Context(), req.Student, r.Header.Get("X-Device-ID")) {
 			writeError(w, http.StatusForbidden, "device_not_allowed")
 			return
@@ -185,14 +183,13 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusForbidden, "forbidden")
 			return
 		}
-		req.Administrator = nil
 	} else {
 		if req.Student == "" && req.Teacher == "" {
 			writeError(w, http.StatusBadRequest, "missing_teacher")
 			return
 		}
-		adminID := claims.UserID
-		req.Administrator = &adminID
+		adminUserID := claims.UserID
+		adminID = &adminUserID
 	}
 
 	isStudentSignature := req.Student != ""
@@ -270,13 +267,15 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	timingStatus, timingErr := validateTiming(course, signedAt)
-	if timingErr != "" {
-		writeError(w, http.StatusForbidden, timingErr)
-		return
-	}
-	if timingStatus != "" {
-		statusValue = db.SignatureStatus(timingStatus)
+	if claims.UserType == "student" {
+		timingStatus, timingErr := validateTiming(course, signedAt)
+		if timingErr != "" {
+			writeError(w, http.StatusForbidden, timingErr)
+			return
+		}
+		if timingStatus != "" {
+			statusValue = db.SignatureStatus(timingStatus)
+		}
 	}
 
 	if isStudentSignature {
@@ -339,14 +338,14 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 				SignatureID:     pgUUID(signatureID),
 				StudentID:       pgUUIDFromString(req.Student),
 				TeacherID:       pgUUIDFromString(req.Teacher),
-				AdministratorID: pgUUIDFromStringPtr(req.Administrator),
+				AdministratorID: pgUUIDFromStringPtr(adminID),
 				CourseID:        courseID,
 			})
 		}
 		return q.CreateTeacherSignature(r.Context(), db.CreateTeacherSignatureParams{
 			SignatureID:     pgUUID(signatureID),
 			TeacherID:       pgUUIDFromString(req.Teacher),
-			AdministratorID: pgUUIDFromStringPtr(req.Administrator),
+			AdministratorID: pgUUIDFromStringPtr(adminID),
 			CourseID:        courseID,
 		})
 	}); err != nil {
@@ -361,8 +360,8 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 
 	if isStudentSignature {
 		administrator := ""
-		if req.Administrator != nil {
-			administrator = *req.Administrator
+		if adminID != nil {
+			administrator = *adminID
 		}
 		resp := studentSignatureResponse{
 			signatureBaseResponse: signatureBaseResponse{
@@ -384,8 +383,8 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 	}
 
 	administrator := ""
-	if req.Administrator != nil {
-		administrator = *req.Administrator
+	if adminID != nil {
+		administrator = *adminID
 	}
 	resp := teacherSignatureResponse{
 		signatureBaseResponse: signatureBaseResponse{
@@ -981,17 +980,48 @@ func (s *Server) applyStudentSignaturePatch(ctx context.Context, claims *auth.Cl
 		if claims.UserID != uuidString(sig.StudentID) {
 			return &patchError{status: http.StatusForbidden, code: "forbidden"}
 		}
-		if req.Status == nil {
-			return &patchError{status: http.StatusBadRequest, code: "missing_status"}
+		if sig.Status == db.SignatureStatusPresent {
+			if req.Status == nil {
+				return &patchError{status: http.StatusBadRequest, code: "missing_status"}
+			}
+			parsed, err := normalizeStatus(*req.Status)
+			if err != nil {
+				return &patchError{status: http.StatusBadRequest, code: "invalid_status"}
+			}
+			if parsed != db.SignatureStatusSigned {
+				return &patchError{status: http.StatusForbidden, code: "forbidden"}
+			}
+			if req.Image == nil {
+				return &patchError{status: http.StatusBadRequest, code: "missing_image"}
+			}
+			imageValue := pgText(req.Image)
+			if err := s.updateSignature(ctx, sig.ID, parsed, sig.Method, imageValue, sig.SignedAt.Time); err != nil {
+				return &patchError{status: http.StatusInternalServerError, code: "server_error"}
+			}
+			return nil
 		}
-		statusValue, err := normalizeStatus(*req.Status)
-		if err != nil {
-			return &patchError{status: http.StatusBadRequest, code: "invalid_status"}
+		if sig.Status == db.SignatureStatusSigned {
+			if req.Image == nil {
+				return &patchError{status: http.StatusBadRequest, code: "missing_image"}
+			}
+			statusValue := sig.Status
+			if req.Status != nil {
+				parsed, err := normalizeStatus(*req.Status)
+				if err != nil {
+					return &patchError{status: http.StatusBadRequest, code: "invalid_status"}
+				}
+				if parsed != db.SignatureStatusSigned {
+					return &patchError{status: http.StatusForbidden, code: "forbidden"}
+				}
+				statusValue = parsed
+			}
+			imageValue := pgText(req.Image)
+			if err := s.updateSignature(ctx, sig.ID, statusValue, sig.Method, imageValue, sig.SignedAt.Time); err != nil {
+				return &patchError{status: http.StatusInternalServerError, code: "server_error"}
+			}
+			return nil
 		}
-		if err := s.updateSignature(ctx, sig.ID, statusValue, sig.Method, sig.ImageUrl, sig.SignedAt.Time); err != nil {
-			return &patchError{status: http.StatusInternalServerError, code: "server_error"}
-		}
-		return nil
+		return &patchError{status: http.StatusForbidden, code: "forbidden"}
 	}
 	if claims.UserType == "teacher" {
 		allowed, err := s.academics.ValidateTeacherCourse(ctx, &academicsv1.ValidateTeacherCourseRequest{
@@ -1016,7 +1046,7 @@ func (s *Server) applyStudentSignaturePatch(ctx context.Context, claims *auth.Cl
 		if req.Image != nil && *req.Image == "" {
 			imageValue = pgtype.Text{}
 		}
-		if err := s.updateSignature(ctx, sig.ID, statusValue, sig.Method, imageValue, sig.SignedAt.Time); err != nil {
+		if err := s.updateSignature(ctx, sig.ID, statusValue, db.SignatureMethodTeacher, imageValue, sig.SignedAt.Time); err != nil {
 			return &patchError{status: http.StatusInternalServerError, code: "server_error"}
 		}
 		_ = s.store.Queries.UpdateStudentSignature(ctx, db.UpdateStudentSignatureParams{
@@ -1035,7 +1065,7 @@ func (s *Server) applyStudentSignaturePatch(ctx context.Context, claims *auth.Cl
 			}
 			statusValue = parsed
 		}
-		if err := s.updateSignature(ctx, sig.ID, statusValue, sig.Method, sig.ImageUrl, sig.SignedAt.Time); err != nil {
+		if err := s.updateSignature(ctx, sig.ID, statusValue, db.SignatureMethodAdmin, sig.ImageUrl, sig.SignedAt.Time); err != nil {
 			return &patchError{status: http.StatusInternalServerError, code: "server_error"}
 		}
 		_ = s.store.Queries.UpdateStudentSignature(ctx, db.UpdateStudentSignatureParams{
@@ -1065,7 +1095,7 @@ func (s *Server) applyTeacherSignaturePatch(ctx context.Context, claims *auth.Cl
 		if req.Image != nil {
 			imageValue = pgText(req.Image)
 		}
-		if err := s.updateSignature(ctx, sig.ID, statusValue, sig.Method, imageValue, sig.SignedAt.Time); err != nil {
+		if err := s.updateSignature(ctx, sig.ID, statusValue, db.SignatureMethodTeacher, imageValue, sig.SignedAt.Time); err != nil {
 			return &patchError{status: http.StatusInternalServerError, code: "server_error"}
 		}
 		return nil
@@ -1079,9 +1109,13 @@ func (s *Server) applyTeacherSignaturePatch(ctx context.Context, claims *auth.Cl
 			}
 			statusValue = parsed
 		}
-		if err := s.updateSignature(ctx, sig.ID, statusValue, sig.Method, sig.ImageUrl, sig.SignedAt.Time); err != nil {
+		if err := s.updateSignature(ctx, sig.ID, statusValue, db.SignatureMethodAdmin, sig.ImageUrl, sig.SignedAt.Time); err != nil {
 			return &patchError{status: http.StatusInternalServerError, code: "server_error"}
 		}
+		_ = s.store.Queries.UpdateTeacherSignature(ctx, db.UpdateTeacherSignatureParams{
+			SignatureID:     sig.ID,
+			AdministratorID: pgUUIDFromString(claims.UserID),
+		})
 		return nil
 	}
 	if claims.UserType == "student" {
