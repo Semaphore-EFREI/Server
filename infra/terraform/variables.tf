@@ -65,6 +65,12 @@ variable "envoy_gateway_namespace" {
   default     = "envoy-gateway-system"
 }
 
+variable "envoy_gateway_chart_version" {
+  type        = string
+  description = "Envoy Gateway Helm chart version"
+  default     = "v0.0.0-latest"
+}
+
 variable "istio_chart_version" {
   type        = string
   description = "Istio chart version (base, istiod, gateway)"

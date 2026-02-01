@@ -12,6 +12,15 @@ resource "kubernetes_namespace" "semaphore" {
   }
 }
 
+resource "kubernetes_namespace" "envoy_gateway_system" {
+  metadata {
+    name = local.gateway_namespace
+    labels = {
+      "istio-injection" = "enabled"
+    }
+  }
+}
+
 resource "kubernetes_manifest" "semaphore_https_redirect" {
   manifest = {
     apiVersion = "traefik.io/v1alpha1"
@@ -63,6 +72,8 @@ resource "kubernetes_ingress_v1" "semaphore_gateway_http" {
       }
     }
   }
+
+  depends_on = [kubernetes_namespace.envoy_gateway_system]
 }
 
 resource "kubernetes_ingress_v1" "semaphore_gateway_https" {
@@ -105,6 +116,8 @@ resource "kubernetes_ingress_v1" "semaphore_gateway_https" {
       secret_name = "semaphore-gateway-tls"
     }
   }
+
+  depends_on = [kubernetes_namespace.envoy_gateway_system]
 }
 
 resource "kubernetes_role" "jenkins_deployer" {
@@ -305,4 +318,35 @@ resource "helm_release" "istio_ingressgateway" {
   ]
 
   depends_on = [helm_release.istiod]
+}
+
+resource "helm_release" "envoy_gateway" {
+  name       = "eg"
+  repository = "oci://docker.io/envoyproxy"
+  chart      = "gateway-helm"
+  namespace  = var.envoy_gateway_namespace
+  version    = var.envoy_gateway_chart_version
+
+  values = [
+    yamlencode({
+      deployment = {
+        pod = {
+          annotations = {
+            "sidecar.istio.io/inject" = "false"
+          }
+        }
+      }
+      certgen = {
+        job = {
+          pod = {
+            annotations = {
+              "sidecar.istio.io/inject" = "false"
+            }
+          }
+        }
+      }
+    }),
+  ]
+
+  depends_on = [kubernetes_namespace.envoy_gateway_system, helm_release.istiod]
 }

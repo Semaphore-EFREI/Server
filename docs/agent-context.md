@@ -42,9 +42,12 @@ Replace the legacy static Envoy gateway with Envoy Gateway (Gateway API) while k
 ### Terraform (Traefik → Envoy Gateway)
 - `infra/terraform/variables.tf`
   - Added `envoy_gateway_namespace` (default `envoy-gateway-system`).
+  - Added `envoy_gateway_chart_version` (default `v0.0.0-latest`).
 - `infra/terraform/main.tf`
   - Ingress resources moved to `envoy-gateway-system`.
   - Backend service updated to `envoy-semaphore-gateway`.
+  - Creates `envoy-gateway-system` namespace.
+  - Installs Envoy Gateway via Helm (`eg` release).
 
 ## Operational Notes
 - Apply gateway resources:
@@ -52,6 +55,14 @@ Replace the legacy static Envoy gateway with Envoy Gateway (Gateway API) while k
 - Apply monitoring:
   - `kubectl apply -k k8s/monitoring`
 - Terraform apply updates Traefik ingress routing.
+  - Use `-var` with `cat` to preserve PEM newlines:
+```bash
+cd infra/terraform
+terraform apply \
+  -var "semaphore_jwt_private_key=$(cat jwt-private-key.pem)" \
+  -var "semaphore_jwt_public_key=$(cat jwt-public-key.pem)" \
+  -var "semaphore_jwt_issuer=semaphore-auth-identity"
+```
 
 ## Known Constraints
 - Traefik → Gateway is plaintext until Traefik is placed in the mesh or the Gateway listener is configured for mTLS/TLS.
