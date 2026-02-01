@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	academicsv1 "semaphore/academics/academics/v1"
 	"semaphore/auth-identity/internal/auth"
 	"semaphore/auth-identity/internal/config"
 	"semaphore/auth-identity/internal/crypto"
@@ -28,9 +29,10 @@ type Server struct {
 	jwtPrivateKey *rsa.PrivateKey
 	jwtPublicKey  *rsa.PublicKey
 	jwks          auth.JWKSet
+	academics     academicsv1.AcademicsQueryServiceClient
 }
 
-func NewServer(cfg config.Config, store *repository.Store) (*Server, error) {
+func NewServer(cfg config.Config, store *repository.Store, academics academicsv1.AcademicsQueryServiceClient) (*Server, error) {
 	privateKey, err := auth.ParseRSAPrivateKey(cfg.JWTPrivateKey)
 	if err != nil {
 		return nil, err
@@ -49,6 +51,7 @@ func NewServer(cfg config.Config, store *repository.Store) (*Server, error) {
 		jwtPrivateKey: privateKey,
 		jwtPublicKey:  publicKey,
 		jwks:          jwks,
+		academics:     academics,
 	}, nil
 }
 
@@ -131,13 +134,14 @@ type userSummary struct {
 }
 
 type studentSummary struct {
-	ID            string `json:"id"`
-	FirstName     string `json:"firstname"`
-	LastName      string `json:"lastname"`
-	Email         string `json:"email"`
-	CreatedOn     int64  `json:"createdOn"`
-	StudentNumber int64  `json:"studentNumber"`
-	SchoolID      string `json:"school,omitempty"`
+	ID            string    `json:"id"`
+	FirstName     string    `json:"firstname"`
+	LastName      string    `json:"lastname"`
+	Email         string    `json:"email"`
+	CreatedOn     int64     `json:"createdOn"`
+	StudentNumber int64     `json:"studentNumber"`
+	SchoolID      string    `json:"school,omitempty"`
+	Groups        *[]string `json:"groups,omitempty"`
 }
 
 type teacherSummary struct {
@@ -891,6 +895,23 @@ func (s *Server) handleGetStudent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	studentNumber, _ := strconv.ParseInt(profile.StudentNumber, 10, 64)
+	include := r.URL.Query()["include"]
+	includeGroups := contains(include, "groups")
+
+	var groups *[]string
+	if includeGroups {
+		schoolID := ""
+		if claims.UserType != "dev" {
+			schoolID = claims.SchoolID
+		}
+		groupMap, err := s.fetchStudentGroups(r.Context(), []string{studentID}, schoolID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "groups_fetch_failed")
+			return
+		}
+		groupIDs := groupMap[studentID]
+		groups = &groupIDs
+	}
 	writeJSON(w, http.StatusOK, studentSummary{
 		ID:            profile.User.ID,
 		FirstName:     profile.User.FirstName,
@@ -899,6 +920,7 @@ func (s *Server) handleGetStudent(w http.ResponseWriter, r *http.Request) {
 		CreatedOn:     profile.User.CreatedAt.Unix(),
 		StudentNumber: studentNumber,
 		SchoolID:      profile.User.SchoolID,
+		Groups:        groups,
 	})
 }
 
@@ -1035,9 +1057,31 @@ func (s *Server) handleGetStudentsBySchool(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	include := r.URL.Query()["include"]
+	includeGroups := contains(include, "groups")
+
+	var groupMap map[string][]string
+	if includeGroups {
+		studentIDs := make([]string, 0, len(students))
+		for _, student := range students {
+			studentIDs = append(studentIDs, student.User.ID)
+		}
+		var err error
+		groupMap, err = s.fetchStudentGroups(r.Context(), studentIDs, schoolID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "groups_fetch_failed")
+			return
+		}
+	}
+
 	resp := make([]studentSummary, 0, len(students))
 	for _, student := range students {
 		studentNumber, _ := strconv.ParseInt(student.StudentNumber, 10, 64)
+		var groups *[]string
+		if includeGroups {
+			groupIDs := groupMap[student.User.ID]
+			groups = &groupIDs
+		}
 		resp = append(resp, studentSummary{
 			ID:            student.User.ID,
 			FirstName:     student.User.FirstName,
@@ -1045,6 +1089,7 @@ func (s *Server) handleGetStudentsBySchool(w http.ResponseWriter, r *http.Reques
 			Email:         student.User.Email,
 			CreatedOn:     student.User.CreatedAt.Unix(),
 			StudentNumber: studentNumber,
+			Groups:        groups,
 		})
 	}
 
@@ -1636,6 +1681,15 @@ func isValidAdminRole(role string) bool {
 	}
 }
 
+func contains(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
+}
+
 func bearerToken(header string) string {
 	if header == "" {
 		return ""
@@ -1661,6 +1715,34 @@ func writeJSON(w http.ResponseWriter, status int, payload interface{}) {
 
 func writeError(w http.ResponseWriter, status int, code string) {
 	writeJSON(w, status, map[string]string{"error": code})
+}
+
+func (s *Server) fetchStudentGroups(ctx context.Context, studentIDs []string, schoolID string) (map[string][]string, error) {
+	if s.academics == nil {
+		return nil, errors.New("academics not configured")
+	}
+	if len(studentIDs) == 0 {
+		return map[string][]string{}, nil
+	}
+
+	resp, err := s.academics.ListStudentGroupIds(ctx, &academicsv1.ListStudentGroupIdsRequest{
+		StudentIds: studentIDs,
+		SchoolId:   schoolID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string][]string, len(studentIDs))
+	for _, entry := range resp.GetStudents() {
+		result[entry.GetStudentId()] = append([]string{}, entry.GetGroupIds()...)
+	}
+	for _, studentID := range studentIDs {
+		if _, ok := result[studentID]; !ok {
+			result[studentID] = []string{}
+		}
+	}
+	return result, nil
 }
 
 func (s *Server) handleJWKS(w http.ResponseWriter, _ *http.Request) {

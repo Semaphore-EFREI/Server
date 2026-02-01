@@ -345,6 +345,15 @@ spec:
                 secretKeyRef:
                   name: jwt-secrets
                   key: jwt-issuer
+            - name: SERVICE_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: service-auth-token
+                  key: service-auth-token
+            - name: ACADEMICS_GRPC_ADDR
+              value: academics:9092
+            - name: GRPC_DIAL_TIMEOUT
+              value: 5s
             - name: REDIS_ADDR
               value: redis:6379
             - name: REDIS_PASSWORD
@@ -467,6 +476,11 @@ spec:
                 secretKeyRef:
                   name: jwt-secrets
                   key: jwt-issuer
+            - name: SERVICE_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: service-auth-token
+                  key: service-auth-token
             - name: ATTENDANCE_GRPC_ADDR
               value: attendance:9093
             - name: BEACON_GRPC_ADDR
@@ -595,6 +609,11 @@ spec:
                 secretKeyRef:
                   name: jwt-secrets
                   key: jwt-issuer
+            - name: SERVICE_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: service-auth-token
+                  key: service-auth-token
             - name: ACADEMICS_GRPC_ADDR
               value: academics:9092
             - name: IDENTITY_GRPC_ADDR
@@ -731,6 +750,11 @@ spec:
                 secretKeyRef:
                   name: jwt-secrets
                   key: jwt-issuer
+            - name: SERVICE_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: service-auth-token
+                  key: service-auth-token
             - name: ATTENDANCE_GRPC_ADDR
               value: attendance:9093
             - name: REDIS_ADDR

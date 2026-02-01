@@ -46,7 +46,7 @@ func TestStudentTeacherEndpoints(t *testing.T) {
 		AccessTokenTTL: 15 * time.Minute,
 	}
 	store := repository.NewStore(pool)
-	server, err := NewServer(cfg, store)
+	server, err := NewServer(cfg, store, nil)
 	if err != nil {
 		t.Fatalf("server init error: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestCreateStudentTeacher(t *testing.T) {
 		AccessTokenTTL: 15 * time.Minute,
 	}
 	store := repository.NewStore(pool)
-	server, err := NewServer(cfg, store)
+	server, err := NewServer(cfg, store, nil)
 	if err != nil {
 		t.Fatalf("server init error: %v", err)
 	}

@@ -41,6 +41,20 @@ message ValidateClassroomCourseRequest {
 }
 message ValidateClassroomCourseResponse { bool is_linked = 1; }
 
+message ListStudentGroupIdsRequest {
+  repeated string student_ids = 1;
+  string school_id = 2;
+}
+
+message StudentGroupIdsByStudent {
+  string student_id = 1;
+  repeated string group_ids = 2;
+}
+
+message ListStudentGroupIdsResponse {
+  repeated StudentGroupIdsByStudent students = 1;
+}
+
 message SchoolPreferences {
   string id = 1;
   int32 default_signature_closing_delay_minutes = 2;
@@ -72,6 +86,8 @@ service AcademicsQueryService {
   rpc ValidateStudentCourse(ValidateStudentCourseRequest) returns (ValidateStudentCourseResponse);
   // ValidateClassroomCourse checks if a classroom is linked to a course.
   rpc ValidateClassroomCourse(ValidateClassroomCourseRequest) returns (ValidateClassroomCourseResponse);
+  // ListStudentGroupIds returns group ids for a list of students.
+  rpc ListStudentGroupIds(ListStudentGroupIdsRequest) returns (ListStudentGroupIdsResponse);
   // GetSchoolPreferences returns school-level preferences.
   rpc GetSchoolPreferences(GetSchoolPreferencesRequest) returns (GetSchoolPreferencesResponse);
 }

@@ -1,7 +1,6 @@
 package http
 
 import (
-	"bytes"
 	"context"
 	"crypto/rsa"
 	"encoding/json"
@@ -16,6 +15,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"semaphore/academics/internal/auth"
@@ -26,26 +28,26 @@ import (
 )
 
 type Server struct {
-	cfg          config.Config
-	store        *db.Store
-	attendance   attendancev1.AttendanceQueryServiceClient
-	beacon       beaconv1.BeaconQueryServiceClient
-	jwtPublicKey *rsa.PublicKey
-	httpClient   *http.Client
+	cfg           config.Config
+	store         *db.Store
+	attendance    attendancev1.AttendanceQueryServiceClient
+	beacon        beaconv1.BeaconQueryServiceClient
+	beaconCommand beaconv1.BeaconCommandServiceClient
+	jwtPublicKey  *rsa.PublicKey
 }
 
-func NewServer(cfg config.Config, store *db.Store, attendance attendancev1.AttendanceQueryServiceClient, beacon beaconv1.BeaconQueryServiceClient) (*Server, error) {
+func NewServer(cfg config.Config, store *db.Store, attendance attendancev1.AttendanceQueryServiceClient, beacon beaconv1.BeaconQueryServiceClient, beaconCommand beaconv1.BeaconCommandServiceClient) (*Server, error) {
 	publicKey, err := auth.ParseRSAPublicKey(cfg.JWTPublicKey)
 	if err != nil {
 		return nil, err
 	}
 	return &Server{
-		cfg:          cfg,
-		store:        store,
-		attendance:   attendance,
-		beacon:       beacon,
-		jwtPublicKey: publicKey,
-		httpClient:   &http.Client{Timeout: 10 * time.Second},
+		cfg:           cfg,
+		store:         store,
+		attendance:    attendance,
+		beacon:        beacon,
+		beaconCommand: beaconCommand,
+		jwtPublicKey:  publicKey,
 	}, nil
 }
 
@@ -480,6 +482,7 @@ func (s *Server) handleGetClassrooms(w http.ResponseWriter, r *http.Request) {
 	include := r.URL.Query()["include"]
 	includeBeacons := contains(include, "beacons")
 
+	authHeader := r.Header.Get("Authorization")
 	classrooms, err := s.store.Queries.ListClassroomsBySchool(r.Context(), db.ListClassroomsBySchoolParams{SchoolID: schoolUUID, Limit: 200})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error")
@@ -490,7 +493,7 @@ func (s *Server) handleGetClassrooms(w http.ResponseWriter, r *http.Request) {
 	for _, room := range classrooms {
 		if includeBeacons {
 			entry := mapClassroomBase(room)
-			beacons, err := s.listClassroomBeacons(r.Context(), room.ID)
+			beacons, err := s.listClassroomBeacons(r.Context(), authHeader, room.ID)
 			if err != nil {
 				writeError(w, http.StatusBadGateway, "beacon_lookup_failed")
 				return
@@ -603,7 +606,8 @@ func (s *Server) handleGetClassroom(w http.ResponseWriter, r *http.Request) {
 	includeBeacons := contains(include, "beacons")
 	if includeBeacons {
 		entry := mapClassroomBase(room)
-		beacons, err := s.listClassroomBeacons(r.Context(), room.ID)
+		authHeader := r.Header.Get("Authorization")
+		beacons, err := s.listClassroomBeacons(r.Context(), authHeader, room.ID)
 		if err != nil {
 			writeError(w, http.StatusBadGateway, "beacon_lookup_failed")
 			return
@@ -1025,12 +1029,17 @@ func (s *Server) listCourseSignatures(ctx context.Context, courseID pgtype.UUID)
 	return items, nil
 }
 
-func (s *Server) listClassroomBeacons(ctx context.Context, classroomID pgtype.UUID) ([]any, error) {
+func (s *Server) listClassroomBeacons(ctx context.Context, authHeader string, classroomID pgtype.UUID) ([]any, error) {
 	if s.beacon == nil {
 		return nil, errors.New("beacon client not configured")
 	}
 
-	resp, err := s.beacon.ListBeaconsByClassroom(ctx, &beaconv1.ListBeaconsByClassroomRequest{ClassroomId: uuidString(classroomID)})
+	requestCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	if authHeader != "" {
+		requestCtx = metadata.AppendToOutgoingContext(requestCtx, "authorization", authHeader)
+	}
+	resp, err := s.beacon.ListBeaconsByClassroom(requestCtx, &beaconv1.ListBeaconsByClassroomRequest{ClassroomId: uuidString(classroomID)})
 	if err != nil {
 		return nil, err
 	}
@@ -2477,61 +2486,77 @@ func uuidString(id pgtype.UUID) string {
 }
 
 func (s *Server) assignBeaconToClassroom(ctx context.Context, authHeader, beaconID, classroomID string) error {
-	payload, err := json.Marshal(map[string]string{"classroomId": classroomID})
-	if err != nil {
-		return err
+	if s.beaconCommand == nil {
+		return errors.New("beacon command client not configured")
 	}
-	url := strings.TrimRight(s.cfg.BeaconHTTPAddr, "/") + "/beacon/" + beaconID + "/classroom"
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
+	requestCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 	if authHeader != "" {
-		req.Header.Set("Authorization", authHeader)
+		requestCtx = metadata.AppendToOutgoingContext(requestCtx, "authorization", authHeader)
 	}
-	resp, err := s.httpClient.Do(req)
+	_, err := s.beaconCommand.AssignBeaconToClassroom(requestCtx, &beaconv1.AssignBeaconToClassroomRequest{
+		BeaconId:    beaconID,
+		ClassroomId: classroomID,
+	})
 	if err != nil {
-		return err
+		return beaconErrorFromGRPC(err)
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusNoContent {
-		return nil
-	}
-	return beaconErrorFromResponse(resp)
+	return nil
 }
 
 func (s *Server) removeBeaconFromClassroom(ctx context.Context, authHeader, beaconID, classroomID string) error {
-	url := strings.TrimRight(s.cfg.BeaconHTTPAddr, "/") + "/beacon/" + beaconID + "/classroom/" + classroomID
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
-	if err != nil {
-		return err
+	if s.beaconCommand == nil {
+		return errors.New("beacon command client not configured")
 	}
+	requestCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 	if authHeader != "" {
-		req.Header.Set("Authorization", authHeader)
+		requestCtx = metadata.AppendToOutgoingContext(requestCtx, "authorization", authHeader)
 	}
-	resp, err := s.httpClient.Do(req)
+	_, err := s.beaconCommand.RemoveBeaconFromClassroom(requestCtx, &beaconv1.RemoveBeaconFromClassroomRequest{
+		BeaconId:    beaconID,
+		ClassroomId: classroomID,
+	})
 	if err != nil {
-		return err
+		return beaconErrorFromGRPC(err)
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusNoContent {
-		return nil
-	}
-	return beaconErrorFromResponse(resp)
+	return nil
 }
 
-func beaconErrorFromResponse(resp *http.Response) error {
+func beaconErrorFromGRPC(err error) error {
+	statusCode := http.StatusBadGateway
 	code := "beacon_assignment_failed"
-	if resp.Body != nil {
-		var payload struct {
-			Error string `json:"error"`
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&payload); err == nil && payload.Error != "" {
-			code = payload.Error
-		}
+	if err == nil {
+		return nil
 	}
-	return &beaconRequestError{status: resp.StatusCode, code: code}
+	st, ok := status.FromError(err)
+	if !ok {
+		return &beaconRequestError{status: statusCode, code: code}
+	}
+	if message := st.Message(); message != "" {
+		code = message
+	}
+	switch st.Code() {
+	case codes.InvalidArgument:
+		statusCode = http.StatusBadRequest
+	case codes.Unauthenticated:
+		statusCode = http.StatusUnauthorized
+	case codes.PermissionDenied:
+		statusCode = http.StatusForbidden
+	case codes.NotFound:
+		statusCode = http.StatusNotFound
+	case codes.AlreadyExists, codes.FailedPrecondition:
+		statusCode = http.StatusConflict
+	case codes.Internal:
+		statusCode = http.StatusInternalServerError
+	case codes.DeadlineExceeded, codes.Unavailable:
+		statusCode = http.StatusBadGateway
+		code = "beacon_assignment_failed"
+	default:
+		statusCode = http.StatusBadGateway
+		code = "beacon_assignment_failed"
+	}
+	return &beaconRequestError{status: statusCode, code: code}
 }
 
 func nowPgTime() pgtype.Timestamptz {

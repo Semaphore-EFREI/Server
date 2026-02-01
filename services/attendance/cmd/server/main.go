@@ -35,7 +35,7 @@ func main() {
 	defer pool.Close()
 
 	store := db.NewStore(pool)
-	clients, err := clients.New(ctx, cfg.AcademicsGRPCAddr, cfg.IdentityGRPCAddr, cfg.GRPCDialTimeout)
+	clients, err := clients.New(ctx, cfg.AcademicsGRPCAddr, cfg.IdentityGRPCAddr, cfg.ServiceAuthToken, cfg.GRPCDialTimeout)
 	if err != nil {
 		log.Fatalf("grpc dial failed: %v", err)
 	}
@@ -70,7 +70,11 @@ func main() {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	grpcServer := grpc.NewServer()
+	serviceAuthInterceptor, err := attendancegrpc.NewServiceAuthUnaryInterceptor(cfg.ServiceAuthToken)
+	if err != nil {
+		log.Fatalf("grpc service auth init failed: %v", err)
+	}
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(serviceAuthInterceptor))
 	attendancev1.RegisterAttendanceCommandServiceServer(grpcServer, attendancegrpc.NewAttendanceServer(store, clients.Academics))
 	attendancev1.RegisterAttendanceQueryServiceServer(grpcServer, attendancegrpc.NewAttendanceQueryServer(store))
 	jobs.StartSignatureCloseJob(ctx, cfg, clients.AcademicsCommand)

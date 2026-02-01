@@ -2217,6 +2217,21 @@
               "format": "uuid",
               "example": "31c14825-de80-43b5-88cc-89e21882a79d"
             }
+          },
+          {
+            "name": "include",
+            "in": "query",
+            "description": "Élements à inclure avec la réponse",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "groups"
+                ]
+              },
+              "default": []
+            }
           }
         ],
         "responses": {
@@ -2382,6 +2397,23 @@
         "security": [
           {
             "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "include",
+            "in": "query",
+            "description": "Élements à inclure avec la réponse",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "groups"
+                ]
+              },
+              "default": []
+            }
           }
         ],
         "responses": {
@@ -4992,6 +5024,17 @@
               "studentNumber": {
                 "type": "integer",
                 "example": 20210894
+              },
+              "groups": {
+                "type": "array",
+                "description": "IDs des groupes auxquels l'étudiant appartient",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "example": [
+                  "31c14825-de80-43b5-88cc-89e21882a79d"
+                ]
               }
             }
           }

@@ -19,6 +19,7 @@ cd services/attendance
 DATABASE_URL="postgres://postgres:postgres@127.0.0.1:5432/attendance?sslmode=disable" \
 JWT_PUBLIC_KEY_FILE="/path/to/public.pem" \
 JWT_ISSUER="semaphore-auth-identity" \
+SERVICE_AUTH_TOKEN="dev-service-token" \
 ACADEMICS_GRPC_ADDR="127.0.0.1:9092" \
 IDENTITY_GRPC_ADDR="127.0.0.1:9091" \
 REDIS_ADDR="127.0.0.1:6379" \
@@ -28,6 +29,9 @@ go run ./cmd/server
 ```
 
 HTTP listens on `:8083`, gRPC on `:9093`.
+
+## Configuration
+- `SERVICE_AUTH_TOKEN`: shared token required for internal gRPC calls.
 
 ## REST Endpoints
 - `POST /signature`

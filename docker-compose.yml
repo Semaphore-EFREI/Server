@@ -59,6 +59,8 @@ services:
       JWT_PRIVATE_KEY_FILE: "/run/semaphore-jwt/private.pem"
       JWT_PUBLIC_KEY_FILE: "/run/semaphore-jwt/public.pem"
       JWT_ISSUER: "semaphore-auth-identity"
+      SERVICE_AUTH_TOKEN: "dev-service-token"
+      ACADEMICS_GRPC_ADDR: "academics:9092"
     volumes:
       - .:/workspace
       - ./docker/jwt:/run/semaphore-jwt:ro
@@ -77,6 +79,9 @@ services:
       DATABASE_URL: "postgres://postgres:postgres@postgres:5432/academics?sslmode=disable"
       JWT_PUBLIC_KEY_FILE: "/run/semaphore-jwt/public.pem"
       JWT_ISSUER: "semaphore-auth-identity"
+      SERVICE_AUTH_TOKEN: "dev-service-token"
+      ATTENDANCE_GRPC_ADDR: "attendance:9093"
+      BEACON_GRPC_ADDR: "beacon:9094"
     volumes:
       - .:/workspace
       - ./docker/jwt:/run/semaphore-jwt:ro
@@ -95,6 +100,7 @@ services:
       DATABASE_URL: "postgres://postgres:postgres@postgres:5432/attendance?sslmode=disable"
       JWT_PUBLIC_KEY_FILE: "/run/semaphore-jwt/public.pem"
       JWT_ISSUER: "semaphore-auth-identity"
+      SERVICE_AUTH_TOKEN: "dev-service-token"
       ACADEMICS_GRPC_ADDR: "academics:9092"
       IDENTITY_GRPC_ADDR: "auth-identity:9091"
       REDIS_ADDR: "redis:6379"
@@ -125,6 +131,7 @@ services:
       DATABASE_URL: "postgres://postgres:postgres@postgres:5432/beacon?sslmode=disable"
       JWT_PUBLIC_KEY_FILE: "/run/semaphore-jwt/public.pem"
       JWT_ISSUER: "semaphore-auth-identity"
+      SERVICE_AUTH_TOKEN: "dev-service-token"
       ATTENDANCE_GRPC_ADDR: "attendance:9093"
     volumes:
       - .:/workspace

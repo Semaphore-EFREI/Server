@@ -21,10 +21,16 @@ DATABASE_URL="postgres://postgres:postgres@127.0.0.1:5432/auth_identity?sslmode=
 JWT_PRIVATE_KEY_FILE="/path/to/private.pem" \
 JWT_PUBLIC_KEY_FILE="/path/to/public.pem" \
 JWT_ISSUER="semaphore-auth-identity" \
+SERVICE_AUTH_TOKEN="dev-service-token" \
+ACADEMICS_GRPC_ADDR="127.0.0.1:9092" \
+GRPC_DIAL_TIMEOUT="5s" \
 go run ./cmd/server
 ```
 
 HTTP will listen on `:8081`, gRPC on `:9091`.
+
+## Configuration
+- `SERVICE_AUTH_TOKEN`: shared token required for internal gRPC calls.
 
 ## REST Endpoints (selected)
 - `POST /auth/login`
@@ -34,8 +40,9 @@ HTTP will listen on `:8081`, gRPC on `:9091`.
 - `POST /students/me/devices`
 - `GET /.well-known/jwks.json`
 - `GET /students/{schoolId}`
+- `GET /students/{schoolId}?include=groups`
 - `POST /student`
-- `GET /student/{studentId}`
+- `GET /student/{studentId}?include=groups`
 - `PATCH /student/{studentId}`
 - `DELETE /student/{studentId}`
 - `GET /teachers/{schoolId}`

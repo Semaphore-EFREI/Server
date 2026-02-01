@@ -33,19 +33,23 @@ func main() {
 	defer pool.Close()
 
 	store := db.NewStore(pool)
-	clients, err := clients.New(ctx, cfg.AttendanceGRPCAddr, cfg.BeaconGRPCAddr, cfg.GRPCDialTimeout)
+	clients, err := clients.New(ctx, cfg.AttendanceGRPCAddr, cfg.BeaconGRPCAddr, cfg.ServiceAuthToken, cfg.GRPCDialTimeout)
 	if err != nil {
 		log.Fatalf("grpc dial failed: %v", err)
 	}
 	defer clients.Close()
 
-	server, err := internalhttp.NewServer(cfg, store, clients.Attendance, clients.Beacon)
+	server, err := internalhttp.NewServer(cfg, store, clients.Attendance, clients.Beacon, clients.BeaconCommand)
 	if err != nil {
 		log.Fatalf("server init failed: %v", err)
 	}
 
-	grpcServer := grpc.NewServer()
-	academicsv1.RegisterAcademicsQueryServiceServer(grpcServer, academicsgrpc.NewAcademicsServer(store.Queries))
+	serviceAuthInterceptor, err := academicsgrpc.NewServiceAuthUnaryInterceptor(cfg.ServiceAuthToken)
+	if err != nil {
+		log.Fatalf("grpc service auth init failed: %v", err)
+	}
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(serviceAuthInterceptor))
+	academicsv1.RegisterAcademicsQueryServiceServer(grpcServer, academicsgrpc.NewAcademicsServer(store))
 	academicsv1.RegisterAcademicsCommandServiceServer(grpcServer, academicsgrpc.NewAcademicsCommandServer(store.Queries))
 
 	httpServer := &http.Server{

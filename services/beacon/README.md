@@ -21,10 +21,14 @@ DATABASE_URL="postgres://postgres:postgres@127.0.0.1:5432/beacon?sslmode=disable
 ATTENDANCE_GRPC_ADDR="127.0.0.1:9093" \
 JWT_PUBLIC_KEY_FILE="/path/to/public.pem" \
 JWT_ISSUER="semaphore-auth-identity" \
+SERVICE_AUTH_TOKEN="dev-service-token" \
 go run ./cmd/server
 ```
 
 HTTP listens on `:8084`.
+
+## Configuration
+- `SERVICE_AUTH_TOKEN`: shared token required for internal gRPC calls.
 
 ## REST Endpoints
 Beacon auth:

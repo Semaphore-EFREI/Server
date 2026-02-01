@@ -20,6 +20,9 @@ cd services/academics
 DATABASE_URL="postgres://postgres:postgres@127.0.0.1:5432/academics?sslmode=disable" \
 JWT_PUBLIC_KEY_FILE="/path/to/public.pem" \
 JWT_ISSUER="semaphore-auth-identity" \
+SERVICE_AUTH_TOKEN="dev-service-token" \
+ATTENDANCE_GRPC_ADDR="127.0.0.1:9093" \
+BEACON_GRPC_ADDR="127.0.0.1:9094" \
 go run ./cmd/server
 ```
 
@@ -28,6 +31,10 @@ HTTP listens on `:8082`, gRPC on `:9092`.
 ## Configuration
 - `COURSE_DURATION` (default `1h`): duration applied when creating or updating course dates.
 - `COURSE_DEFAULT_RANGE_DAYS` (default `10`): if `/courses` is called without `from`/`to`, the service returns courses in the `[now-10d, now+10d]` window.
+- `SERVICE_AUTH_TOKEN`: shared token required for internal gRPC calls.
+- `ATTENDANCE_GRPC_ADDR` (default `127.0.0.1:9093`): attendance gRPC address.
+- `BEACON_GRPC_ADDR` (default `127.0.0.1:9094`): beacon gRPC address.
+- `GRPC_DIAL_TIMEOUT` (default `5s`): timeout for gRPC dial.
 
 ## REST Endpoints (selected)
 - `GET /schools`

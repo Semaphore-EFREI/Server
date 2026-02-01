@@ -2,10 +2,12 @@ package clients
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 
 	academicsv1 "semaphore/academics/academics/v1"
 	identityv1 "semaphore/auth-identity/identity/v1"
@@ -19,12 +21,17 @@ type Clients struct {
 	Identity         identityv1.IdentityQueryServiceClient
 }
 
-func New(ctx context.Context, academicsAddr, identityAddr string, timeout time.Duration) (*Clients, error) {
-	academicsConn, err := dial(ctx, academicsAddr, timeout)
+const serviceTokenHeader = "x-service-token"
+
+func New(ctx context.Context, academicsAddr, identityAddr, serviceToken string, timeout time.Duration) (*Clients, error) {
+	if serviceToken == "" {
+		return nil, errors.New("service auth token required")
+	}
+	academicsConn, err := dial(ctx, academicsAddr, serviceToken, timeout)
 	if err != nil {
 		return nil, err
 	}
-	identityConn, err := dial(ctx, identityAddr, timeout)
+	identityConn, err := dial(ctx, identityAddr, serviceToken, timeout)
 	if err != nil {
 		_ = academicsConn.Close()
 		return nil, err
@@ -51,8 +58,18 @@ func (c *Clients) Close() {
 	}
 }
 
-func dial(ctx context.Context, addr string, timeout time.Duration) (*grpc.ClientConn, error) {
+func dial(ctx context.Context, addr, serviceToken string, timeout time.Duration) (*grpc.ClientConn, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	return grpc.DialContext(ctx, addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	return grpc.DialContext(ctx, addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(serviceAuthUnaryClientInterceptor(serviceToken)),
+	)
+}
+
+func serviceAuthUnaryClientInterceptor(serviceToken string) grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		ctx = metadata.AppendToOutgoingContext(ctx, serviceTokenHeader, serviceToken)
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
 }

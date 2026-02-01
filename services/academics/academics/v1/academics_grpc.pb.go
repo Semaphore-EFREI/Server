@@ -23,6 +23,7 @@ const (
 	AcademicsQueryService_ValidateTeacherCourse_FullMethodName   = "/academics.api.v1.AcademicsQueryService/ValidateTeacherCourse"
 	AcademicsQueryService_ValidateStudentCourse_FullMethodName   = "/academics.api.v1.AcademicsQueryService/ValidateStudentCourse"
 	AcademicsQueryService_ValidateClassroomCourse_FullMethodName = "/academics.api.v1.AcademicsQueryService/ValidateClassroomCourse"
+	AcademicsQueryService_ListStudentGroupIds_FullMethodName     = "/academics.api.v1.AcademicsQueryService/ListStudentGroupIds"
 	AcademicsQueryService_GetSchoolPreferences_FullMethodName    = "/academics.api.v1.AcademicsQueryService/GetSchoolPreferences"
 )
 
@@ -38,6 +39,8 @@ type AcademicsQueryServiceClient interface {
 	ValidateStudentCourse(ctx context.Context, in *ValidateStudentCourseRequest, opts ...grpc.CallOption) (*ValidateStudentCourseResponse, error)
 	// ValidateClassroomCourse checks if a classroom is linked to a course.
 	ValidateClassroomCourse(ctx context.Context, in *ValidateClassroomCourseRequest, opts ...grpc.CallOption) (*ValidateClassroomCourseResponse, error)
+	// ListStudentGroupIds returns group ids for a list of students.
+	ListStudentGroupIds(ctx context.Context, in *ListStudentGroupIdsRequest, opts ...grpc.CallOption) (*ListStudentGroupIdsResponse, error)
 	// GetSchoolPreferences returns school-level preferences.
 	GetSchoolPreferences(ctx context.Context, in *GetSchoolPreferencesRequest, opts ...grpc.CallOption) (*GetSchoolPreferencesResponse, error)
 }
@@ -86,6 +89,15 @@ func (c *academicsQueryServiceClient) ValidateClassroomCourse(ctx context.Contex
 	return out, nil
 }
 
+func (c *academicsQueryServiceClient) ListStudentGroupIds(ctx context.Context, in *ListStudentGroupIdsRequest, opts ...grpc.CallOption) (*ListStudentGroupIdsResponse, error) {
+	out := new(ListStudentGroupIdsResponse)
+	err := c.cc.Invoke(ctx, AcademicsQueryService_ListStudentGroupIds_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *academicsQueryServiceClient) GetSchoolPreferences(ctx context.Context, in *GetSchoolPreferencesRequest, opts ...grpc.CallOption) (*GetSchoolPreferencesResponse, error) {
 	out := new(GetSchoolPreferencesResponse)
 	err := c.cc.Invoke(ctx, AcademicsQueryService_GetSchoolPreferences_FullMethodName, in, out, opts...)
@@ -107,6 +119,8 @@ type AcademicsQueryServiceServer interface {
 	ValidateStudentCourse(context.Context, *ValidateStudentCourseRequest) (*ValidateStudentCourseResponse, error)
 	// ValidateClassroomCourse checks if a classroom is linked to a course.
 	ValidateClassroomCourse(context.Context, *ValidateClassroomCourseRequest) (*ValidateClassroomCourseResponse, error)
+	// ListStudentGroupIds returns group ids for a list of students.
+	ListStudentGroupIds(context.Context, *ListStudentGroupIdsRequest) (*ListStudentGroupIdsResponse, error)
 	// GetSchoolPreferences returns school-level preferences.
 	GetSchoolPreferences(context.Context, *GetSchoolPreferencesRequest) (*GetSchoolPreferencesResponse, error)
 	mustEmbedUnimplementedAcademicsQueryServiceServer()
@@ -127,6 +141,9 @@ func (UnimplementedAcademicsQueryServiceServer) ValidateStudentCourse(context.Co
 }
 func (UnimplementedAcademicsQueryServiceServer) ValidateClassroomCourse(context.Context, *ValidateClassroomCourseRequest) (*ValidateClassroomCourseResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ValidateClassroomCourse not implemented")
+}
+func (UnimplementedAcademicsQueryServiceServer) ListStudentGroupIds(context.Context, *ListStudentGroupIdsRequest) (*ListStudentGroupIdsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListStudentGroupIds not implemented")
 }
 func (UnimplementedAcademicsQueryServiceServer) GetSchoolPreferences(context.Context, *GetSchoolPreferencesRequest) (*GetSchoolPreferencesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSchoolPreferences not implemented")
@@ -216,6 +233,24 @@ func _AcademicsQueryService_ValidateClassroomCourse_Handler(srv interface{}, ctx
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AcademicsQueryService_ListStudentGroupIds_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListStudentGroupIdsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AcademicsQueryServiceServer).ListStudentGroupIds(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AcademicsQueryService_ListStudentGroupIds_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AcademicsQueryServiceServer).ListStudentGroupIds(ctx, req.(*ListStudentGroupIdsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AcademicsQueryService_GetSchoolPreferences_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetSchoolPreferencesRequest)
 	if err := dec(in); err != nil {
@@ -256,6 +291,10 @@ var AcademicsQueryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ValidateClassroomCourse",
 			Handler:    _AcademicsQueryService_ValidateClassroomCourse_Handler,
+		},
+		{
+			MethodName: "ListStudentGroupIds",
+			Handler:    _AcademicsQueryService_ListStudentGroupIds_Handler,
 		},
 		{
 			MethodName: "GetSchoolPreferences",

@@ -19,7 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	BeaconQueryService_ListBeaconsByClassroom_FullMethodName = "/beacon.api.v1.BeaconQueryService/ListBeaconsByClassroom"
+	BeaconQueryService_ListBeaconsByClassroom_FullMethodName      = "/beacon.api.v1.BeaconQueryService/ListBeaconsByClassroom"
+	BeaconCommandService_AssignBeaconToClassroom_FullMethodName   = "/beacon.api.v1.BeaconCommandService/AssignBeaconToClassroom"
+	BeaconCommandService_RemoveBeaconFromClassroom_FullMethodName = "/beacon.api.v1.BeaconCommandService/RemoveBeaconFromClassroom"
 )
 
 // BeaconQueryServiceClient is the client API for BeaconQueryService service.
@@ -41,6 +43,42 @@ func NewBeaconQueryServiceClient(cc grpc.ClientConnInterface) BeaconQueryService
 func (c *beaconQueryServiceClient) ListBeaconsByClassroom(ctx context.Context, in *ListBeaconsByClassroomRequest, opts ...grpc.CallOption) (*ListBeaconsByClassroomResponse, error) {
 	out := new(ListBeaconsByClassroomResponse)
 	err := c.cc.Invoke(ctx, BeaconQueryService_ListBeaconsByClassroom_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// BeaconCommandServiceClient is the client API for BeaconCommandService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type BeaconCommandServiceClient interface {
+	// AssignBeaconToClassroom assigns a beacon to a classroom.
+	AssignBeaconToClassroom(ctx context.Context, in *AssignBeaconToClassroomRequest, opts ...grpc.CallOption) (*AssignBeaconToClassroomResponse, error)
+	// RemoveBeaconFromClassroom removes a beacon from a classroom.
+	RemoveBeaconFromClassroom(ctx context.Context, in *RemoveBeaconFromClassroomRequest, opts ...grpc.CallOption) (*RemoveBeaconFromClassroomResponse, error)
+}
+
+type beaconCommandServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewBeaconCommandServiceClient(cc grpc.ClientConnInterface) BeaconCommandServiceClient {
+	return &beaconCommandServiceClient{cc}
+}
+
+func (c *beaconCommandServiceClient) AssignBeaconToClassroom(ctx context.Context, in *AssignBeaconToClassroomRequest, opts ...grpc.CallOption) (*AssignBeaconToClassroomResponse, error) {
+	out := new(AssignBeaconToClassroomResponse)
+	err := c.cc.Invoke(ctx, BeaconCommandService_AssignBeaconToClassroom_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *beaconCommandServiceClient) RemoveBeaconFromClassroom(ctx context.Context, in *RemoveBeaconFromClassroomRequest, opts ...grpc.CallOption) (*RemoveBeaconFromClassroomResponse, error) {
+	out := new(RemoveBeaconFromClassroomResponse)
+	err := c.cc.Invoke(ctx, BeaconCommandService_RemoveBeaconFromClassroom_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -104,6 +142,96 @@ var BeaconQueryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListBeaconsByClassroom",
 			Handler:    _BeaconQueryService_ListBeaconsByClassroom_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "services/beacon/beacon/v1/beacon.proto",
+}
+
+// BeaconCommandServiceServer is the server API for BeaconCommandService service.
+// All implementations must embed UnimplementedBeaconCommandServiceServer
+// for forward compatibility
+type BeaconCommandServiceServer interface {
+	// AssignBeaconToClassroom assigns a beacon to a classroom.
+	AssignBeaconToClassroom(context.Context, *AssignBeaconToClassroomRequest) (*AssignBeaconToClassroomResponse, error)
+	// RemoveBeaconFromClassroom removes a beacon from a classroom.
+	RemoveBeaconFromClassroom(context.Context, *RemoveBeaconFromClassroomRequest) (*RemoveBeaconFromClassroomResponse, error)
+	mustEmbedUnimplementedBeaconCommandServiceServer()
+}
+
+// UnimplementedBeaconCommandServiceServer must be embedded to have forward compatible implementations.
+type UnimplementedBeaconCommandServiceServer struct {
+}
+
+func (UnimplementedBeaconCommandServiceServer) AssignBeaconToClassroom(context.Context, *AssignBeaconToClassroomRequest) (*AssignBeaconToClassroomResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AssignBeaconToClassroom not implemented")
+}
+func (UnimplementedBeaconCommandServiceServer) RemoveBeaconFromClassroom(context.Context, *RemoveBeaconFromClassroomRequest) (*RemoveBeaconFromClassroomResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RemoveBeaconFromClassroom not implemented")
+}
+func (UnimplementedBeaconCommandServiceServer) mustEmbedUnimplementedBeaconCommandServiceServer() {}
+
+// UnsafeBeaconCommandServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to BeaconCommandServiceServer will
+// result in compilation errors.
+type UnsafeBeaconCommandServiceServer interface {
+	mustEmbedUnimplementedBeaconCommandServiceServer()
+}
+
+func RegisterBeaconCommandServiceServer(s grpc.ServiceRegistrar, srv BeaconCommandServiceServer) {
+	s.RegisterService(&BeaconCommandService_ServiceDesc, srv)
+}
+
+func _BeaconCommandService_AssignBeaconToClassroom_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AssignBeaconToClassroomRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BeaconCommandServiceServer).AssignBeaconToClassroom(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BeaconCommandService_AssignBeaconToClassroom_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BeaconCommandServiceServer).AssignBeaconToClassroom(ctx, req.(*AssignBeaconToClassroomRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BeaconCommandService_RemoveBeaconFromClassroom_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveBeaconFromClassroomRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BeaconCommandServiceServer).RemoveBeaconFromClassroom(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BeaconCommandService_RemoveBeaconFromClassroom_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BeaconCommandServiceServer).RemoveBeaconFromClassroom(ctx, req.(*RemoveBeaconFromClassroomRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// BeaconCommandService_ServiceDesc is the grpc.ServiceDesc for BeaconCommandService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var BeaconCommandService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "beacon.api.v1.BeaconCommandService",
+	HandlerType: (*BeaconCommandServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "AssignBeaconToClassroom",
+			Handler:    _BeaconCommandService_AssignBeaconToClassroom_Handler,
+		},
+		{
+			MethodName: "RemoveBeaconFromClassroom",
+			Handler:    _BeaconCommandService_RemoveBeaconFromClassroom_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

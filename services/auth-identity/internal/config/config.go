@@ -14,9 +14,12 @@ type Config struct {
 	JWTPrivateKey     string
 	JWTPublicKey      string
 	JWTIssuer         string
+	ServiceAuthToken  string
 	AccessTokenTTL    time.Duration
 	RefreshTokenTTL   time.Duration
 	DeviceRebindAfter time.Duration
+	AcademicsGRPCAddr string
+	GRPCDialTimeout   time.Duration
 }
 
 func Load() Config {
@@ -27,9 +30,12 @@ func Load() Config {
 		JWTPrivateKey:     getenvKey("JWT_PRIVATE_KEY", ""),
 		JWTPublicKey:      getenvKey("JWT_PUBLIC_KEY", ""),
 		JWTIssuer:         getenv("JWT_ISSUER", "semaphore-auth-identity"),
+		ServiceAuthToken:  getenv("SERVICE_AUTH_TOKEN", ""),
 		AccessTokenTTL:    getenvDuration("ACCESS_TOKEN_TTL", 15*time.Minute),
 		RefreshTokenTTL:   getenvDuration("REFRESH_TOKEN_TTL", 30*24*time.Hour),
 		DeviceRebindAfter: getenvDuration("DEVICE_REBIND_AFTER", 7*24*time.Hour),
+		AcademicsGRPCAddr: getenv("ACADEMICS_GRPC_ADDR", "127.0.0.1:9092"),
+		GRPCDialTimeout:   getenvDuration("GRPC_DIAL_TIMEOUT", 5*time.Second),
 	}
 }
 

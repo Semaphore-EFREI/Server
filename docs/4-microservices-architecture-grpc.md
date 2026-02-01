@@ -35,6 +35,7 @@ All service-to-service calls are gRPC. Public APIs are REST (JSON) via the Envoy
 ### 4) Authorization: JWT everywhere (humans), service identity for internal calls
 - Human requests use **JWT** issued by auth-identity.
 - Internal gRPC calls should use **mTLS** and/or a signed service JWT, plus `x-request-id` propagation.
+- Service-to-service calls in this repo use a shared `x-service-token` metadata value.
 
 ---
 
@@ -147,6 +148,20 @@ message ValidateClassroomCourseRequest {
 }
 message ValidateClassroomCourseResponse { bool is_linked = 1; }
 
+message ListStudentGroupIdsRequest {
+  repeated string student_ids = 1;
+  string school_id = 2;
+}
+
+message StudentGroupIdsByStudent {
+  string student_id = 1;
+  repeated string group_ids = 2;
+}
+
+message ListStudentGroupIdsResponse {
+  repeated StudentGroupIdsByStudent students = 1;
+}
+
 message SchoolPreferences {
   string id = 1;
   int32 default_signature_closing_delay_minutes = 2;
@@ -179,6 +194,9 @@ service AcademicsQueryService {
 
   rpc ValidateClassroomCourse(ValidateClassroomCourseRequest)
     returns (ValidateClassroomCourseResponse);
+
+  rpc ListStudentGroupIds(ListStudentGroupIdsRequest)
+    returns (ListStudentGroupIdsResponse);
 
   rpc GetSchoolPreferences(GetSchoolPreferencesRequest)
     returns (GetSchoolPreferencesResponse);
@@ -278,7 +296,52 @@ service AttendanceCommandService {
 
 ---
 
-# 3) auth-identity gRPC (optional, minimized)
+# 3) beacon gRPC (consumed by academics)
+
+**Goal:** allow academics to manage beacon classroom assignments internally via gRPC.
+Public beacon management endpoints remain REST via the gateway.
+
+## Proto: `beacon.proto` (excerpt)
+
+```proto
+syntax = "proto3";
+
+package beacon.api.v1;
+
+message AssignBeaconToClassroomRequest {
+  string beacon_id = 1;
+  string classroom_id = 2;
+}
+
+message AssignBeaconToClassroomResponse {}
+
+message RemoveBeaconFromClassroomRequest {
+  string beacon_id = 1;
+  string classroom_id = 2;
+}
+
+message RemoveBeaconFromClassroomResponse {}
+
+service BeaconCommandService {
+  rpc AssignBeaconToClassroom(AssignBeaconToClassroomRequest)
+    returns (AssignBeaconToClassroomResponse);
+  rpc RemoveBeaconFromClassroom(RemoveBeaconFromClassroomRequest)
+    returns (RemoveBeaconFromClassroomResponse);
+}
+
+service BeaconQueryService {
+  rpc ListBeaconsByClassroom(ListBeaconsByClassroomRequest)
+    returns (ListBeaconsByClassroomResponse);
+}
+```
+
+### Notes
+- Authorization uses forwarded user JWT (admin/dev) for write operations.
+- Use metadata `authorization: Bearer <token>` on internal calls.
+
+---
+
+# 4) auth-identity gRPC (optional, minimized)
 
 **Goal:** avoid needing identity lookups for every request (use JWT claims).
 Keep gRPC endpoints for rare use-cases: display names, existence checks.
@@ -422,7 +485,7 @@ Each service includes:
 ### academics
 - [x] DB schema: school/prefs, classrooms, groups/membership, courses, link tables
 - [x] REST endpoints for all academics features
-- [x] gRPC AcademicsQueryService (GetCourse + Validate*)
+- [x] gRPC AcademicsQueryService (GetCourse + Validate* + ListStudentGroupIds)
 - [x] gRPC AcademicsCommandService (CloseExpiredCourses)
 - [x] Consistent `school_id` checks for admin operations
 

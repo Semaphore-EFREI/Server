@@ -9,15 +9,17 @@ import (
 
 	academicsv1 "semaphore/academics/academics/v1"
 	"semaphore/academics/internal/db"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type AcademicsServer struct {
 	academicsv1.UnimplementedAcademicsQueryServiceServer
-	queries *db.Queries
+	store *db.Store
 }
 
-func NewAcademicsServer(queries *db.Queries) *AcademicsServer {
-	return &AcademicsServer{queries: queries}
+func NewAcademicsServer(store *db.Store) *AcademicsServer {
+	return &AcademicsServer{store: store}
 }
 
 func (s *AcademicsServer) GetCourse(ctx context.Context, req *academicsv1.GetCourseRequest) (*academicsv1.GetCourseResponse, error) {
@@ -28,7 +30,7 @@ func (s *AcademicsServer) GetCourse(ctx context.Context, req *academicsv1.GetCou
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid course_id")
 	}
-	course, err := s.queries.GetCourse(ctx, courseID)
+	course, err := s.store.Queries.GetCourse(ctx, courseID)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, "course not found")
 	}
@@ -57,7 +59,7 @@ func (s *AcademicsServer) ValidateTeacherCourse(ctx context.Context, req *academ
 		return nil, status.Error(codes.InvalidArgument, "invalid course_id")
 	}
 
-	row, err := s.queries.ValidateTeacherCourse(ctx, db.ValidateTeacherCourseParams{TeacherID: teacherID, CourseID: courseID})
+	row, err := s.store.Queries.ValidateTeacherCourse(ctx, db.ValidateTeacherCourseParams{TeacherID: teacherID, CourseID: courseID})
 	if err != nil {
 		return nil, status.Error(codes.Internal, "validation failed")
 	}
@@ -75,14 +77,14 @@ func (s *AcademicsServer) ValidateStudentCourse(ctx context.Context, req *academ
 		return nil, status.Error(codes.InvalidArgument, "invalid course_id")
 	}
 
-	row, err := s.queries.ValidateStudentCourse(ctx, db.ValidateStudentCourseParams{StudentID: studentID, CourseID: courseID})
+	row, err := s.store.Queries.ValidateStudentCourse(ctx, db.ValidateStudentCourseParams{StudentID: studentID, CourseID: courseID})
 	if err != nil {
 		return nil, status.Error(codes.Internal, "validation failed")
 	}
 
 	var matched []string
 	if row {
-		groupIDs, err := s.queries.ListMatchedStudentCourseGroups(ctx, db.ListMatchedStudentCourseGroupsParams{
+		groupIDs, err := s.store.Queries.ListMatchedStudentCourseGroups(ctx, db.ListMatchedStudentCourseGroupsParams{
 			StudentID: studentID,
 			CourseID:  courseID,
 		})
@@ -111,12 +113,92 @@ func (s *AcademicsServer) ValidateClassroomCourse(ctx context.Context, req *acad
 		return nil, status.Error(codes.InvalidArgument, "invalid course_id")
 	}
 
-	row, err := s.queries.ValidateClassroomCourse(ctx, db.ValidateClassroomCourseParams{ClassroomID: classroomID, CourseID: courseID})
+	row, err := s.store.Queries.ValidateClassroomCourse(ctx, db.ValidateClassroomCourseParams{ClassroomID: classroomID, CourseID: courseID})
 	if err != nil {
 		return nil, status.Error(codes.Internal, "validation failed")
 	}
 
 	return &academicsv1.ValidateClassroomCourseResponse{IsLinked: row}, nil
+}
+
+func (s *AcademicsServer) ListStudentGroupIds(ctx context.Context, req *academicsv1.ListStudentGroupIdsRequest) (*academicsv1.ListStudentGroupIdsResponse, error) {
+	studentIDsInput := req.GetStudentIds()
+	if len(studentIDsInput) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "student_ids required")
+	}
+
+	studentIDs := make([]string, 0, len(studentIDsInput))
+	seen := make(map[string]struct{}, len(studentIDsInput))
+	for _, studentID := range studentIDsInput {
+		if studentID == "" {
+			return nil, status.Error(codes.InvalidArgument, "invalid student_id")
+		}
+		parsed, err := parseUUID(studentID)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid student_id")
+		}
+		normalized := uuidString(parsed)
+		if _, exists := seen[normalized]; exists {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		studentIDs = append(studentIDs, normalized)
+	}
+
+	var schoolID string
+	if req.GetSchoolId() != "" {
+		parsed, err := parseUUID(req.GetSchoolId())
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid school_id")
+		}
+		schoolID = uuidString(parsed)
+	}
+
+	query := `
+    SELECT sgs.student_id, sgs.student_group_id
+    FROM students_groups sgs
+    INNER JOIN student_groups sg ON sg.id = sgs.student_group_id
+    WHERE sgs.student_id = ANY($1::uuid[]) AND sg.deleted_at IS NULL
+  `
+	args := []any{studentIDs}
+	if schoolID != "" {
+		query += " AND sg.school_id = $2"
+		args = append(args, schoolID)
+	}
+	query += " ORDER BY sgs.student_id, sg.created_at DESC"
+
+	rows, err := s.store.Pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "query failed")
+	}
+	defer rows.Close()
+
+	groupMap := make(map[string][]string, len(studentIDs))
+	for _, id := range studentIDs {
+		groupMap[id] = []string{}
+	}
+
+	for rows.Next() {
+		var studentUUID pgtype.UUID
+		var groupUUID pgtype.UUID
+		if err := rows.Scan(&studentUUID, &groupUUID); err != nil {
+			return nil, status.Error(codes.Internal, "query failed")
+		}
+		studentID := uuidString(studentUUID)
+		groupMap[studentID] = append(groupMap[studentID], uuidString(groupUUID))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, status.Error(codes.Internal, "query failed")
+	}
+
+	resp := &academicsv1.ListStudentGroupIdsResponse{Students: make([]*academicsv1.StudentGroupIdsByStudent, 0, len(studentIDs))}
+	for _, studentID := range studentIDs {
+		resp.Students = append(resp.Students, &academicsv1.StudentGroupIdsByStudent{
+			StudentId: studentID,
+			GroupIds:  groupMap[studentID],
+		})
+	}
+	return resp, nil
 }
 
 func (s *AcademicsServer) GetSchoolPreferences(ctx context.Context, req *academicsv1.GetSchoolPreferencesRequest) (*academicsv1.GetSchoolPreferencesResponse, error) {
@@ -127,11 +209,11 @@ func (s *AcademicsServer) GetSchoolPreferences(ctx context.Context, req *academi
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid school_id")
 	}
-	school, err := s.queries.GetSchool(ctx, schoolID)
+	school, err := s.store.Queries.GetSchool(ctx, schoolID)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, "school not found")
 	}
-	prefs, err := s.queries.GetSchoolPreferences(ctx, school.PreferencesID)
+	prefs, err := s.store.Queries.GetSchoolPreferences(ctx, school.PreferencesID)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, "preferences not found")
 	}

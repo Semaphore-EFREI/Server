@@ -13,6 +13,7 @@ type Config struct {
 	DatabaseURL               string
 	JWTPublicKey              string
 	JWTIssuer                 string
+	ServiceAuthToken          string
 	AcademicsGRPCAddr         string
 	IdentityGRPCAddr          string
 	GRPCDialTimeout           time.Duration
@@ -31,6 +32,7 @@ func Load() Config {
 		DatabaseURL:               getenv("DATABASE_URL", "postgres://postgres:postgres@127.0.0.1:5432/attendance?sslmode=disable"),
 		JWTPublicKey:              getenvKey("JWT_PUBLIC_KEY", ""),
 		JWTIssuer:                 getenv("JWT_ISSUER", "semaphore-auth-identity"),
+		ServiceAuthToken:          getenv("SERVICE_AUTH_TOKEN", ""),
 		AcademicsGRPCAddr:         getenv("ACADEMICS_GRPC_ADDR", "127.0.0.1:9092"),
 		IdentityGRPCAddr:          getenv("IDENTITY_GRPC_ADDR", "127.0.0.1:9091"),
 		GRPCDialTimeout:           getenvDuration("GRPC_DIAL_TIMEOUT", 5*time.Second),

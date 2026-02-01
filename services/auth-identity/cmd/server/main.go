@@ -11,7 +11,10 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 
+	academicsv1 "semaphore/academics/academics/v1"
 	identityv1 "semaphore/auth-identity/identity/v1"
 	"semaphore/auth-identity/internal/config"
 	"semaphore/auth-identity/internal/db"
@@ -33,11 +36,37 @@ func main() {
 	defer pool.Close()
 
 	store := repository.NewStore(pool)
-	server, err := internalhttp.NewServer(cfg, store)
+
+	if cfg.ServiceAuthToken == "" {
+		log.Fatal("service auth token required")
+	}
+
+	grpcCtx, cancel := context.WithTimeout(ctx, cfg.GRPCDialTimeout)
+	academicsConn, err := grpc.DialContext(
+		grpcCtx,
+		cfg.AcademicsGRPCAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(serviceAuthUnaryClientInterceptor(cfg.ServiceAuthToken)),
+	)
+	cancel()
+	if err != nil {
+		log.Fatalf("grpc dial failed: %v", err)
+	}
+	defer func() {
+		if err := academicsConn.Close(); err != nil {
+			log.Printf("academics grpc close error: %v", err)
+		}
+	}()
+
+	server, err := internalhttp.NewServer(cfg, store, academicsv1.NewAcademicsQueryServiceClient(academicsConn))
 	if err != nil {
 		log.Fatalf("server init failed: %v", err)
 	}
-	grpcServer := grpc.NewServer()
+	serviceAuthInterceptor, err := identitygrpc.NewServiceAuthUnaryInterceptor(cfg.ServiceAuthToken)
+	if err != nil {
+		log.Fatalf("grpc service auth init failed: %v", err)
+	}
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(serviceAuthInterceptor))
 	identityv1.RegisterIdentityQueryServiceServer(grpcServer, identitygrpc.NewIdentityServer(store))
 
 	httpServer := &http.Server{
@@ -73,4 +102,13 @@ func main() {
 		log.Printf("shutdown error: %v", err)
 	}
 	grpcServer.GracefulStop()
+}
+
+const serviceTokenHeader = "x-service-token"
+
+func serviceAuthUnaryClientInterceptor(serviceToken string) grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		ctx = metadata.AppendToOutgoingContext(ctx, serviceTokenHeader, serviceToken)
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
 }

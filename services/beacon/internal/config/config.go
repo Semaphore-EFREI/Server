@@ -13,6 +13,7 @@ type Config struct {
 	DatabaseURL      string
 	JWTPublicKey     string
 	JWTIssuer        string
+	ServiceAuthToken string
 	AttendanceAddr   string
 	GRPCDialTimeout  time.Duration
 	BeaconTokenTTL   time.Duration
@@ -27,6 +28,7 @@ func Load() Config {
 		DatabaseURL:      getenv("DATABASE_URL", "postgres://postgres:postgres@127.0.0.1:5432/beacon?sslmode=disable"),
 		JWTPublicKey:     getenvKey("JWT_PUBLIC_KEY", ""),
 		JWTIssuer:        getenv("JWT_ISSUER", "semaphore-auth-identity"),
+		ServiceAuthToken: getenv("SERVICE_AUTH_TOKEN", ""),
 		AttendanceAddr:   getenv("ATTENDANCE_GRPC_ADDR", "127.0.0.1:9093"),
 		GRPCDialTimeout:  getenvDuration("GRPC_DIAL_TIMEOUT", 5*time.Second),
 		BeaconTokenTTL:   getenvDuration("BEACON_TOKEN_TTL", 15*time.Minute),

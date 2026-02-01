@@ -25,6 +25,7 @@ import (
 	"semaphore/beacon/internal/auth"
 	"semaphore/beacon/internal/config"
 	"semaphore/beacon/internal/db"
+	"semaphore/beacon/internal/operations"
 )
 
 type Server struct {
@@ -679,53 +680,14 @@ func (s *Server) handleDeleteBeacon(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleAssignBeaconClassroom(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "beaconId")
-	beaconID, err := uuid.Parse(id)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_beacon_id")
-		return
-	}
 
 	var req classroomAssignRequest
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request")
 		return
 	}
-	if req.ClassroomID == "" {
-		writeError(w, http.StatusBadRequest, "missing_classroom_id")
-		return
-	}
-	classroomID, err := uuid.Parse(req.ClassroomID)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_classroom_id")
-		return
-	}
-
-	beacon, err := s.store.Queries.GetBeacon(r.Context(), pgUUID(beaconID))
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			writeError(w, http.StatusNotFound, "beacon_not_found")
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "server_error")
-		return
-	}
-
-	if beacon.ClassroomID.Valid {
-		current := uuidString(beacon.ClassroomID)
-		if current != classroomID.String() {
-			writeError(w, http.StatusConflict, "classroom_already_assigned")
-			return
-		}
-		w.WriteHeader(http.StatusNoContent)
-		return
-	}
-
-	if err := s.store.Queries.UpdateBeaconClassroom(r.Context(), db.UpdateBeaconClassroomParams{
-		ID:          pgUUID(beaconID),
-		ClassroomID: pgUUID(classroomID),
-		UpdatedAt:   pgTime(time.Now().UTC()),
-	}); err != nil {
-		writeError(w, http.StatusInternalServerError, "server_error")
+	if err := operations.AssignBeaconToClassroom(r.Context(), s.store, id, req.ClassroomID); err != nil {
+		writeBeaconCommandError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -734,39 +696,8 @@ func (s *Server) handleAssignBeaconClassroom(w http.ResponseWriter, r *http.Requ
 func (s *Server) handleRemoveBeaconClassroom(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "beaconId")
 	classroomID := chi.URLParam(r, "classroomId")
-	beaconID, err := uuid.Parse(id)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_beacon_id")
-		return
-	}
-	if classroomID == "" {
-		writeError(w, http.StatusBadRequest, "missing_classroom_id")
-		return
-	}
-	if _, err := uuid.Parse(classroomID); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_classroom_id")
-		return
-	}
-
-	beacon, err := s.store.Queries.GetBeacon(r.Context(), pgUUID(beaconID))
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			writeError(w, http.StatusNotFound, "beacon_not_found")
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "server_error")
-		return
-	}
-	if !beacon.ClassroomID.Valid || uuidString(beacon.ClassroomID) != classroomID {
-		writeError(w, http.StatusNotFound, "classroom_not_assigned")
-		return
-	}
-
-	if err := s.store.Queries.ClearBeaconClassroom(r.Context(), db.ClearBeaconClassroomParams{
-		ID:        pgUUID(beaconID),
-		UpdatedAt: pgTime(time.Now().UTC()),
-	}); err != nil {
-		writeError(w, http.StatusInternalServerError, "server_error")
+	if err := operations.RemoveBeaconFromClassroom(r.Context(), s.store, id, classroomID); err != nil {
+		writeBeaconCommandError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -945,6 +876,27 @@ func writeJSON(w http.ResponseWriter, status int, payload interface{}) {
 
 func writeError(w http.ResponseWriter, status int, code string) {
 	writeJSON(w, status, map[string]string{"error": code})
+}
+
+func writeBeaconCommandError(w http.ResponseWriter, err error) {
+	var opErr *operations.Error
+	if errors.As(err, &opErr) {
+		switch opErr.Code {
+		case operations.ErrInvalidBeaconID, operations.ErrMissingClassroomID, operations.ErrInvalidClassroomID:
+			writeError(w, http.StatusBadRequest, opErr.Code)
+			return
+		case operations.ErrBeaconNotFound, operations.ErrClassroomNotAssigned:
+			writeError(w, http.StatusNotFound, opErr.Code)
+			return
+		case operations.ErrClassroomAlreadyAssigned:
+			writeError(w, http.StatusConflict, opErr.Code)
+			return
+		case operations.ErrServerError:
+			writeError(w, http.StatusInternalServerError, opErr.Code)
+			return
+		}
+	}
+	writeError(w, http.StatusInternalServerError, operations.ErrServerError)
 }
 
 func pgUUID(id uuid.UUID) pgtype.UUID {

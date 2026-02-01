@@ -33,7 +33,7 @@ func main() {
 	defer pool.Close()
 
 	store := db.NewStore(pool)
-	clients, err := clients.New(ctx, cfg.AttendanceAddr, cfg.GRPCDialTimeout)
+	clients, err := clients.New(ctx, cfg.AttendanceAddr, cfg.ServiceAuthToken, cfg.GRPCDialTimeout)
 	if err != nil {
 		log.Fatalf("grpc dial failed: %v", err)
 	}
@@ -49,8 +49,17 @@ func main() {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	grpcServer := grpc.NewServer()
+	serviceAuthInterceptor, err := beacongrpc.NewServiceAuthUnaryInterceptor(cfg.ServiceAuthToken)
+	if err != nil {
+		log.Fatalf("grpc service auth init failed: %v", err)
+	}
+	authInterceptor, err := beacongrpc.NewJWTUnaryInterceptor(cfg)
+	if err != nil {
+		log.Fatalf("grpc jwt auth init failed: %v", err)
+	}
+	grpcServer := grpc.NewServer(grpc.ChainUnaryInterceptor(serviceAuthInterceptor, authInterceptor))
 	beaconv1.RegisterBeaconQueryServiceServer(grpcServer, beacongrpc.NewBeaconQueryServer(store))
+	beaconv1.RegisterBeaconCommandServiceServer(grpcServer, beacongrpc.NewBeaconCommandServer(store))
 
 	go func() {
 		log.Printf("beacon http listening on %s", cfg.HTTPAddr)
