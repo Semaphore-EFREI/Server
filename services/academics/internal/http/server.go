@@ -652,10 +652,10 @@ type createCourseRequest struct {
 	Date            int64    `json:"date"`
 	IsOnline        bool     `json:"isOnline"`
 	School          string   `json:"school"`
-	ClassroomsID    []string `json:"classroomsId"`
-	TeachersID      []string `json:"teachersId"`
-	StudentsID      []string `json:"studentsId"`
-	StudentGroupsID []string `json:"studentGroupsId"`
+	ClassroomsID    []string `json:"classroomsId,omitempty"`
+	TeachersID      []string `json:"teachersId,omitempty"`
+	StudentsID      []string `json:"studentsId,omitempty"`
+	StudentGroupsID []string `json:"studentGroupsId,omitempty"`
 }
 
 type patchCourseRequest struct {

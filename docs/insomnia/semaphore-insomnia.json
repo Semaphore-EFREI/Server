@@ -1,1244 +1,1244 @@
 {
-  "_type": "export",
-  "__export_format": 4,
-  "__export_date": "2026-01-26T00:00:00.000Z",
-  "__export_source": "insomnia.desktop.app:2023.5.8",
-  "resources": [
-    {
-      "_id": "wrk_semaphore",
-      "_type": "workspace",
-      "name": "Semaphore API",
-      "description": "Semaphore REST API collection (Envoy on :8080).",
-      "scope": "collection"
-    },
-    {
-      "_id": "env_base",
-      "_type": "environment",
-      "parentId": "wrk_semaphore",
-      "name": "Base Environment",
-      "data": {
-        "baseUrl": "http://localhost:8080",
-        "accessToken": "",
-        "refreshToken": "",
-        "userId": "",
-        "schoolId": "11111111-1111-1111-1111-111111111111",
-        "courseId": "11111111-1111-1111-1111-111111111114",
-        "classroomId": "11111111-1111-1111-1111-111111111113",
-        "studentGroupId": "11111111-1111-1111-1111-111111111115",
-        "adminId": "22222222-2222-2222-2222-222222222221",
-        "teacherId": "22222222-2222-2222-2222-222222222222",
-        "studentId": "22222222-2222-2222-2222-222222222223",
-        "devId": "22222222-2222-2222-2222-222222222224",
-        "signatureId": "33333333-3333-3333-3333-333333333332",
-        "deviceId": "demo-device-1",
-        "devicePublicKey": "demo-public-key",
-        "signatureDate": 1769331900,
-        "beaconId": "11111111-1111-1111-1111-111111111112"
-      }
-    },
-    {
-      "_id": "env_admin",
-      "_type": "environment",
-      "parentId": "env_base",
-      "name": "Admin",
-      "data": {
-        "email": "admin@demo.local",
-        "password": "dev-password",
-        "accessToken": "",
-        "refreshToken": ""
-      }
-    },
-    {
-      "_id": "env_teacher",
-      "_type": "environment",
-      "parentId": "env_base",
-      "name": "Teacher",
-      "data": {
-        "email": "teacher@demo.local",
-        "password": "dev-password",
-        "accessToken": "",
-        "refreshToken": ""
-      }
-    },
-    {
-      "_id": "env_student",
-      "_type": "environment",
-      "parentId": "env_base",
-      "name": "Student",
-      "data": {
-        "email": "student@demo.local",
-        "password": "dev-password",
-        "accessToken": "",
-        "refreshToken": ""
-      }
-    },
-    {
-      "_id": "env_dev",
-      "_type": "environment",
-      "parentId": "env_base",
-      "name": "Dev",
-      "data": {
-        "email": "dev@demo.local",
-        "password": "dev-password",
-        "accessToken": "",
-        "refreshToken": ""
-      }
-    },
-    {
-      "_id": "grp_gestion_balise",
-      "_type": "request_group",
-      "parentId": "wrk_semaphore",
-      "name": "Gestion Balise"
-    },
-    {
-      "_id": "grp_authentification",
-      "_type": "request_group",
-      "parentId": "wrk_semaphore",
-      "name": "Authentification"
-    },
-    {
-      "_id": "grp_cours",
-      "_type": "request_group",
-      "parentId": "wrk_semaphore",
-      "name": "Cours"
-    },
-    {
-      "_id": "grp_signature",
-      "_type": "request_group",
-      "parentId": "wrk_semaphore",
-      "name": "Signature"
-    },
-    {
-      "_id": "grp_utilisateurs",
-      "_type": "request_group",
-      "parentId": "wrk_semaphore",
-      "name": "Utilisateurs"
-    },
-    {
-      "_id": "grp_classes",
-      "_type": "request_group",
-      "parentId": "wrk_semaphore",
-      "name": "Classes"
-    },
-    {
-      "_id": "grp_groupes_d_etudiants",
-      "_type": "request_group",
-      "parentId": "wrk_semaphore",
-      "name": "Groupes d'étudiants"
-    },
-    {
-      "_id": "grp_ecole",
-      "_type": "request_group",
-      "parentId": "wrk_semaphore",
-      "name": "École"
-    },
-    {
-      "_id": "req_get_beacons",
-      "_type": "request",
-      "parentId": "grp_gestion_balise",
-      "name": "GET /beacons",
-      "method": "GET",
-      "url": "{{ _.baseUrl }}/beacons",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_post_beacon",
-      "_type": "request",
-      "parentId": "grp_gestion_balise",
-      "name": "POST /beacon",
-      "method": "POST",
-      "url": "{{ _.baseUrl }}/beacon",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+    "_type": "export",
+    "__export_format": 4,
+    "__export_date": "2026-01-26T00:00:00.000Z",
+    "__export_source": "insomnia.desktop.app:2023.5.8",
+    "resources": [
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"serialNumber\": 16543,\n  \"signatureKey\": \"MIICXAIBAAKBgQCPvp9Rfh2XUgQAlGNnu7BzkBE5/xifgjkwlem\",\n  \"totpKey\": \"MIICXAIBAAKBgQCPvp9Rfh2XUgQAlGNnu7BzkBE5/xifgjkwlem\",\n  \"programVersion\": \"v1.0\"\n}"
-      }
-    },
-    {
-      "_id": "req_patch_beacon_beaconid",
-      "_type": "request",
-      "parentId": "grp_gestion_balise",
-      "name": "PATCH /beacon/{beaconId}",
-      "method": "PATCH",
-      "url": "{{ _.baseUrl }}/beacon/{{ _.beaconId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "wrk_semaphore",
+            "_type": "workspace",
+            "name": "Semaphore API",
+            "description": "Semaphore REST API collection (Envoy on :8080).",
+            "scope": "collection"
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"id\": \"31c14825-de80-43b5-88cc-89e21882a79d\"\n}"
-      }
-    },
-    {
-      "_id": "req_get_beacon_beaconid",
-      "_type": "request",
-      "parentId": "grp_gestion_balise",
-      "name": "GET /beacon/{beaconId}",
-      "method": "GET",
-      "url": "{{ _.baseUrl }}/beacon/{{ _.beaconId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_delete_beacon_beaconid",
-      "_type": "request",
-      "parentId": "grp_gestion_balise",
-      "name": "DELETE /beacon/{beaconId}",
-      "method": "DELETE",
-      "url": "{{ _.baseUrl }}/beacon/{{ _.beaconId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_post_beacon_beaconid_classroom",
-      "_type": "request",
-      "parentId": "grp_gestion_balise",
-      "name": "POST /beacon/{beaconId}/classroom",
-      "method": "POST",
-      "url": "{{ _.baseUrl }}/beacon/{{ _.beaconId }}/classroom",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "env_base",
+            "_type": "environment",
+            "parentId": "wrk_semaphore",
+            "name": "Base Environment",
+            "data": {
+                "baseUrl": "https://semaphore.deway.fr",
+                "accessToken": "",
+                "refreshToken": "",
+                "userId": "",
+                "schoolId": "11111111-1111-1111-1111-111111111111",
+                "courseId": "11111111-1111-1111-1111-111111111114",
+                "classroomId": "11111111-1111-1111-1111-111111111113",
+                "studentGroupId": "11111111-1111-1111-1111-111111111115",
+                "adminId": "22222222-2222-2222-2222-222222222221",
+                "teacherId": "22222222-2222-2222-2222-222222222222",
+                "studentId": "22222222-2222-2222-2222-222222222223",
+                "devId": "22222222-2222-2222-2222-222222222224",
+                "signatureId": "33333333-3333-3333-3333-333333333332",
+                "deviceId": "demo-device-1",
+                "devicePublicKey": "demo-public-key",
+                "signatureDate": 1769331900,
+                "beaconId": "11111111-1111-1111-1111-111111111112"
+            }
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"classroomId\": \"{{ _.classroomId }}\"\n}"
-      }
-    },
-    {
-      "_id": "req_delete_beacon_beaconid_classroom_classroomid",
-      "_type": "request",
-      "parentId": "grp_gestion_balise",
-      "name": "DELETE /beacon/{beaconId}/classroom/{classroomId}",
-      "method": "DELETE",
-      "url": "{{ _.baseUrl }}/beacon/{{ _.beaconId }}/classroom/{{ _.classroomId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_post_auth_login",
-      "_type": "request",
-      "parentId": "grp_authentification",
-      "name": "POST /auth/login",
-      "method": "POST",
-      "url": "{{ _.baseUrl }}/auth/login",
-      "authentication": {
-        "type": "none"
-      },
-      "headers": [
+            "_id": "env_admin",
+            "_type": "environment",
+            "parentId": "env_base",
+            "name": "Admin",
+            "data": {
+                "email": "admin@demo.local",
+                "password": "dev-password",
+                "accessToken": "",
+                "refreshToken": ""
+            }
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"email\": \"{{ _.email }}\",\n  \"password\": \"{{ _.password }}\"\n}"
-      },
-      "scripts": {
-        "afterResponse": "const json = await insomnia.response.json();\nif (json?.accessToken) {\n  await insomnia.environment.set('accessToken', json.accessToken);\n}\nif (json?.refreshToken) {\n  await insomnia.environment.set('refreshToken', json.refreshToken);\n}\nif (json?.user?.id) {\n  await insomnia.environment.set('userId', json.user.id);\n}\n"
-      }
-    },
-    {
-      "_id": "req_post_auth_refresh",
-      "_type": "request",
-      "parentId": "grp_authentification",
-      "name": "POST /auth/refresh",
-      "method": "POST",
-      "url": "{{ _.baseUrl }}/auth/refresh",
-      "authentication": {
-        "type": "none"
-      },
-      "headers": [
+            "_id": "env_teacher",
+            "_type": "environment",
+            "parentId": "env_base",
+            "name": "Teacher",
+            "data": {
+                "email": "teacher@demo.local",
+                "password": "dev-password",
+                "accessToken": "",
+                "refreshToken": ""
+            }
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"refreshToken\": \"{{ _.refreshToken }}\"\n}"
-      },
-      "scripts": {
-        "afterResponse": "const json = await insomnia.response.json();\nif (json?.accessToken) {\n  await insomnia.environment.set('accessToken', json.accessToken);\n}\nif (json?.refreshToken) {\n  await insomnia.environment.set('refreshToken', json.refreshToken);\n}\nif (json?.user?.id) {\n  await insomnia.environment.set('userId', json.user.id);\n}\n"
-      }
-    },
-    {
-      "_id": "req_get_auth_me",
-      "_type": "request",
-      "parentId": "grp_authentification",
-      "name": "GET /auth/me",
-      "method": "GET",
-      "url": "{{ _.baseUrl }}/auth/me",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_post_auth_logout",
-      "_type": "request",
-      "parentId": "grp_authentification",
-      "name": "POST /auth/logout",
-      "method": "POST",
-      "url": "{{ _.baseUrl }}/auth/logout",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_get_courses",
-      "_type": "request",
-      "parentId": "grp_cours",
-      "name": "GET /courses",
-      "method": "GET",
-      "url": "{{ _.baseUrl }}/courses",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_post_course",
-      "_type": "request",
-      "parentId": "grp_cours",
-      "name": "POST /course",
-      "method": "POST",
-      "url": "{{ _.baseUrl }}/course",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "env_student",
+            "_type": "environment",
+            "parentId": "env_base",
+            "name": "Student",
+            "data": {
+                "email": "student@demo.local",
+                "password": "dev-password",
+                "accessToken": "",
+                "refreshToken": ""
+            }
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"name\": \"Th\\u00e9orie du signal\",\n  \"date\": 1751358516,\n  \"endDate\": 1751358516,\n  \"isOnline\": false\n}"
-      }
-    },
-    {
-      "_id": "req_patch_course_courseid",
-      "_type": "request",
-      "parentId": "grp_cours",
-      "name": "PATCH /course/{courseId}",
-      "method": "PATCH",
-      "url": "{{ _.baseUrl }}/course/{{ _.courseId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "env_dev",
+            "_type": "environment",
+            "parentId": "env_base",
+            "name": "Dev",
+            "data": {
+                "email": "dev@demo.local",
+                "password": "dev-password",
+                "accessToken": "",
+                "refreshToken": ""
+            }
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"id\": \"31c14825-de80-43b5-88cc-89e21882a79d\"\n}"
-      }
-    },
-    {
-      "_id": "req_get_course_courseid",
-      "_type": "request",
-      "parentId": "grp_cours",
-      "name": "GET /course/{courseId}",
-      "method": "GET",
-      "url": "{{ _.baseUrl }}/course/{{ _.courseId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_delete_course_courseid",
-      "_type": "request",
-      "parentId": "grp_cours",
-      "name": "DELETE /course/{courseId}",
-      "method": "DELETE",
-      "url": "{{ _.baseUrl }}/course/{{ _.courseId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_get_course_courseid_status",
-      "_type": "request",
-      "parentId": "grp_cours",
-      "name": "GET /course/{courseId}/status",
-      "method": "GET",
-      "url": "{{ _.baseUrl }}/course/{{ _.courseId }}/status",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_post_course_courseid_classrooms",
-      "_type": "request",
-      "parentId": "grp_cours",
-      "name": "POST /course/{courseId}/classrooms",
-      "method": "POST",
-      "url": "{{ _.baseUrl }}/course/{{ _.courseId }}/classrooms",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "grp_gestion_balise",
+            "_type": "request_group",
+            "parentId": "wrk_semaphore",
+            "name": "Gestion Balise"
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"classroomId\": \"{{ _.classroomId }}\"\n}"
-      }
-    },
-    {
-      "_id": "req_delete_course_courseid_classrooms_classroomid",
-      "_type": "request",
-      "parentId": "grp_cours",
-      "name": "DELETE /course/{courseId}/classrooms/{classroomId}",
-      "method": "DELETE",
-      "url": "{{ _.baseUrl }}/course/{{ _.courseId }}/classrooms/{{ _.classroomId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_post_course_courseid_studentgroups",
-      "_type": "request",
-      "parentId": "grp_cours",
-      "name": "POST /course/{courseId}/studentGroups",
-      "method": "POST",
-      "url": "{{ _.baseUrl }}/course/{{ _.courseId }}/studentGroups",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "grp_authentification",
+            "_type": "request_group",
+            "parentId": "wrk_semaphore",
+            "name": "Authentification"
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"groupsIds\": [\n    \"{{ _.studentGroupId }}\"\n  ]\n}"
-      }
-    },
-    {
-      "_id": "req_delete_course_courseid_studentgroup_groupid",
-      "_type": "request",
-      "parentId": "grp_cours",
-      "name": "DELETE /course/{courseId}/studentGroup/{groupId}",
-      "method": "DELETE",
-      "url": "{{ _.baseUrl }}/course/{{ _.courseId }}/studentGroup/{{ _.studentGroupId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_post_course_courseid_students",
-      "_type": "request",
-      "parentId": "grp_cours",
-      "name": "POST /course/{courseId}/students",
-      "method": "POST",
-      "url": "{{ _.baseUrl }}/course/{{ _.courseId }}/students",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "grp_cours",
+            "_type": "request_group",
+            "parentId": "wrk_semaphore",
+            "name": "Cours"
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"studentsId\": [\n    \"{{ _.studentId }}\"\n  ]\n}"
-      }
-    },
-    {
-      "_id": "req_delete_course_courseid_student_studentid",
-      "_type": "request",
-      "parentId": "grp_cours",
-      "name": "DELETE /course/{courseId}/student/{studentId}",
-      "method": "DELETE",
-      "url": "{{ _.baseUrl }}/course/{{ _.courseId }}/student/{{ _.studentId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_post_course_courseid_teacher",
-      "_type": "request",
-      "parentId": "grp_cours",
-      "name": "POST /course/{courseId}/teacher",
-      "method": "POST",
-      "url": "{{ _.baseUrl }}/course/{{ _.courseId }}/teacher",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "grp_signature",
+            "_type": "request_group",
+            "parentId": "wrk_semaphore",
+            "name": "Signature"
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"teacherId\": \"{{ _.teacherId }}\"\n}"
-      }
-    },
-    {
-      "_id": "req_delete_course_courseid_teacher_teacherid",
-      "_type": "request",
-      "parentId": "grp_cours",
-      "name": "DELETE /course/{courseId}/teacher/{teacherId}",
-      "method": "DELETE",
-      "url": "{{ _.baseUrl }}/course/{{ _.courseId }}/teacher/{{ _.teacherId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_post_signature",
-      "_type": "request",
-      "parentId": "grp_signature",
-      "name": "POST /signature",
-      "method": "POST",
-      "url": "{{ _.baseUrl }}/signature",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "grp_utilisateurs",
+            "_type": "request_group",
+            "parentId": "wrk_semaphore",
+            "name": "Utilisateurs"
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"date\": 1769331900,\n  \"course\": \"{{ _.courseId }}\",\n  \"status\": \"signed\",\n  \"method\": \"beacon\",\n  \"student\": \"{{ _.studentId }}\"\n}"
-      }
-    },
-    {
-      "_id": "req_get_signature_signatureid",
-      "_type": "request",
-      "parentId": "grp_signature",
-      "name": "GET /signature/{signatureId}",
-      "method": "GET",
-      "url": "{{ _.baseUrl }}/signature/{{ _.signatureId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_patch_signature_signatureid",
-      "_type": "request",
-      "parentId": "grp_signature",
-      "name": "PATCH /signature/{signatureId}",
-      "method": "PATCH",
-      "url": "{{ _.baseUrl }}/signature/{{ _.signatureId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "grp_classes",
+            "_type": "request_group",
+            "parentId": "wrk_semaphore",
+            "name": "Classes"
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"id\": \"{{ _.signatureId }}\"\n}"
-      }
-    },
-    {
-      "_id": "req_delete_signature_signatureid",
-      "_type": "request",
-      "parentId": "grp_signature",
-      "name": "DELETE /signature/{signatureId}",
-      "method": "DELETE",
-      "url": "{{ _.baseUrl }}/signature/{{ _.signatureId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_get_signature_buzzlightyear",
-      "_type": "request",
-      "parentId": "grp_signature",
-      "name": "GET /signature/buzzlightyear",
-      "method": "GET",
-      "url": "{{ _.baseUrl }}/signature/buzzlightyear",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_post_signature_buzzlightyear_beaconid",
-      "_type": "request",
-      "parentId": "grp_signature",
-      "name": "POST /signature/buzzlightyear/{beaconId}",
-      "method": "POST",
-      "url": "{{ _.baseUrl }}/signature/buzzlightyear/{{ _.beaconId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "grp_groupes_d_etudiants",
+            "_type": "request_group",
+            "parentId": "wrk_semaphore",
+            "name": "Groupes d'étudiants"
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"signature\": \"deadbeef\"\n}"
-      }
-    },
-    {
-      "_id": "req_post_signature_nfccode_beaconid",
-      "_type": "request",
-      "parentId": "grp_signature",
-      "name": "POST /signature/nfcCode/{beaconId}",
-      "method": "POST",
-      "url": "{{ _.baseUrl }}/signature/nfcCode/{{ _.beaconId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "grp_ecole",
+            "_type": "request_group",
+            "parentId": "wrk_semaphore",
+            "name": "École"
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"code\": 123456\n}"
-      }
-    },
-    {
-      "_id": "req_get_students_schoolid",
-      "_type": "request",
-      "parentId": "grp_utilisateurs",
-      "name": "GET /students/{schoolId}",
-      "method": "GET",
-      "url": "{{ _.baseUrl }}/students/{{ _.schoolId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_post_student",
-      "_type": "request",
-      "parentId": "grp_utilisateurs",
-      "name": "POST /student",
-      "method": "POST",
-      "url": "{{ _.baseUrl }}/student",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "req_get_beacons",
+            "_type": "request",
+            "parentId": "grp_gestion_balise",
+            "name": "GET /beacons",
+            "method": "GET",
+            "url": "{{ _.baseUrl }}/beacons",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"firstname\": \"Marc\",\n  \"lastname\": \"Dupont\",\n  \"email\": \"jean.paul@semaphore.fr\",\n  \"password\": \"12345abcd\",\n  \"studentNumber\": 20210894\n}"
-      }
-    },
-    {
-      "_id": "req_get_student_studentid",
-      "_type": "request",
-      "parentId": "grp_utilisateurs",
-      "name": "GET /student/{studentId}",
-      "method": "GET",
-      "url": "{{ _.baseUrl }}/student/{{ _.studentId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_patch_student_studentid",
-      "_type": "request",
-      "parentId": "grp_utilisateurs",
-      "name": "PATCH /student/{studentId}",
-      "method": "PATCH",
-      "url": "{{ _.baseUrl }}/student/{{ _.studentId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "req_post_beacon",
+            "_type": "request",
+            "parentId": "grp_gestion_balise",
+            "name": "POST /beacon",
+            "method": "POST",
+            "url": "{{ _.baseUrl }}/beacon",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"serialNumber\": 16543,\n  \"signatureKey\": \"MIICXAIBAAKBgQCPvp9Rfh2XUgQAlGNnu7BzkBE5/xifgjkwlem\",\n  \"totpKey\": \"MIICXAIBAAKBgQCPvp9Rfh2XUgQAlGNnu7BzkBE5/xifgjkwlem\",\n  \"programVersion\": \"v1.0\"\n}"
+            }
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"id\": \"31c14825-de80-43b5-88cc-89e21882a79d\"\n}"
-      }
-    },
-    {
-      "_id": "req_delete_student_studentid",
-      "_type": "request",
-      "parentId": "grp_utilisateurs",
-      "name": "DELETE /student/{studentId}",
-      "method": "DELETE",
-      "url": "{{ _.baseUrl }}/student/{{ _.studentId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_get_student_studentid_device",
-      "_type": "request",
-      "parentId": "grp_utilisateurs",
-      "name": "GET /student/{studentId}/device",
-      "method": "GET",
-      "url": "{{ _.baseUrl }}/student/{{ _.studentId }}/device",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_put_student_studentid_device",
-      "_type": "request",
-      "parentId": "grp_utilisateurs",
-      "name": "PUT /student/{studentId}/device",
-      "method": "PUT",
-      "url": "{{ _.baseUrl }}/student/{{ _.studentId }}/device",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "req_patch_beacon_beaconid",
+            "_type": "request",
+            "parentId": "grp_gestion_balise",
+            "name": "PATCH /beacon/{beaconId}",
+            "method": "PATCH",
+            "url": "{{ _.baseUrl }}/beacon/{{ _.beaconId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"id\": \"31c14825-de80-43b5-88cc-89e21882a79d\"\n}"
+            }
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"id\": \"{{ _.deviceId }}\",\n  \"name\": \"Demo device\"\n}"
-      }
-    },
-    {
-      "_id": "req_get_teachers_schoolid",
-      "_type": "request",
-      "parentId": "grp_utilisateurs",
-      "name": "GET /teachers/{schoolId}",
-      "method": "GET",
-      "url": "{{ _.baseUrl }}/teachers/{{ _.schoolId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_post_teacher",
-      "_type": "request",
-      "parentId": "grp_utilisateurs",
-      "name": "POST /teacher",
-      "method": "POST",
-      "url": "{{ _.baseUrl }}/teacher",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "req_get_beacon_beaconid",
+            "_type": "request",
+            "parentId": "grp_gestion_balise",
+            "name": "GET /beacon/{beaconId}",
+            "method": "GET",
+            "url": "{{ _.baseUrl }}/beacon/{{ _.beaconId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"firstname\": \"Marc\",\n  \"lastname\": \"Dupont\",\n  \"email\": \"jean.paul@semaphore.fr\",\n  \"password\": \"12345abcd\"\n}"
-      }
-    },
-    {
-      "_id": "req_get_teacher_teacherid",
-      "_type": "request",
-      "parentId": "grp_utilisateurs",
-      "name": "GET /teacher/{teacherId}",
-      "method": "GET",
-      "url": "{{ _.baseUrl }}/teacher/{{ _.teacherId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_patch_teacher_teacherid",
-      "_type": "request",
-      "parentId": "grp_utilisateurs",
-      "name": "PATCH /teacher/{teacherId}",
-      "method": "PATCH",
-      "url": "{{ _.baseUrl }}/teacher/{{ _.teacherId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "req_delete_beacon_beaconid",
+            "_type": "request",
+            "parentId": "grp_gestion_balise",
+            "name": "DELETE /beacon/{beaconId}",
+            "method": "DELETE",
+            "url": "{{ _.baseUrl }}/beacon/{{ _.beaconId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"id\": \"31c14825-de80-43b5-88cc-89e21882a79d\"\n}"
-      }
-    },
-    {
-      "_id": "req_delete_teacher_teacherid",
-      "_type": "request",
-      "parentId": "grp_utilisateurs",
-      "name": "DELETE /teacher/{teacherId}",
-      "method": "DELETE",
-      "url": "{{ _.baseUrl }}/teacher/{{ _.teacherId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_get_admins_schoolid",
-      "_type": "request",
-      "parentId": "grp_utilisateurs",
-      "name": "GET /admins/{schoolId}",
-      "method": "GET",
-      "url": "{{ _.baseUrl }}/admins/{{ _.schoolId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_post_admin",
-      "_type": "request",
-      "parentId": "grp_utilisateurs",
-      "name": "POST /admin",
-      "method": "POST",
-      "url": "{{ _.baseUrl }}/admin",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "req_post_beacon_beaconid_classroom",
+            "_type": "request",
+            "parentId": "grp_gestion_balise",
+            "name": "POST /beacon/{beaconId}/classroom",
+            "method": "POST",
+            "url": "{{ _.baseUrl }}/beacon/{{ _.beaconId }}/classroom",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"classroomId\": \"{{ _.classroomId }}\"\n}"
+            }
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"firstname\": \"Marc\",\n  \"lastname\": \"Dupont\",\n  \"email\": \"jean.paul@semaphore.fr\",\n  \"password\": \"12345abcd\",\n  \"role\": \"planning\"\n}"
-      }
-    },
-    {
-      "_id": "req_get_admin_adminid",
-      "_type": "request",
-      "parentId": "grp_utilisateurs",
-      "name": "GET /admin/{adminId}",
-      "method": "GET",
-      "url": "{{ _.baseUrl }}/admin/{{ _.adminId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_patch_admin_adminid",
-      "_type": "request",
-      "parentId": "grp_utilisateurs",
-      "name": "PATCH /admin/{adminId}",
-      "method": "PATCH",
-      "url": "{{ _.baseUrl }}/admin/{{ _.adminId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "req_delete_beacon_beaconid_classroom_classroomid",
+            "_type": "request",
+            "parentId": "grp_gestion_balise",
+            "name": "DELETE /beacon/{beaconId}/classroom/{classroomId}",
+            "method": "DELETE",
+            "url": "{{ _.baseUrl }}/beacon/{{ _.beaconId }}/classroom/{{ _.classroomId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"id\": \"31c14825-de80-43b5-88cc-89e21882a79d\"\n}"
-      }
-    },
-    {
-      "_id": "req_delete_admin_adminid",
-      "_type": "request",
-      "parentId": "grp_utilisateurs",
-      "name": "DELETE /admin/{adminId}",
-      "method": "DELETE",
-      "url": "{{ _.baseUrl }}/admin/{{ _.adminId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_get_classrooms_schoolid",
-      "_type": "request",
-      "parentId": "grp_classes",
-      "name": "GET /classrooms/{schoolId}",
-      "method": "GET",
-      "url": "{{ _.baseUrl }}/classrooms/{{ _.schoolId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_post_classroom",
-      "_type": "request",
-      "parentId": "grp_classes",
-      "name": "POST /classroom",
-      "method": "POST",
-      "url": "{{ _.baseUrl }}/classroom",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "req_post_auth_login",
+            "_type": "request",
+            "parentId": "grp_authentification",
+            "name": "POST /auth/login",
+            "method": "POST",
+            "url": "{{ _.baseUrl }}/auth/login",
+            "authentication": {
+                "type": "none"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"email\": \"{{ _.email }}\",\n  \"password\": \"{{ _.password }}\"\n}"
+            },
+            "scripts": {
+                "afterResponse": "const json = await insomnia.response.json();\nif (json?.accessToken) {\n  await insomnia.environment.set('accessToken', json.accessToken);\n}\nif (json?.refreshToken) {\n  await insomnia.environment.set('refreshToken', json.refreshToken);\n}\nif (json?.user?.id) {\n  await insomnia.environment.set('userId', json.user.id);\n}\n"
+            }
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"name\": \"A001\"\n}"
-      }
-    },
-    {
-      "_id": "req_get_classroom_classroomid",
-      "_type": "request",
-      "parentId": "grp_classes",
-      "name": "GET /classroom/{classroomId}",
-      "method": "GET",
-      "url": "{{ _.baseUrl }}/classroom/{{ _.classroomId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_patch_classroom_classroomid",
-      "_type": "request",
-      "parentId": "grp_classes",
-      "name": "PATCH /classroom/{classroomId}",
-      "method": "PATCH",
-      "url": "{{ _.baseUrl }}/classroom/{{ _.classroomId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "req_post_auth_refresh",
+            "_type": "request",
+            "parentId": "grp_authentification",
+            "name": "POST /auth/refresh",
+            "method": "POST",
+            "url": "{{ _.baseUrl }}/auth/refresh",
+            "authentication": {
+                "type": "none"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"refreshToken\": \"{{ _.refreshToken }}\"\n}"
+            },
+            "scripts": {
+                "afterResponse": "const json = await insomnia.response.json();\nif (json?.accessToken) {\n  await insomnia.environment.set('accessToken', json.accessToken);\n}\nif (json?.refreshToken) {\n  await insomnia.environment.set('refreshToken', json.refreshToken);\n}\nif (json?.user?.id) {\n  await insomnia.environment.set('userId', json.user.id);\n}\n"
+            }
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"id\": \"31c14825-de80-43b5-88cc-89e21882a79d\"\n}"
-      }
-    },
-    {
-      "_id": "req_delete_classroom_classroomid",
-      "_type": "request",
-      "parentId": "grp_classes",
-      "name": "DELETE /classroom/{classroomId}",
-      "method": "DELETE",
-      "url": "{{ _.baseUrl }}/classroom/{{ _.classroomId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_get_studentgroups_schoolid",
-      "_type": "request",
-      "parentId": "grp_groupes_d_etudiants",
-      "name": "GET /studentGroups/{schoolId}",
-      "method": "GET",
-      "url": "{{ _.baseUrl }}/studentGroups/{{ _.schoolId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_post_studentgroup",
-      "_type": "request",
-      "parentId": "grp_groupes_d_etudiants",
-      "name": "POST /studentGroup",
-      "method": "POST",
-      "url": "{{ _.baseUrl }}/studentGroup",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "req_get_auth_me",
+            "_type": "request",
+            "parentId": "grp_authentification",
+            "name": "GET /auth/me",
+            "method": "GET",
+            "url": "{{ _.baseUrl }}/auth/me",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"name\": \"M1 - TI\",\n  \"singleStudentGroup\": false\n}"
-      }
-    },
-    {
-      "_id": "req_get_studentgroup_groupid",
-      "_type": "request",
-      "parentId": "grp_groupes_d_etudiants",
-      "name": "GET /studentGroup/{groupId}",
-      "method": "GET",
-      "url": "{{ _.baseUrl }}/studentGroup/{{ _.studentGroupId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_patch_studentgroup_groupid",
-      "_type": "request",
-      "parentId": "grp_groupes_d_etudiants",
-      "name": "PATCH /studentGroup/{groupId}",
-      "method": "PATCH",
-      "url": "{{ _.baseUrl }}/studentGroup/{{ _.studentGroupId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "req_post_auth_logout",
+            "_type": "request",
+            "parentId": "grp_authentification",
+            "name": "POST /auth/logout",
+            "method": "POST",
+            "url": "{{ _.baseUrl }}/auth/logout",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"id\": \"31c14825-de80-43b5-88cc-89e21882a79d\"\n}"
-      }
-    },
-    {
-      "_id": "req_delete_studentgroup_groupid",
-      "_type": "request",
-      "parentId": "grp_groupes_d_etudiants",
-      "name": "DELETE /studentGroup/{groupId}",
-      "method": "DELETE",
-      "url": "{{ _.baseUrl }}/studentGroup/{{ _.studentGroupId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_post_studentgroup_groupid_students",
-      "_type": "request",
-      "parentId": "grp_groupes_d_etudiants",
-      "name": "POST /studentGroup/{groupId}/students",
-      "method": "POST",
-      "url": "{{ _.baseUrl }}/studentGroup/{{ _.studentGroupId }}/students",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "req_get_courses",
+            "_type": "request",
+            "parentId": "grp_cours",
+            "name": "GET /courses",
+            "method": "GET",
+            "url": "{{ _.baseUrl }}/courses",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"studentsIds\": [\n    \"{{ _.studentId }}\"\n  ]\n}"
-      }
-    },
-    {
-      "_id": "req_delete_studentgroup_groupid_student_studentid",
-      "_type": "request",
-      "parentId": "grp_groupes_d_etudiants",
-      "name": "DELETE /studentGroup/{groupId}/student/{studentId}",
-      "method": "DELETE",
-      "url": "{{ _.baseUrl }}/studentGroup/{{ _.studentGroupId }}/student/{{ _.studentId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_get_schools",
-      "_type": "request",
-      "parentId": "grp_ecole",
-      "name": "GET /schools",
-      "method": "GET",
-      "url": "{{ _.baseUrl }}/schools",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_post_school",
-      "_type": "request",
-      "parentId": "grp_ecole",
-      "name": "POST /school",
-      "method": "POST",
-      "url": "{{ _.baseUrl }}/school",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "req_post_course",
+            "_type": "request",
+            "parentId": "grp_cours",
+            "name": "POST /course",
+            "method": "POST",
+            "url": "{{ _.baseUrl }}/course",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"name\": \"Th\\u00e9orie du signal\",\n  \"date\": 1751358516,\n  \"endDate\": 1751358516,\n  \"isOnline\": false\n}"
+            }
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"name\": \"EFREI Paris\"\n}"
-      }
-    },
-    {
-      "_id": "req_get_school_schoolid",
-      "_type": "request",
-      "parentId": "grp_ecole",
-      "name": "GET /school/{schoolId}",
-      "method": "GET",
-      "url": "{{ _.baseUrl }}/school/{{ _.schoolId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_patch_school_schoolid",
-      "_type": "request",
-      "parentId": "grp_ecole",
-      "name": "PATCH /school/{schoolId}",
-      "method": "PATCH",
-      "url": "{{ _.baseUrl }}/school/{{ _.schoolId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "req_patch_course_courseid",
+            "_type": "request",
+            "parentId": "grp_cours",
+            "name": "PATCH /course/{courseId}",
+            "method": "PATCH",
+            "url": "{{ _.baseUrl }}/course/{{ _.courseId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"id\": \"31c14825-de80-43b5-88cc-89e21882a79d\"\n}"
+            }
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"id\": \"31c14825-de80-43b5-88cc-89e21882a79d\"\n}"
-      }
-    },
-    {
-      "_id": "req_delete_school_schoolid",
-      "_type": "request",
-      "parentId": "grp_ecole",
-      "name": "DELETE /school/{schoolId}",
-      "method": "DELETE",
-      "url": "{{ _.baseUrl }}/school/{{ _.schoolId }}",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      }
-    },
-    {
-      "_id": "req_patch_school_schoolid_preferences",
-      "_type": "request",
-      "parentId": "grp_ecole",
-      "name": "PATCH /school/{schoolId}/preferences",
-      "method": "PATCH",
-      "url": "{{ _.baseUrl }}/school/{{ _.schoolId }}/preferences",
-      "authentication": {
-        "type": "bearer",
-        "token": "{{ _.accessToken }}"
-      },
-      "headers": [
+            "_id": "req_get_course_courseid",
+            "_type": "request",
+            "parentId": "grp_cours",
+            "name": "GET /course/{courseId}",
+            "method": "GET",
+            "url": "{{ _.baseUrl }}/course/{{ _.courseId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
         {
-          "name": "Content-Type",
-          "value": "application/json"
+            "_id": "req_delete_course_courseid",
+            "_type": "request",
+            "parentId": "grp_cours",
+            "name": "DELETE /course/{courseId}",
+            "method": "DELETE",
+            "url": "{{ _.baseUrl }}/course/{{ _.courseId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_get_course_courseid_status",
+            "_type": "request",
+            "parentId": "grp_cours",
+            "name": "GET /course/{courseId}/status",
+            "method": "GET",
+            "url": "{{ _.baseUrl }}/course/{{ _.courseId }}/status",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_post_course_courseid_classrooms",
+            "_type": "request",
+            "parentId": "grp_cours",
+            "name": "POST /course/{courseId}/classrooms",
+            "method": "POST",
+            "url": "{{ _.baseUrl }}/course/{{ _.courseId }}/classrooms",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"classroomId\": \"{{ _.classroomId }}\"\n}"
+            }
+        },
+        {
+            "_id": "req_delete_course_courseid_classrooms_classroomid",
+            "_type": "request",
+            "parentId": "grp_cours",
+            "name": "DELETE /course/{courseId}/classrooms/{classroomId}",
+            "method": "DELETE",
+            "url": "{{ _.baseUrl }}/course/{{ _.courseId }}/classrooms/{{ _.classroomId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_post_course_courseid_studentgroups",
+            "_type": "request",
+            "parentId": "grp_cours",
+            "name": "POST /course/{courseId}/studentGroups",
+            "method": "POST",
+            "url": "{{ _.baseUrl }}/course/{{ _.courseId }}/studentGroups",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"groupsIds\": [\n    \"{{ _.studentGroupId }}\"\n  ]\n}"
+            }
+        },
+        {
+            "_id": "req_delete_course_courseid_studentgroup_groupid",
+            "_type": "request",
+            "parentId": "grp_cours",
+            "name": "DELETE /course/{courseId}/studentGroup/{groupId}",
+            "method": "DELETE",
+            "url": "{{ _.baseUrl }}/course/{{ _.courseId }}/studentGroup/{{ _.studentGroupId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_post_course_courseid_students",
+            "_type": "request",
+            "parentId": "grp_cours",
+            "name": "POST /course/{courseId}/students",
+            "method": "POST",
+            "url": "{{ _.baseUrl }}/course/{{ _.courseId }}/students",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"studentsId\": [\n    \"{{ _.studentId }}\"\n  ]\n}"
+            }
+        },
+        {
+            "_id": "req_delete_course_courseid_student_studentid",
+            "_type": "request",
+            "parentId": "grp_cours",
+            "name": "DELETE /course/{courseId}/student/{studentId}",
+            "method": "DELETE",
+            "url": "{{ _.baseUrl }}/course/{{ _.courseId }}/student/{{ _.studentId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_post_course_courseid_teacher",
+            "_type": "request",
+            "parentId": "grp_cours",
+            "name": "POST /course/{courseId}/teacher",
+            "method": "POST",
+            "url": "{{ _.baseUrl }}/course/{{ _.courseId }}/teacher",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"teacherId\": \"{{ _.teacherId }}\"\n}"
+            }
+        },
+        {
+            "_id": "req_delete_course_courseid_teacher_teacherid",
+            "_type": "request",
+            "parentId": "grp_cours",
+            "name": "DELETE /course/{courseId}/teacher/{teacherId}",
+            "method": "DELETE",
+            "url": "{{ _.baseUrl }}/course/{{ _.courseId }}/teacher/{{ _.teacherId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_post_signature",
+            "_type": "request",
+            "parentId": "grp_signature",
+            "name": "POST /signature",
+            "method": "POST",
+            "url": "{{ _.baseUrl }}/signature",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"date\": 1769331900,\n  \"course\": \"{{ _.courseId }}\",\n  \"status\": \"signed\",\n  \"method\": \"beacon\",\n  \"student\": \"{{ _.studentId }}\"\n}"
+            }
+        },
+        {
+            "_id": "req_get_signature_signatureid",
+            "_type": "request",
+            "parentId": "grp_signature",
+            "name": "GET /signature/{signatureId}",
+            "method": "GET",
+            "url": "{{ _.baseUrl }}/signature/{{ _.signatureId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_patch_signature_signatureid",
+            "_type": "request",
+            "parentId": "grp_signature",
+            "name": "PATCH /signature/{signatureId}",
+            "method": "PATCH",
+            "url": "{{ _.baseUrl }}/signature/{{ _.signatureId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"id\": \"{{ _.signatureId }}\"\n}"
+            }
+        },
+        {
+            "_id": "req_delete_signature_signatureid",
+            "_type": "request",
+            "parentId": "grp_signature",
+            "name": "DELETE /signature/{signatureId}",
+            "method": "DELETE",
+            "url": "{{ _.baseUrl }}/signature/{{ _.signatureId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_get_signature_buzzlightyear",
+            "_type": "request",
+            "parentId": "grp_signature",
+            "name": "GET /signature/buzzlightyear",
+            "method": "GET",
+            "url": "{{ _.baseUrl }}/signature/buzzlightyear",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_post_signature_buzzlightyear_beaconid",
+            "_type": "request",
+            "parentId": "grp_signature",
+            "name": "POST /signature/buzzlightyear/{beaconId}",
+            "method": "POST",
+            "url": "{{ _.baseUrl }}/signature/buzzlightyear/{{ _.beaconId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"signature\": \"deadbeef\"\n}"
+            }
+        },
+        {
+            "_id": "req_post_signature_nfccode_beaconid",
+            "_type": "request",
+            "parentId": "grp_signature",
+            "name": "POST /signature/nfcCode/{beaconId}",
+            "method": "POST",
+            "url": "{{ _.baseUrl }}/signature/nfcCode/{{ _.beaconId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"code\": 123456\n}"
+            }
+        },
+        {
+            "_id": "req_get_students_schoolid",
+            "_type": "request",
+            "parentId": "grp_utilisateurs",
+            "name": "GET /students/{schoolId}",
+            "method": "GET",
+            "url": "{{ _.baseUrl }}/students/{{ _.schoolId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_post_student",
+            "_type": "request",
+            "parentId": "grp_utilisateurs",
+            "name": "POST /student",
+            "method": "POST",
+            "url": "{{ _.baseUrl }}/student",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"firstname\": \"Marc\",\n  \"lastname\": \"Dupont\",\n  \"email\": \"jean.paul@semaphore.fr\",\n  \"password\": \"12345abcd\",\n  \"studentNumber\": 20210894\n}"
+            }
+        },
+        {
+            "_id": "req_get_student_studentid",
+            "_type": "request",
+            "parentId": "grp_utilisateurs",
+            "name": "GET /student/{studentId}",
+            "method": "GET",
+            "url": "{{ _.baseUrl }}/student/{{ _.studentId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_patch_student_studentid",
+            "_type": "request",
+            "parentId": "grp_utilisateurs",
+            "name": "PATCH /student/{studentId}",
+            "method": "PATCH",
+            "url": "{{ _.baseUrl }}/student/{{ _.studentId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"id\": \"31c14825-de80-43b5-88cc-89e21882a79d\"\n}"
+            }
+        },
+        {
+            "_id": "req_delete_student_studentid",
+            "_type": "request",
+            "parentId": "grp_utilisateurs",
+            "name": "DELETE /student/{studentId}",
+            "method": "DELETE",
+            "url": "{{ _.baseUrl }}/student/{{ _.studentId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_get_student_studentid_device",
+            "_type": "request",
+            "parentId": "grp_utilisateurs",
+            "name": "GET /student/{studentId}/device",
+            "method": "GET",
+            "url": "{{ _.baseUrl }}/student/{{ _.studentId }}/device",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_put_student_studentid_device",
+            "_type": "request",
+            "parentId": "grp_utilisateurs",
+            "name": "PUT /student/{studentId}/device",
+            "method": "PUT",
+            "url": "{{ _.baseUrl }}/student/{{ _.studentId }}/device",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"id\": \"{{ _.deviceId }}\",\n  \"name\": \"Demo device\"\n}"
+            }
+        },
+        {
+            "_id": "req_get_teachers_schoolid",
+            "_type": "request",
+            "parentId": "grp_utilisateurs",
+            "name": "GET /teachers/{schoolId}",
+            "method": "GET",
+            "url": "{{ _.baseUrl }}/teachers/{{ _.schoolId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_post_teacher",
+            "_type": "request",
+            "parentId": "grp_utilisateurs",
+            "name": "POST /teacher",
+            "method": "POST",
+            "url": "{{ _.baseUrl }}/teacher",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"firstname\": \"Marc\",\n  \"lastname\": \"Dupont\",\n  \"email\": \"jean.paul@semaphore.fr\",\n  \"password\": \"12345abcd\"\n}"
+            }
+        },
+        {
+            "_id": "req_get_teacher_teacherid",
+            "_type": "request",
+            "parentId": "grp_utilisateurs",
+            "name": "GET /teacher/{teacherId}",
+            "method": "GET",
+            "url": "{{ _.baseUrl }}/teacher/{{ _.teacherId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_patch_teacher_teacherid",
+            "_type": "request",
+            "parentId": "grp_utilisateurs",
+            "name": "PATCH /teacher/{teacherId}",
+            "method": "PATCH",
+            "url": "{{ _.baseUrl }}/teacher/{{ _.teacherId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"id\": \"31c14825-de80-43b5-88cc-89e21882a79d\"\n}"
+            }
+        },
+        {
+            "_id": "req_delete_teacher_teacherid",
+            "_type": "request",
+            "parentId": "grp_utilisateurs",
+            "name": "DELETE /teacher/{teacherId}",
+            "method": "DELETE",
+            "url": "{{ _.baseUrl }}/teacher/{{ _.teacherId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_get_admins_schoolid",
+            "_type": "request",
+            "parentId": "grp_utilisateurs",
+            "name": "GET /admins/{schoolId}",
+            "method": "GET",
+            "url": "{{ _.baseUrl }}/admins/{{ _.schoolId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_post_admin",
+            "_type": "request",
+            "parentId": "grp_utilisateurs",
+            "name": "POST /admin",
+            "method": "POST",
+            "url": "{{ _.baseUrl }}/admin",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"firstname\": \"Marc\",\n  \"lastname\": \"Dupont\",\n  \"email\": \"jean.paul@semaphore.fr\",\n  \"password\": \"12345abcd\",\n  \"role\": \"planning\"\n}"
+            }
+        },
+        {
+            "_id": "req_get_admin_adminid",
+            "_type": "request",
+            "parentId": "grp_utilisateurs",
+            "name": "GET /admin/{adminId}",
+            "method": "GET",
+            "url": "{{ _.baseUrl }}/admin/{{ _.adminId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_patch_admin_adminid",
+            "_type": "request",
+            "parentId": "grp_utilisateurs",
+            "name": "PATCH /admin/{adminId}",
+            "method": "PATCH",
+            "url": "{{ _.baseUrl }}/admin/{{ _.adminId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"id\": \"31c14825-de80-43b5-88cc-89e21882a79d\"\n}"
+            }
+        },
+        {
+            "_id": "req_delete_admin_adminid",
+            "_type": "request",
+            "parentId": "grp_utilisateurs",
+            "name": "DELETE /admin/{adminId}",
+            "method": "DELETE",
+            "url": "{{ _.baseUrl }}/admin/{{ _.adminId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_get_classrooms_schoolid",
+            "_type": "request",
+            "parentId": "grp_classes",
+            "name": "GET /classrooms/{schoolId}",
+            "method": "GET",
+            "url": "{{ _.baseUrl }}/classrooms/{{ _.schoolId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_post_classroom",
+            "_type": "request",
+            "parentId": "grp_classes",
+            "name": "POST /classroom",
+            "method": "POST",
+            "url": "{{ _.baseUrl }}/classroom",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"name\": \"A001\"\n}"
+            }
+        },
+        {
+            "_id": "req_get_classroom_classroomid",
+            "_type": "request",
+            "parentId": "grp_classes",
+            "name": "GET /classroom/{classroomId}",
+            "method": "GET",
+            "url": "{{ _.baseUrl }}/classroom/{{ _.classroomId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_patch_classroom_classroomid",
+            "_type": "request",
+            "parentId": "grp_classes",
+            "name": "PATCH /classroom/{classroomId}",
+            "method": "PATCH",
+            "url": "{{ _.baseUrl }}/classroom/{{ _.classroomId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"id\": \"31c14825-de80-43b5-88cc-89e21882a79d\"\n}"
+            }
+        },
+        {
+            "_id": "req_delete_classroom_classroomid",
+            "_type": "request",
+            "parentId": "grp_classes",
+            "name": "DELETE /classroom/{classroomId}",
+            "method": "DELETE",
+            "url": "{{ _.baseUrl }}/classroom/{{ _.classroomId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_get_studentgroups_schoolid",
+            "_type": "request",
+            "parentId": "grp_groupes_d_etudiants",
+            "name": "GET /studentGroups/{schoolId}",
+            "method": "GET",
+            "url": "{{ _.baseUrl }}/studentGroups/{{ _.schoolId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_post_studentgroup",
+            "_type": "request",
+            "parentId": "grp_groupes_d_etudiants",
+            "name": "POST /studentGroup",
+            "method": "POST",
+            "url": "{{ _.baseUrl }}/studentGroup",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"name\": \"M1 - TI\",\n  \"singleStudentGroup\": false\n}"
+            }
+        },
+        {
+            "_id": "req_get_studentgroup_groupid",
+            "_type": "request",
+            "parentId": "grp_groupes_d_etudiants",
+            "name": "GET /studentGroup/{groupId}",
+            "method": "GET",
+            "url": "{{ _.baseUrl }}/studentGroup/{{ _.studentGroupId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_patch_studentgroup_groupid",
+            "_type": "request",
+            "parentId": "grp_groupes_d_etudiants",
+            "name": "PATCH /studentGroup/{groupId}",
+            "method": "PATCH",
+            "url": "{{ _.baseUrl }}/studentGroup/{{ _.studentGroupId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"id\": \"31c14825-de80-43b5-88cc-89e21882a79d\"\n}"
+            }
+        },
+        {
+            "_id": "req_delete_studentgroup_groupid",
+            "_type": "request",
+            "parentId": "grp_groupes_d_etudiants",
+            "name": "DELETE /studentGroup/{groupId}",
+            "method": "DELETE",
+            "url": "{{ _.baseUrl }}/studentGroup/{{ _.studentGroupId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_post_studentgroup_groupid_students",
+            "_type": "request",
+            "parentId": "grp_groupes_d_etudiants",
+            "name": "POST /studentGroup/{groupId}/students",
+            "method": "POST",
+            "url": "{{ _.baseUrl }}/studentGroup/{{ _.studentGroupId }}/students",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"studentsIds\": [\n    \"{{ _.studentId }}\"\n  ]\n}"
+            }
+        },
+        {
+            "_id": "req_delete_studentgroup_groupid_student_studentid",
+            "_type": "request",
+            "parentId": "grp_groupes_d_etudiants",
+            "name": "DELETE /studentGroup/{groupId}/student/{studentId}",
+            "method": "DELETE",
+            "url": "{{ _.baseUrl }}/studentGroup/{{ _.studentGroupId }}/student/{{ _.studentId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_get_schools",
+            "_type": "request",
+            "parentId": "grp_ecole",
+            "name": "GET /schools",
+            "method": "GET",
+            "url": "{{ _.baseUrl }}/schools",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_post_school",
+            "_type": "request",
+            "parentId": "grp_ecole",
+            "name": "POST /school",
+            "method": "POST",
+            "url": "{{ _.baseUrl }}/school",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"name\": \"EFREI Paris\"\n}"
+            }
+        },
+        {
+            "_id": "req_get_school_schoolid",
+            "_type": "request",
+            "parentId": "grp_ecole",
+            "name": "GET /school/{schoolId}",
+            "method": "GET",
+            "url": "{{ _.baseUrl }}/school/{{ _.schoolId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_patch_school_schoolid",
+            "_type": "request",
+            "parentId": "grp_ecole",
+            "name": "PATCH /school/{schoolId}",
+            "method": "PATCH",
+            "url": "{{ _.baseUrl }}/school/{{ _.schoolId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"id\": \"31c14825-de80-43b5-88cc-89e21882a79d\"\n}"
+            }
+        },
+        {
+            "_id": "req_delete_school_schoolid",
+            "_type": "request",
+            "parentId": "grp_ecole",
+            "name": "DELETE /school/{schoolId}",
+            "method": "DELETE",
+            "url": "{{ _.baseUrl }}/school/{{ _.schoolId }}",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            }
+        },
+        {
+            "_id": "req_patch_school_schoolid_preferences",
+            "_type": "request",
+            "parentId": "grp_ecole",
+            "name": "PATCH /school/{schoolId}/preferences",
+            "method": "PATCH",
+            "url": "{{ _.baseUrl }}/school/{{ _.schoolId }}/preferences",
+            "authentication": {
+                "type": "bearer",
+                "token": "{{ _.accessToken }}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"id\": \"31c14825-de80-43b5-88cc-89e21882a79d\"\n}"
+            }
         }
-      ],
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n  \"id\": \"31c14825-de80-43b5-88cc-89e21882a79d\"\n}"
-      }
-    }
-  ]
+    ]
 }
