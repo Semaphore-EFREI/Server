@@ -710,6 +710,8 @@ spec:
               value: academics:9092
             - name: IDENTITY_GRPC_ADDR
               value: auth-identity:9091
+            - name: BEACON_GRPC_ADDR
+              value: beacon:9094
             - name: REDIS_ADDR
               value: redis:6379
             - name: REDIS_PASSWORD
@@ -717,6 +719,8 @@ spec:
                 secretKeyRef:
                   name: redis-credentials
                   key: redis-password
+            - name: NFC_DEBUG_ENABLED
+              value: "true"
             - name: SIGNATURE_CLOSE_JOB_ENABLED
               value: "true"
             - name: SIGNATURE_CLOSE_JOB_INTERVAL
