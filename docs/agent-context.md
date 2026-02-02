@@ -1,6 +1,6 @@
 # Agent Context (Envoy Gateway + mTLS)
 
-Last updated: 2026-02-01
+Last updated: 2026-02-02
 
 ## Goal
 Replace the legacy static Envoy gateway with Envoy Gateway (Gateway API) while keeping Istio mTLS for internal traffic and allowing plaintext ingress from Traefik for now.
@@ -10,15 +10,17 @@ Replace the legacy static Envoy gateway with Envoy Gateway (Gateway API) while k
 - Envoy Gateway data plane runs as `Deployment/envoy-semaphore-gateway` with Istio sidecar and inbound capture enabled.
 - Gateway resources (GatewayClass/Gateway/HTTPRoutes/SecurityPolicies) live in `semaphore`.
 - Traefik routes `semaphore.deway.fr` to `Service/envoy-semaphore-gateway` in `envoy-gateway-system` (plaintext).
+- Traefik also enforces CORS for the public API (see Terraform middleware).
 - Internal traffic from gateway to services uses mTLS (namespace `semaphore` is STRICT).
 - In-mesh callers to the gateway use mTLS (`DestinationRule` with `ISTIO_MUTUAL`).
+- Frontend pods run without an Istio sidecar (sidecar injection disabled).
 
 ## Changes Applied (Repo)
 ### Envoy Gateway (Gateway API)
 - `k8s/istio/envoy-gateway.yaml`
   - EnvoyProxy with stable deployment name `envoy-semaphore-gateway`.
   - GatewayClass + Gateway + HTTPRoutes for auth/academics/attendance/beacon.
-  - SecurityPolicies for JWT (public + protected routes).
+  - SecurityPolicies for JWT (public + protected routes). CORS is handled by Traefik.
   - DestinationRule `envoy-gateway-mtls` for `*.envoy-gateway-system.svc.cluster.local`.
   - Service `envoy-semaphore-gateway` (port 80 -> targetPort 10080).
   - HPA for the gateway (min 2 / max 5 / CPU 70%).
@@ -38,6 +40,7 @@ Replace the legacy static Envoy gateway with Envoy Gateway (Gateway API) while k
     - attendance: min 2 / max 8 / CPU 70%
     - beacon: min 2 / max 4 / CPU 70%
   - Scale behavior: +100%/30s up, -30%/60s down, 5 min down-stabilization.
+  - Frontend Deployment runs without Istio sidecar (`sidecar.istio.io/inject: "false"`).
 
 ### Terraform (Traefik → Envoy Gateway)
 - `infra/terraform/variables.tf`
@@ -47,6 +50,7 @@ Replace the legacy static Envoy gateway with Envoy Gateway (Gateway API) while k
 - `infra/terraform/main.tf`
   - Ingress resources moved to `envoy-gateway-system`.
   - Backend service updated to `envoy-semaphore-gateway`.
+  - Added Traefik middleware `semaphore-api-cors` and attached it to gateway Ingress (HTTP/HTTPS).
   - Creates `envoy-gateway-system` namespace.
   - Installs Envoy Gateway via Helm (`eg` release).
 
@@ -54,7 +58,7 @@ Replace the legacy static Envoy gateway with Envoy Gateway (Gateway API) while k
 - `infra/terraform/jenkins.tf`
   - Added `semaphore_frontend` job (builds Vue/Vite app into `semaphore-frontend` image).
 - `infra/terraform/jenkins-pipeline-frontend.xml`
-  - Inline pipeline to build/push frontend image and roll out `deployment/frontend`.
+  - Inline pipeline to build/push frontend image (Node 20.19) and roll out `deployment/frontend`.
 
 ## Operational Notes
 - Apply gateway resources:

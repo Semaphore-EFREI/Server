@@ -249,43 +249,6 @@ spec:
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
-  name: semaphore-jwt-default
-  namespace: semaphore
-spec:
-  targetRef:
-    group: gateway.networking.k8s.io
-    kind: Gateway
-    name: semaphore-gateway
-  jwt:
-    providers:
-      - name: semaphore_jwt
-        issuer: semaphore-auth-identity
-        remoteJWKS:
-          uri: http://auth-identity.semaphore.svc.cluster.local:8081/.well-known/jwks.json
-
----
-apiVersion: gateway.envoyproxy.io/v1alpha1
-kind: SecurityPolicy
-metadata:
-  name: semaphore-jwt-public
-  namespace: semaphore
-spec:
-  targetRef:
-    group: gateway.networking.k8s.io
-    kind: HTTPRoute
-    name: semaphore-auth-identity-public
-  jwt:
-    optional: true
-    providers:
-      - name: semaphore_jwt
-        issuer: semaphore-auth-identity
-        remoteJWKS:
-          uri: http://auth-identity.semaphore.svc.cluster.local:8081/.well-known/jwks.json
-
----
-apiVersion: gateway.envoyproxy.io/v1alpha1
-kind: SecurityPolicy
-metadata:
   name: semaphore-jwt-protected
   namespace: semaphore
 spec:

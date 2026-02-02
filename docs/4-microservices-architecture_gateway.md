@@ -317,7 +317,7 @@ Envoy (gateway) must handle:
 - Routing by path prefix to services
 - JWT verification (signature/expiry) at the edge (recommended)
 - Rate limiting (especially auth/signature/beacon endpoints)
-- CORS
+- CORS (currently enforced at Traefik for the public API ingress)
 - Request ID / trace propagation
 - Access logs + metrics
 
