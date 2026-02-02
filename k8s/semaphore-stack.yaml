@@ -440,6 +440,8 @@ spec:
       app: frontend
   template:
     metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
       labels:
         app: frontend
     spec:

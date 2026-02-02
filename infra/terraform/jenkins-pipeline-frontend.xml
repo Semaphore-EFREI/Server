@@ -15,7 +15,7 @@ pipeline {
         spec:
           containers:
           - name: builder
-            image: node:18-bullseye
+            image: node:20.19-bullseye
             tty: true
             command: ["cat"]
         """
@@ -83,40 +83,43 @@ pipeline {
       steps {
         container('builder') {
           sh '''
-            set -e
-            cat > nginx.conf <<'NGINX_CONF'
-            server {
-              listen 80;
-              server_name _;
-              root /usr/share/nginx/html;
-              index index.html;
+set -e
+cat <<'NGINX_CONF' > nginx.conf
+server {
+  listen 80;
+  server_name _;
+  root /usr/share/nginx/html;
+  index index.html;
 
-              location / {
-                try_files $uri $uri/ /index.html;
-              }
-            }
-            NGINX_CONF
+  location / {
+    try_files $uri $uri/ /index.html;
+  }
+}
+NGINX_CONF
 
-            cat > Dockerfile <<'DOCKERFILE'
-            FROM node:18-bullseye AS build
-            WORKDIR /app
-            COPY package*.json ./
-            RUN npm install
-            COPY . .
-            RUN npm run build
+cat <<'DOCKERFILE' > Dockerfile
+FROM node:20.19-bullseye AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
 
-            FROM nginx:1.27-alpine
-            COPY --from=build /app/dist /usr/share/nginx/html
-            COPY nginx.conf /etc/nginx/conf.d/default.conf
-            DOCKERFILE
+FROM nginx:1.27-alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+DOCKERFILE
 
-            buildctl \
-              --addr "$BUILDKIT_HOST" \
-              build \
-              --frontend dockerfile.v0 \
-              --local context=. \
-              --local dockerfile=. \
-              --output "type=image,name=$REGISTRY_PUSH_HOST/$IMAGE_NAME:$BUILD_NUMBER,$REGISTRY_PUSH_HOST/$IMAGE_NAME:latest,$REGISTRY_HOST/$IMAGE_NAME:$BUILD_NUMBER,$REGISTRY_HOST/$IMAGE_NAME:latest,push=true,registry.insecure=true"
+buildctl \
+  --addr "$BUILDKIT_HOST" \
+  build \
+  --frontend dockerfile.v0 \
+  --local context=. \
+  --local dockerfile=. \
+  --output "type=image,name=$REGISTRY_PUSH_HOST/$IMAGE_NAME:$BUILD_NUMBER,push=true,registry.insecure=true" \
+  --output "type=image,name=$REGISTRY_PUSH_HOST/$IMAGE_NAME:latest,push=true,registry.insecure=true" \
+  --output "type=image,name=$REGISTRY_HOST/$IMAGE_NAME:$BUILD_NUMBER,push=true,registry.insecure=true" \
+  --output "type=image,name=$REGISTRY_HOST/$IMAGE_NAME:latest,push=true,registry.insecure=true"
           '''
         }
       }
@@ -135,6 +138,7 @@ pipeline {
                 kubectl set image deployment/frontend \
                   frontend=$REGISTRY_HOST/$IMAGE_NAME:$BUILD_NUMBER \
                   -n "$K8S_NAMESPACE"
+                kubectl rollout restart deployment/frontend -n "$K8S_NAMESPACE"
                 kubectl rollout status deployment/frontend -n "$K8S_NAMESPACE" --timeout=5m
               '''
             }
