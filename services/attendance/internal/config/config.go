@@ -23,6 +23,7 @@ type Config struct {
 	BuzzLightyearTTL          time.Duration
 	SignatureChallengeTTL     time.Duration
 	DeviceSignatureWindow     time.Duration
+	NfcDebugEnabled           bool
 	SignatureCloseJobEnabled  bool
 	SignatureCloseJobInterval time.Duration
 	SignatureCloseJobTimeout  time.Duration
@@ -45,6 +46,7 @@ func Load() Config {
 		BuzzLightyearTTL:          getenvDuration("BUZZLIGHTYEAR_TTL", 45*time.Second),
 		SignatureChallengeTTL:     getenvDuration("SIGNATURE_CHALLENGE_TTL", 5*time.Minute),
 		DeviceSignatureWindow:     getenvDuration("DEVICE_SIGNATURE_WINDOW", 30*time.Second),
+		NfcDebugEnabled:           getenvBool("NFC_DEBUG_ENABLED", false),
 		SignatureCloseJobEnabled:  getenvBool("SIGNATURE_CLOSE_JOB_ENABLED", true),
 		SignatureCloseJobInterval: getenvDuration("SIGNATURE_CLOSE_JOB_INTERVAL", 1*time.Minute),
 		SignatureCloseJobTimeout:  getenvDuration("SIGNATURE_CLOSE_JOB_TIMEOUT", 10*time.Second),

@@ -42,12 +42,23 @@ message ValidateNfcCodeResponse {
   bool is_valid = 1;
 }
 
+message GetNfcCodeRequest {
+  string beacon_id = 1;
+}
+
+message GetNfcCodeResponse {
+  string totp_code = 1;
+  int64 generated_at = 2;
+}
+
 // BeaconQueryService exposes read-only beacon data.
 service BeaconQueryService {
   // ListBeaconsByClassroom returns all beacons assigned to a classroom.
   rpc ListBeaconsByClassroom(ListBeaconsByClassroomRequest) returns (ListBeaconsByClassroomResponse);
   // ValidateNfcCode validates a TOTP code emitted by a beacon.
   rpc ValidateNfcCode(ValidateNfcCodeRequest) returns (ValidateNfcCodeResponse);
+  // GetNfcCode returns the current TOTP code for a beacon (debug only).
+  rpc GetNfcCode(GetNfcCodeRequest) returns (GetNfcCodeResponse);
 }
 
 // BeaconCommandService exposes write operations for beacon management.

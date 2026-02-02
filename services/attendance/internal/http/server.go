@@ -82,6 +82,7 @@ func (s *Server) Router() http.Handler {
 	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Get("/signature/buzzlightyear", s.handleGetBuzzlightyear)
 	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Post("/signature/buzzlightyear/{beaconId}", s.handlePostBuzzlightyear)
 	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Post("/signature/nfcCode/{beaconId}", s.handlePostNfcCode)
+	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Get("/signature/nfcCode/{beaconId}/debug", s.handleGetNfcDebugCode)
 	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Patch("/signature/{signatureId}", s.handlePatchSignature)
 	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Delete("/signature/{signatureId}", s.handleDeleteSignature)
 	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Get("/signatures", s.handleListSignatures)
@@ -918,6 +919,47 @@ func (s *Server) handlePostNfcCode(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"challenge": challenge,
 		"expiresIn": int64(s.challengeTTL.Seconds()),
+	})
+}
+
+func (s *Server) handleGetNfcDebugCode(w http.ResponseWriter, r *http.Request) {
+	if !s.cfg.NfcDebugEnabled {
+		writeError(w, http.StatusNotFound, "not_found")
+		return
+	}
+	claims := claimsFromContext(r.Context())
+	if claims == nil {
+		writeError(w, http.StatusUnauthorized, "missing_token")
+		return
+	}
+	if claims.UserType != "admin" && claims.UserType != "dev" {
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+
+	beaconID := chi.URLParam(r, "beaconId")
+	if beaconID == "" {
+		writeError(w, http.StatusBadRequest, "missing_beacon_id")
+		return
+	}
+	if _, err := uuid.Parse(beaconID); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_beacon_id")
+		return
+	}
+	if s.beacon == nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+	resp, err := s.beacon.GetNfcCode(r.Context(), &beaconv1.GetNfcCodeRequest{
+		BeaconId: beaconID,
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"totpCode":    resp.GetTotpCode(),
+		"generatedAt": resp.GetGeneratedAt(),
 	})
 }
 

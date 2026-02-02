@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion7
 const (
 	BeaconQueryService_ListBeaconsByClassroom_FullMethodName = "/beacon.api.v1.BeaconQueryService/ListBeaconsByClassroom"
 	BeaconQueryService_ValidateNfcCode_FullMethodName        = "/beacon.api.v1.BeaconQueryService/ValidateNfcCode"
+	BeaconQueryService_GetNfcCode_FullMethodName             = "/beacon.api.v1.BeaconQueryService/GetNfcCode"
 )
 
 // BeaconQueryServiceClient is the client API for BeaconQueryService service.
@@ -31,6 +32,8 @@ type BeaconQueryServiceClient interface {
 	ListBeaconsByClassroom(ctx context.Context, in *ListBeaconsByClassroomRequest, opts ...grpc.CallOption) (*ListBeaconsByClassroomResponse, error)
 	// ValidateNfcCode validates a TOTP code emitted by a beacon.
 	ValidateNfcCode(ctx context.Context, in *ValidateNfcCodeRequest, opts ...grpc.CallOption) (*ValidateNfcCodeResponse, error)
+	// GetNfcCode returns the current TOTP code for a beacon (debug only).
+	GetNfcCode(ctx context.Context, in *GetNfcCodeRequest, opts ...grpc.CallOption) (*GetNfcCodeResponse, error)
 }
 
 type beaconQueryServiceClient struct {
@@ -59,6 +62,15 @@ func (c *beaconQueryServiceClient) ValidateNfcCode(ctx context.Context, in *Vali
 	return out, nil
 }
 
+func (c *beaconQueryServiceClient) GetNfcCode(ctx context.Context, in *GetNfcCodeRequest, opts ...grpc.CallOption) (*GetNfcCodeResponse, error) {
+	out := new(GetNfcCodeResponse)
+	err := c.cc.Invoke(ctx, BeaconQueryService_GetNfcCode_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // BeaconQueryServiceServer is the server API for BeaconQueryService service.
 // All implementations must embed UnimplementedBeaconQueryServiceServer
 // for forward compatibility
@@ -67,6 +79,8 @@ type BeaconQueryServiceServer interface {
 	ListBeaconsByClassroom(context.Context, *ListBeaconsByClassroomRequest) (*ListBeaconsByClassroomResponse, error)
 	// ValidateNfcCode validates a TOTP code emitted by a beacon.
 	ValidateNfcCode(context.Context, *ValidateNfcCodeRequest) (*ValidateNfcCodeResponse, error)
+	// GetNfcCode returns the current TOTP code for a beacon (debug only).
+	GetNfcCode(context.Context, *GetNfcCodeRequest) (*GetNfcCodeResponse, error)
 	mustEmbedUnimplementedBeaconQueryServiceServer()
 }
 
@@ -79,6 +93,9 @@ func (UnimplementedBeaconQueryServiceServer) ListBeaconsByClassroom(context.Cont
 }
 func (UnimplementedBeaconQueryServiceServer) ValidateNfcCode(context.Context, *ValidateNfcCodeRequest) (*ValidateNfcCodeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ValidateNfcCode not implemented")
+}
+func (UnimplementedBeaconQueryServiceServer) GetNfcCode(context.Context, *GetNfcCodeRequest) (*GetNfcCodeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetNfcCode not implemented")
 }
 func (UnimplementedBeaconQueryServiceServer) mustEmbedUnimplementedBeaconQueryServiceServer() {}
 
@@ -129,6 +146,24 @@ func _BeaconQueryService_ValidateNfcCode_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _BeaconQueryService_GetNfcCode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetNfcCodeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BeaconQueryServiceServer).GetNfcCode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BeaconQueryService_GetNfcCode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BeaconQueryServiceServer).GetNfcCode(ctx, req.(*GetNfcCodeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // BeaconQueryService_ServiceDesc is the grpc.ServiceDesc for BeaconQueryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -143,6 +178,10 @@ var BeaconQueryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ValidateNfcCode",
 			Handler:    _BeaconQueryService_ValidateNfcCode_Handler,
+		},
+		{
+			MethodName: "GetNfcCode",
+			Handler:    _BeaconQueryService_GetNfcCode_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

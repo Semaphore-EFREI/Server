@@ -73,6 +73,32 @@ func (s *BeaconQueryServer) ValidateNfcCode(ctx context.Context, req *beaconv1.V
 	return &beaconv1.ValidateNfcCodeResponse{IsValid: valid}, nil
 }
 
+func (s *BeaconQueryServer) GetNfcCode(ctx context.Context, req *beaconv1.GetNfcCodeRequest) (*beaconv1.GetNfcCodeResponse, error) {
+	if req.GetBeaconId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "beacon_id required")
+	}
+	beaconUUID, err := uuid.Parse(req.GetBeaconId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid beacon_id")
+	}
+	beacon, err := s.store.Queries.GetBeacon(ctx, pgUUID(beaconUUID))
+	if err != nil {
+		return nil, status.Error(codes.NotFound, "beacon not found")
+	}
+	if !beacon.TotpKey.Valid || strings.TrimSpace(beacon.TotpKey.String) == "" {
+		return nil, status.Error(codes.FailedPrecondition, "totp_key missing")
+	}
+	secretBytes, err := decodeTotpSecret(beacon.TotpKey.String)
+	if err != nil || len(secretBytes) == 0 {
+		return nil, status.Error(codes.FailedPrecondition, "totp_key invalid")
+	}
+	now := time.Now().UTC()
+	return &beaconv1.GetNfcCodeResponse{
+		TotpCode:    generateTotp(secretBytes, now),
+		GeneratedAt: now.Unix(),
+	}, nil
+}
+
 func mapBeacon(row db.Beacon) *beaconv1.Beacon {
 	serial := int64(0)
 	if row.SerialNumber != "" {
