@@ -35,7 +35,7 @@ func main() {
 	defer pool.Close()
 
 	store := db.NewStore(pool)
-	clients, err := clients.New(ctx, cfg.AcademicsGRPCAddr, cfg.IdentityGRPCAddr, cfg.ServiceAuthToken, cfg.GRPCDialTimeout)
+	clients, err := clients.New(ctx, cfg.AcademicsGRPCAddr, cfg.IdentityGRPCAddr, cfg.BeaconGRPCAddr, cfg.ServiceAuthToken, cfg.GRPCDialTimeout)
 	if err != nil {
 		log.Fatalf("grpc dial failed: %v", err)
 	}
@@ -60,7 +60,7 @@ func main() {
 		}()
 	}
 
-	server, err := internalhttp.NewServer(cfg, store, clients.Academics, clients.Identity, redisClient)
+	server, err := internalhttp.NewServer(cfg, store, clients.Academics, clients.Identity, clients.Beacon, redisClient)
 	if err != nil {
 		log.Fatalf("server init failed: %v", err)
 	}

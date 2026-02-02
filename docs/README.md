@@ -7,6 +7,7 @@ This folder contains the source-of-truth specifications, contracts, and architec
 - `openapi.json`: public REST contract served via Envoy (canonical).
 - `4-microservices-architecture-grpc.md`: internal gRPC boundaries and required contracts.
 - `4-microservices-architecture_gateway.md`: Envoy edge responsibilities and routing model.
+- `signature-challenge-flow.md`: student signature challenge + device verification flow.
 
 ## Data model
 - `ChartDB_per_service.json`: ChartDB export for per-service schemas.

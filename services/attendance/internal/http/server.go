@@ -1,12 +1,20 @@
 package http
 
 import (
+	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"net/http"
 	"strconv"
@@ -25,6 +33,7 @@ import (
 	"semaphore/attendance/internal/config"
 	"semaphore/attendance/internal/db"
 	identityv1 "semaphore/auth-identity/identity/v1"
+	beaconv1 "semaphore/beacon/beacon/v1"
 )
 
 type Server struct {
@@ -32,12 +41,15 @@ type Server struct {
 	store        *db.Store
 	academics    academicsv1.AcademicsQueryServiceClient
 	identity     identityv1.IdentityQueryServiceClient
+	beacon       beaconv1.BeaconQueryServiceClient
 	jwtPublicKey *rsa.PublicKey
 	redis        *redis.Client
 	buzzTTL      time.Duration
+	challengeTTL time.Duration
+	deviceWindow time.Duration
 }
 
-func NewServer(cfg config.Config, store *db.Store, academics academicsv1.AcademicsQueryServiceClient, identity identityv1.IdentityQueryServiceClient, redisClient *redis.Client) (*Server, error) {
+func NewServer(cfg config.Config, store *db.Store, academics academicsv1.AcademicsQueryServiceClient, identity identityv1.IdentityQueryServiceClient, beacon beaconv1.BeaconQueryServiceClient, redisClient *redis.Client) (*Server, error) {
 	publicKey, err := auth.ParseRSAPublicKey(cfg.JWTPublicKey)
 	if err != nil {
 		return nil, err
@@ -47,9 +59,12 @@ func NewServer(cfg config.Config, store *db.Store, academics academicsv1.Academi
 		store:        store,
 		academics:    academics,
 		identity:     identity,
+		beacon:       beacon,
 		jwtPublicKey: publicKey,
 		redis:        redisClient,
 		buzzTTL:      cfg.BuzzLightyearTTL,
+		challengeTTL: cfg.SignatureChallengeTTL,
+		deviceWindow: cfg.DeviceSignatureWindow,
 	}, nil
 }
 
@@ -62,14 +77,15 @@ func (s *Server) Router() http.Handler {
 	r.Handle("/metrics", promhttp.Handler())
 
 	r.With(s.authMiddleware).Get("/course/{courseId}/status", s.handleGetCourseStatus)
-	r.With(s.authMiddleware).Post("/signature", s.handleCreateSignature)
-	r.With(s.authMiddleware).Get("/signature/{signatureId}", s.handleGetSignature)
-	r.With(s.authMiddleware).Get("/signature/buzzlightyear", s.handleGetBuzzlightyear)
-	r.With(s.authMiddleware).Post("/signature/buzzlightyear/{beaconId}", s.handlePostBuzzlightyear)
-	r.With(s.authMiddleware).Patch("/signature/{signatureId}", s.handlePatchSignature)
-	r.With(s.authMiddleware).Delete("/signature/{signatureId}", s.handleDeleteSignature)
-	r.With(s.authMiddleware).Get("/signatures", s.handleListSignatures)
-	r.With(s.authMiddleware).Get("/signatures/report", s.handleSignatureReport)
+	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Post("/signature", s.handleCreateSignature)
+	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Get("/signature/{signatureId}", s.handleGetSignature)
+	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Get("/signature/buzzlightyear", s.handleGetBuzzlightyear)
+	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Post("/signature/buzzlightyear/{beaconId}", s.handlePostBuzzlightyear)
+	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Post("/signature/nfcCode/{beaconId}", s.handlePostNfcCode)
+	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Patch("/signature/{signatureId}", s.handlePatchSignature)
+	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Delete("/signature/{signatureId}", s.handleDeleteSignature)
+	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Get("/signatures", s.handleListSignatures)
+	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Get("/signatures/report", s.handleSignatureReport)
 
 	return r
 }
@@ -101,6 +117,99 @@ func claimsFromContext(ctx context.Context) *auth.Claims {
 	return claims
 }
 
+func (s *Server) studentDeviceSignatureMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		claims := claimsFromContext(r.Context())
+		if claims == nil {
+			writeError(w, http.StatusUnauthorized, "missing_token")
+			return
+		}
+		if claims.UserType != "student" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		deviceID := strings.TrimSpace(r.Header.Get("X-Device-ID"))
+		if deviceID == "" {
+			writeError(w, http.StatusForbidden, "device_not_allowed")
+			return
+		}
+
+		deviceResp, err := s.identity.ValidateStudentDevice(r.Context(), &identityv1.ValidateStudentDeviceRequest{
+			StudentId:        claims.UserID,
+			DeviceIdentifier: deviceID,
+		})
+		if err != nil || !deviceResp.GetIsValid() {
+			writeError(w, http.StatusForbidden, "device_not_allowed")
+			return
+		}
+		publicKey := strings.TrimSpace(deviceResp.GetPublicKey())
+		if publicKey == "" {
+			writeError(w, http.StatusForbidden, "device_not_allowed")
+			return
+		}
+
+		timestampRaw := strings.TrimSpace(r.Header.Get("X-Device-Timestamp"))
+		if timestampRaw == "" {
+			writeError(w, http.StatusBadRequest, "device_signature_missing")
+			return
+		}
+		timestamp, err := strconv.ParseInt(timestampRaw, 10, 64)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "device_signature_invalid")
+			return
+		}
+		if !withinDeviceWindow(timestamp, s.deviceWindow) {
+			writeError(w, http.StatusForbidden, "device_signature_invalid")
+			return
+		}
+
+		signatureRaw := strings.TrimSpace(r.Header.Get("X-Device-Signature"))
+		if signatureRaw == "" {
+			writeError(w, http.StatusBadRequest, "device_signature_missing")
+			return
+		}
+
+		bodyBytes, err := readBodyBytes(r)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "server_error")
+			return
+		}
+
+		challenge := ""
+		if r.Method == http.MethodPost && r.URL.Path == "/signature" && len(bodyBytes) > 0 {
+			var payload struct {
+				Challenge string `json:"challenge"`
+			}
+			if err := json.Unmarshal(bodyBytes, &payload); err != nil {
+				writeError(w, http.StatusBadRequest, "invalid_request")
+				return
+			}
+			challenge = strings.TrimSpace(payload.Challenge)
+		}
+
+		bodyHash := hashBodyBase64(bodyBytes)
+		message := deviceSignatureMessage(r.Method, r.URL.Path, claims.UserID, deviceID, timestampRaw, bodyHash, challenge)
+		pubKey, err := parseECDSAPublicKey(publicKey)
+		if err != nil {
+			writeError(w, http.StatusForbidden, "device_not_allowed")
+			return
+		}
+		signatureBytes, err := decodeBase64(signatureRaw)
+		if err != nil {
+			writeError(w, http.StatusForbidden, "device_signature_invalid")
+			return
+		}
+		digest := sha256.Sum256([]byte(message))
+		if !ecdsa.VerifyASN1(pubKey, digest[:], signatureBytes) {
+			writeError(w, http.StatusForbidden, "device_signature_invalid")
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 // Models
 
 type signatureBaseResponse struct {
@@ -126,13 +235,14 @@ type teacherSignatureResponse struct {
 }
 
 type createSignatureRequest struct {
-	Date    int64   `json:"date"`
-	Course  string  `json:"course"`
-	Status  string  `json:"status"`
-	Image   *string `json:"image"`
-	Method  string  `json:"method"`
-	Student string  `json:"student"`
-	Teacher string  `json:"teacher"`
+	Date      int64   `json:"date"`
+	Course    string  `json:"course"`
+	Status    string  `json:"status"`
+	Image     *string `json:"image"`
+	Method    string  `json:"method"`
+	Student   string  `json:"student"`
+	Teacher   string  `json:"teacher"`
+	Challenge string  `json:"challenge"`
 }
 
 type patchSignatureRequest struct {
@@ -267,6 +377,36 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 			}
 			if !present {
 				writeError(w, http.StatusForbidden, "teacher_not_present")
+				return
+			}
+		}
+
+		if requiresChallengeForMethod(methodValue) {
+			if strings.TrimSpace(req.Challenge) == "" {
+				writeError(w, http.StatusForbidden, "challenge_missing")
+				return
+			}
+			if s.redis == nil {
+				writeError(w, http.StatusInternalServerError, "server_error")
+				return
+			}
+			record, ok, err := s.consumeSignatureChallenge(r.Context(), strings.TrimSpace(req.Challenge))
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "server_error")
+				return
+			}
+			if !ok {
+				writeError(w, http.StatusForbidden, "challenge_missing")
+				return
+			}
+			now := time.Now().UTC().Unix()
+			if record.ExpiresAt > 0 && now > record.ExpiresAt {
+				writeError(w, http.StatusForbidden, "challenge_expired")
+				return
+			}
+			deviceID := strings.TrimSpace(r.Header.Get("X-Device-ID"))
+			if record.CourseID != req.Course || record.StudentID != req.Student || record.DeviceID != deviceID || record.Method != string(methodValue) {
+				writeError(w, http.StatusForbidden, "challenge_mismatch")
 				return
 			}
 		}
@@ -591,6 +731,7 @@ func (s *Server) handlePostBuzzlightyear(w http.ResponseWriter, r *http.Request)
 
 	var req struct {
 		Signature string `json:"signature"`
+		CourseID  string `json:"courseId"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request")
@@ -598,6 +739,14 @@ func (s *Server) handlePostBuzzlightyear(w http.ResponseWriter, r *http.Request)
 	}
 	if strings.TrimSpace(req.Signature) == "" {
 		writeError(w, http.StatusBadRequest, "missing_signature")
+		return
+	}
+	if strings.TrimSpace(req.CourseID) == "" {
+		writeError(w, http.StatusBadRequest, "missing_course")
+		return
+	}
+	if _, err := uuid.Parse(req.CourseID); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_course")
 		return
 	}
 
@@ -612,10 +761,163 @@ func (s *Server) handlePostBuzzlightyear(w http.ResponseWriter, r *http.Request)
 	}
 	_ = s.clearBuzzLightyearCode(r.Context(), beaconID)
 
-	message := fmt.Sprintf("%s_%d", beaconID, code)
-	writeJSON(w, http.StatusOK, map[string]string{
-		"message":   message,
-		"signature": req.Signature,
+	courseResp, err := s.academics.GetCourse(r.Context(), &academicsv1.GetCourseRequest{CourseId: req.CourseID})
+	if err != nil || courseResp.GetCourse() == nil {
+		writeError(w, http.StatusNotFound, "course_not_found")
+		return
+	}
+	allowed, err := s.academics.ValidateStudentCourse(r.Context(), &academicsv1.ValidateStudentCourseRequest{
+		StudentId: claims.UserID,
+		CourseId:  req.CourseID,
+	})
+	if err != nil || !allowed.GetIsAllowed() {
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+	prefs, err := s.loadSchoolPreferences(r.Context(), courseResp.GetCourse().GetSchoolId())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "preferences_not_found")
+		return
+	}
+	if !methodAllowedForStudent(db.SignatureMethod("buzzLightyear"), prefs) {
+		writeError(w, http.StatusForbidden, "method_not_allowed")
+		return
+	}
+
+	if s.redis == nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+	challenge, err := randomChallenge()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+	now := time.Now().UTC()
+	record := signatureChallengeRecord{
+		CourseID:  req.CourseID,
+		StudentID: claims.UserID,
+		DeviceID:  strings.TrimSpace(r.Header.Get("X-Device-ID")),
+		Method:    "buzzLightyear",
+		IssuedAt:  now.Unix(),
+		ExpiresAt: now.Add(s.challengeTTL).Unix(),
+	}
+	if err := s.storeSignatureChallenge(r.Context(), challenge, record); err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+
+	_ = code
+	writeJSON(w, http.StatusOK, map[string]any{
+		"challenge": challenge,
+		"expiresIn": int64(s.challengeTTL.Seconds()),
+	})
+}
+
+func (s *Server) handlePostNfcCode(w http.ResponseWriter, r *http.Request) {
+	claims := claimsFromContext(r.Context())
+	if claims == nil {
+		writeError(w, http.StatusUnauthorized, "missing_token")
+		return
+	}
+	if claims.UserType != "student" {
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+
+	beaconID := chi.URLParam(r, "beaconId")
+	if beaconID == "" {
+		writeError(w, http.StatusBadRequest, "missing_beacon_id")
+		return
+	}
+	if _, err := uuid.Parse(beaconID); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_beacon_id")
+		return
+	}
+
+	var req struct {
+		TotpCode string `json:"totpCode"`
+		CourseID string `json:"courseId"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request")
+		return
+	}
+	if strings.TrimSpace(req.TotpCode) == "" {
+		writeError(w, http.StatusBadRequest, "missing_totp_code")
+		return
+	}
+	if strings.TrimSpace(req.CourseID) == "" {
+		writeError(w, http.StatusBadRequest, "missing_course")
+		return
+	}
+	if _, err := uuid.Parse(req.CourseID); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_course")
+		return
+	}
+
+	courseResp, err := s.academics.GetCourse(r.Context(), &academicsv1.GetCourseRequest{CourseId: req.CourseID})
+	if err != nil || courseResp.GetCourse() == nil {
+		writeError(w, http.StatusNotFound, "course_not_found")
+		return
+	}
+	allowed, err := s.academics.ValidateStudentCourse(r.Context(), &academicsv1.ValidateStudentCourseRequest{
+		StudentId: claims.UserID,
+		CourseId:  req.CourseID,
+	})
+	if err != nil || !allowed.GetIsAllowed() {
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+	prefs, err := s.loadSchoolPreferences(r.Context(), courseResp.GetCourse().GetSchoolId())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "preferences_not_found")
+		return
+	}
+	if !methodAllowedForStudent(db.SignatureMethod("nfc"), prefs) {
+		writeError(w, http.StatusForbidden, "method_not_allowed")
+		return
+	}
+
+	if s.beacon == nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+	resp, err := s.beacon.ValidateNfcCode(r.Context(), &beaconv1.ValidateNfcCodeRequest{
+		BeaconId: beaconID,
+		TotpCode: req.TotpCode,
+	})
+	if err != nil || !resp.GetIsValid() {
+		writeError(w, http.StatusForbidden, "invalid_totp_code")
+		return
+	}
+
+	if s.redis == nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+	challenge, err := randomChallenge()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+	now := time.Now().UTC()
+	record := signatureChallengeRecord{
+		CourseID:  req.CourseID,
+		StudentID: claims.UserID,
+		DeviceID:  strings.TrimSpace(r.Header.Get("X-Device-ID")),
+		Method:    "nfc",
+		IssuedAt:  now.Unix(),
+		ExpiresAt: now.Add(s.challengeTTL).Unix(),
+	}
+	if err := s.storeSignatureChallenge(r.Context(), challenge, record); err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"challenge": challenge,
+		"expiresIn": int64(s.challengeTTL.Seconds()),
 	})
 }
 
@@ -1324,6 +1626,15 @@ func methodAllowedForStudent(method db.SignatureMethod, prefs *academicsv1.Schoo
 	}
 }
 
+func requiresChallengeForMethod(method db.SignatureMethod) bool {
+	switch string(method) {
+	case "buzzLightyear", "nfc":
+		return true
+	default:
+		return false
+	}
+}
+
 func parseLimit(r *http.Request, fallback int32) int32 {
 	if raw := r.URL.Query().Get("limit"); raw != "" {
 		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
@@ -1382,6 +1693,119 @@ func buzzLightyearKey(beaconID string, code int32) string {
 		return fmt.Sprintf("buzzlightyear:%d", code)
 	}
 	return fmt.Sprintf("buzzlightyear:%s", beaconID)
+}
+
+type signatureChallengeRecord struct {
+	CourseID  string `json:"course_id"`
+	StudentID string `json:"student_id"`
+	DeviceID  string `json:"device_id"`
+	Method    string `json:"method"`
+	IssuedAt  int64  `json:"issued_at"`
+	ExpiresAt int64  `json:"expires_at"`
+}
+
+func randomChallenge() (string, error) {
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(buf), nil
+}
+
+func (s *Server) storeSignatureChallenge(ctx context.Context, challenge string, record signatureChallengeRecord) error {
+	if s.redis == nil {
+		return errors.New("redis_not_configured")
+	}
+	data, err := json.Marshal(record)
+	if err != nil {
+		return err
+	}
+	return s.redis.Set(ctx, signatureChallengeKey(challenge), data, s.challengeTTL).Err()
+}
+
+func (s *Server) consumeSignatureChallenge(ctx context.Context, challenge string) (signatureChallengeRecord, bool, error) {
+	if s.redis == nil {
+		return signatureChallengeRecord{}, false, nil
+	}
+	value, err := s.redis.GetDel(ctx, signatureChallengeKey(challenge)).Result()
+	if err == redis.Nil {
+		return signatureChallengeRecord{}, false, nil
+	}
+	if err != nil {
+		return signatureChallengeRecord{}, false, err
+	}
+	var record signatureChallengeRecord
+	if err := json.Unmarshal([]byte(value), &record); err != nil {
+		return signatureChallengeRecord{}, false, err
+	}
+	return record, true, nil
+}
+
+func signatureChallengeKey(challenge string) string {
+	return fmt.Sprintf("signature_challenge:%s", challenge)
+}
+
+func withinDeviceWindow(timestamp int64, window time.Duration) bool {
+	if timestamp <= 0 {
+		return false
+	}
+	requestTime := time.Unix(timestamp, 0).UTC()
+	now := time.Now().UTC()
+	delta := now.Sub(requestTime)
+	if delta < 0 {
+		delta = -delta
+	}
+	return delta <= window
+}
+
+func readBodyBytes(r *http.Request) ([]byte, error) {
+	if r.Body == nil {
+		return nil, nil
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return nil, err
+	}
+	_ = r.Body.Close()
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	return body, nil
+}
+
+func hashBodyBase64(body []byte) string {
+	sum := sha256.Sum256(body)
+	return base64.StdEncoding.EncodeToString(sum[:])
+}
+
+func deviceSignatureMessage(method, path, studentID, deviceID, timestamp, bodyHash, challenge string) string {
+	parts := []string{method, path, studentID, deviceID, timestamp, bodyHash, challenge}
+	return strings.Join(parts, "\n")
+}
+
+func parseECDSAPublicKey(pemValue string) (*ecdsa.PublicKey, error) {
+	block, _ := pem.Decode([]byte(pemValue))
+	if block == nil {
+		return nil, errors.New("invalid_public_key")
+	}
+	parsed, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	publicKey, ok := parsed.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, errors.New("invalid_public_key_type")
+	}
+	if publicKey.Curve == nil || publicKey.Curve.Params().Name != elliptic.P256().Params().Name {
+		return nil, errors.New("invalid_public_key_curve")
+	}
+	return publicKey, nil
+}
+
+func decodeBase64(value string) ([]byte, error) {
+	decoded, err := base64.StdEncoding.DecodeString(value)
+	if err == nil {
+		return decoded, nil
+	}
+	return base64.RawStdEncoding.DecodeString(value)
 }
 
 // Utilities

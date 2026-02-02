@@ -43,5 +43,8 @@ The beacon microservice is implemented in `services/beacon`. It issues opaque be
 - Run tests for a service:
   - `go test ./...`
 
+## TODO
+- Decide and enforce a single TOTP secret encoding (base32/base64/hex) for beacon NFC validation.
+
 ## Contributing
 See `AGENTS.md` for repository guidelines, naming conventions, and PR expectations.

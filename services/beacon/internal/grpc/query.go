@@ -2,7 +2,18 @@ package grpc
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha1"
+	"encoding/base32"
+	"encoding/base64"
+	"encoding/binary"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"math"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -43,6 +54,25 @@ func (s *BeaconQueryServer) ListBeaconsByClassroom(ctx context.Context, req *bea
 	return &beaconv1.ListBeaconsByClassroomResponse{Beacons: beacons}, nil
 }
 
+func (s *BeaconQueryServer) ValidateNfcCode(ctx context.Context, req *beaconv1.ValidateNfcCodeRequest) (*beaconv1.ValidateNfcCodeResponse, error) {
+	if req.GetBeaconId() == "" || req.GetTotpCode() == "" {
+		return nil, status.Error(codes.InvalidArgument, "beacon_id and totp_code required")
+	}
+	beaconUUID, err := uuid.Parse(req.GetBeaconId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid beacon_id")
+	}
+	beacon, err := s.store.Queries.GetBeacon(ctx, pgUUID(beaconUUID))
+	if err != nil {
+		return nil, status.Error(codes.NotFound, "beacon not found")
+	}
+	if !beacon.TotpKey.Valid || strings.TrimSpace(beacon.TotpKey.String) == "" {
+		return &beaconv1.ValidateNfcCodeResponse{IsValid: false}, nil
+	}
+	valid := validateTotpCode(beacon.TotpKey.String, req.GetTotpCode(), time.Now().UTC())
+	return &beaconv1.ValidateNfcCodeResponse{IsValid: valid}, nil
+}
+
 func mapBeacon(row db.Beacon) *beaconv1.Beacon {
 	serial := int64(0)
 	if row.SerialNumber != "" {
@@ -68,6 +98,66 @@ func uuidString(id pgtype.UUID) string {
 		return ""
 	}
 	return uuid.UUID(id.Bytes).String()
+}
+
+const (
+	totpStepSeconds = 30
+	totpDigits      = 6
+)
+
+func validateTotpCode(secret, code string, now time.Time) bool {
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return false
+	}
+	secretBytes, err := decodeTotpSecret(secret)
+	if err != nil || len(secretBytes) == 0 {
+		return false
+	}
+	for offset := -1; offset <= 1; offset++ {
+		t := now.Add(time.Duration(offset*totpStepSeconds) * time.Second)
+		if generateTotp(secretBytes, t) == code {
+			return true
+		}
+	}
+	return false
+}
+
+func decodeTotpSecret(secret string) ([]byte, error) {
+	secret = strings.TrimSpace(secret)
+	if secret == "" {
+		return nil, errors.New("empty_secret")
+	}
+	if decoded, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(secret); err == nil {
+		return decoded, nil
+	}
+	if decoded, err := base64.StdEncoding.DecodeString(secret); err == nil {
+		return decoded, nil
+	}
+	if decoded, err := base64.RawStdEncoding.DecodeString(secret); err == nil {
+		return decoded, nil
+	}
+	if decoded, err := hex.DecodeString(secret); err == nil {
+		return decoded, nil
+	}
+	return []byte(secret), nil
+}
+
+func generateTotp(secret []byte, t time.Time) string {
+	counter := uint64(t.Unix() / totpStepSeconds)
+	var buf [8]byte
+	binary.BigEndian.PutUint64(buf[:], counter)
+	mac := hmac.New(sha1.New, secret)
+	_, _ = mac.Write(buf[:])
+	sum := mac.Sum(nil)
+	offset := sum[len(sum)-1] & 0x0f
+	bin := (int(sum[offset])&0x7f)<<24 |
+		(int(sum[offset+1])&0xff)<<16 |
+		(int(sum[offset+2])&0xff)<<8 |
+		(int(sum[offset+3]) & 0xff)
+	mod := int(math.Pow10(totpDigits))
+	otp := bin % mod
+	return fmt.Sprintf("%0*d", totpDigits, otp)
 }
 
 func pgUUID(id uuid.UUID) pgtype.UUID {

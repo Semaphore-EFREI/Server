@@ -450,7 +450,14 @@ func (s *Server) registerDevice(ctx context.Context, studentID, deviceIdentifier
 	activeDevice, err := s.store.GetActiveDevice(ctx, studentID)
 	if err == nil {
 		if activeDevice.DeviceIdentifier == deviceIdentifier {
-			_ = s.store.UpdateDeviceLastSeen(ctx, activeDevice.ID, now)
+			if publicKey != nil && (activeDevice.PublicKey == nil || *activeDevice.PublicKey != *publicKey) {
+				if err := s.store.UpdateDevicePublicKey(ctx, activeDevice.ID, *publicKey, now); err != nil {
+					return deviceRegistrationResult{}, "", err
+				}
+				activeDevice.PublicKey = publicKey
+			} else {
+				_ = s.store.UpdateDeviceLastSeen(ctx, activeDevice.ID, now)
+			}
 			activeDevice.LastSeenAt = &now
 			return deviceRegistrationResult{Device: activeDevice, Status: http.StatusOK}, "", nil
 		}

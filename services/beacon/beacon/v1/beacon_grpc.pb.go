@@ -19,9 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	BeaconQueryService_ListBeaconsByClassroom_FullMethodName      = "/beacon.api.v1.BeaconQueryService/ListBeaconsByClassroom"
-	BeaconCommandService_AssignBeaconToClassroom_FullMethodName   = "/beacon.api.v1.BeaconCommandService/AssignBeaconToClassroom"
-	BeaconCommandService_RemoveBeaconFromClassroom_FullMethodName = "/beacon.api.v1.BeaconCommandService/RemoveBeaconFromClassroom"
+	BeaconQueryService_ListBeaconsByClassroom_FullMethodName = "/beacon.api.v1.BeaconQueryService/ListBeaconsByClassroom"
+	BeaconQueryService_ValidateNfcCode_FullMethodName        = "/beacon.api.v1.BeaconQueryService/ValidateNfcCode"
 )
 
 // BeaconQueryServiceClient is the client API for BeaconQueryService service.
@@ -30,6 +29,8 @@ const (
 type BeaconQueryServiceClient interface {
 	// ListBeaconsByClassroom returns all beacons assigned to a classroom.
 	ListBeaconsByClassroom(ctx context.Context, in *ListBeaconsByClassroomRequest, opts ...grpc.CallOption) (*ListBeaconsByClassroomResponse, error)
+	// ValidateNfcCode validates a TOTP code emitted by a beacon.
+	ValidateNfcCode(ctx context.Context, in *ValidateNfcCodeRequest, opts ...grpc.CallOption) (*ValidateNfcCodeResponse, error)
 }
 
 type beaconQueryServiceClient struct {
@@ -48,6 +49,110 @@ func (c *beaconQueryServiceClient) ListBeaconsByClassroom(ctx context.Context, i
 	}
 	return out, nil
 }
+
+func (c *beaconQueryServiceClient) ValidateNfcCode(ctx context.Context, in *ValidateNfcCodeRequest, opts ...grpc.CallOption) (*ValidateNfcCodeResponse, error) {
+	out := new(ValidateNfcCodeResponse)
+	err := c.cc.Invoke(ctx, BeaconQueryService_ValidateNfcCode_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// BeaconQueryServiceServer is the server API for BeaconQueryService service.
+// All implementations must embed UnimplementedBeaconQueryServiceServer
+// for forward compatibility
+type BeaconQueryServiceServer interface {
+	// ListBeaconsByClassroom returns all beacons assigned to a classroom.
+	ListBeaconsByClassroom(context.Context, *ListBeaconsByClassroomRequest) (*ListBeaconsByClassroomResponse, error)
+	// ValidateNfcCode validates a TOTP code emitted by a beacon.
+	ValidateNfcCode(context.Context, *ValidateNfcCodeRequest) (*ValidateNfcCodeResponse, error)
+	mustEmbedUnimplementedBeaconQueryServiceServer()
+}
+
+// UnimplementedBeaconQueryServiceServer must be embedded to have forward compatible implementations.
+type UnimplementedBeaconQueryServiceServer struct {
+}
+
+func (UnimplementedBeaconQueryServiceServer) ListBeaconsByClassroom(context.Context, *ListBeaconsByClassroomRequest) (*ListBeaconsByClassroomResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListBeaconsByClassroom not implemented")
+}
+func (UnimplementedBeaconQueryServiceServer) ValidateNfcCode(context.Context, *ValidateNfcCodeRequest) (*ValidateNfcCodeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ValidateNfcCode not implemented")
+}
+func (UnimplementedBeaconQueryServiceServer) mustEmbedUnimplementedBeaconQueryServiceServer() {}
+
+// UnsafeBeaconQueryServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to BeaconQueryServiceServer will
+// result in compilation errors.
+type UnsafeBeaconQueryServiceServer interface {
+	mustEmbedUnimplementedBeaconQueryServiceServer()
+}
+
+func RegisterBeaconQueryServiceServer(s grpc.ServiceRegistrar, srv BeaconQueryServiceServer) {
+	s.RegisterService(&BeaconQueryService_ServiceDesc, srv)
+}
+
+func _BeaconQueryService_ListBeaconsByClassroom_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBeaconsByClassroomRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BeaconQueryServiceServer).ListBeaconsByClassroom(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BeaconQueryService_ListBeaconsByClassroom_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BeaconQueryServiceServer).ListBeaconsByClassroom(ctx, req.(*ListBeaconsByClassroomRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BeaconQueryService_ValidateNfcCode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidateNfcCodeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BeaconQueryServiceServer).ValidateNfcCode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BeaconQueryService_ValidateNfcCode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BeaconQueryServiceServer).ValidateNfcCode(ctx, req.(*ValidateNfcCodeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// BeaconQueryService_ServiceDesc is the grpc.ServiceDesc for BeaconQueryService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var BeaconQueryService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "beacon.api.v1.BeaconQueryService",
+	HandlerType: (*BeaconQueryServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListBeaconsByClassroom",
+			Handler:    _BeaconQueryService_ListBeaconsByClassroom_Handler,
+		},
+		{
+			MethodName: "ValidateNfcCode",
+			Handler:    _BeaconQueryService_ValidateNfcCode_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "services/beacon/beacon/v1/beacon.proto",
+}
+
+const (
+	BeaconCommandService_AssignBeaconToClassroom_FullMethodName   = "/beacon.api.v1.BeaconCommandService/AssignBeaconToClassroom"
+	BeaconCommandService_RemoveBeaconFromClassroom_FullMethodName = "/beacon.api.v1.BeaconCommandService/RemoveBeaconFromClassroom"
+)
 
 // BeaconCommandServiceClient is the client API for BeaconCommandService service.
 //
@@ -83,69 +188,6 @@ func (c *beaconCommandServiceClient) RemoveBeaconFromClassroom(ctx context.Conte
 		return nil, err
 	}
 	return out, nil
-}
-
-// BeaconQueryServiceServer is the server API for BeaconQueryService service.
-// All implementations must embed UnimplementedBeaconQueryServiceServer
-// for forward compatibility
-type BeaconQueryServiceServer interface {
-	// ListBeaconsByClassroom returns all beacons assigned to a classroom.
-	ListBeaconsByClassroom(context.Context, *ListBeaconsByClassroomRequest) (*ListBeaconsByClassroomResponse, error)
-	mustEmbedUnimplementedBeaconQueryServiceServer()
-}
-
-// UnimplementedBeaconQueryServiceServer must be embedded to have forward compatible implementations.
-type UnimplementedBeaconQueryServiceServer struct {
-}
-
-func (UnimplementedBeaconQueryServiceServer) ListBeaconsByClassroom(context.Context, *ListBeaconsByClassroomRequest) (*ListBeaconsByClassroomResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListBeaconsByClassroom not implemented")
-}
-func (UnimplementedBeaconQueryServiceServer) mustEmbedUnimplementedBeaconQueryServiceServer() {}
-
-// UnsafeBeaconQueryServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to BeaconQueryServiceServer will
-// result in compilation errors.
-type UnsafeBeaconQueryServiceServer interface {
-	mustEmbedUnimplementedBeaconQueryServiceServer()
-}
-
-func RegisterBeaconQueryServiceServer(s grpc.ServiceRegistrar, srv BeaconQueryServiceServer) {
-	s.RegisterService(&BeaconQueryService_ServiceDesc, srv)
-}
-
-func _BeaconQueryService_ListBeaconsByClassroom_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListBeaconsByClassroomRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(BeaconQueryServiceServer).ListBeaconsByClassroom(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: BeaconQueryService_ListBeaconsByClassroom_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BeaconQueryServiceServer).ListBeaconsByClassroom(ctx, req.(*ListBeaconsByClassroomRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-// BeaconQueryService_ServiceDesc is the grpc.ServiceDesc for BeaconQueryService service.
-// It's only intended for direct use with grpc.RegisterService,
-// and not to be introspected or modified (even as a copy)
-var BeaconQueryService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "beacon.api.v1.BeaconQueryService",
-	HandlerType: (*BeaconQueryServiceServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "ListBeaconsByClassroom",
-			Handler:    _BeaconQueryService_ListBeaconsByClassroom_Handler,
-		},
-	},
-	Streams:  []grpc.StreamDesc{},
-	Metadata: "services/beacon/beacon/v1/beacon.proto",
 }
 
 // BeaconCommandServiceServer is the server API for BeaconCommandService service.

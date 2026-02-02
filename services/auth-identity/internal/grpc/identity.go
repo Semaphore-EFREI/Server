@@ -65,5 +65,13 @@ func (s *IdentityServer) ValidateStudentDevice(ctx context.Context, req *identit
 		return &identityv1.ValidateStudentDeviceResponse{IsValid: false}, nil
 	}
 	_ = s.store.UpdateDeviceLastSeen(ctx, device.ID, time.Now().UTC())
-	return &identityv1.ValidateStudentDeviceResponse{IsValid: true}, nil
+	publicKey := ""
+	if device.PublicKey != nil {
+		publicKey = *device.PublicKey
+	}
+	return &identityv1.ValidateStudentDeviceResponse{
+		IsValid:   true,
+		DeviceId:  device.ID,
+		PublicKey: publicKey,
+	}, nil
 }

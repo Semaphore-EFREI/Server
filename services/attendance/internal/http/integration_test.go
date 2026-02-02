@@ -2,10 +2,19 @@ package http_test
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"io"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -30,6 +39,57 @@ type errorResponse struct {
 	Error string `json:"error"`
 }
 
+type deviceSigner struct {
+	StudentID  string
+	DeviceID   string
+	PrivateKey *ecdsa.PrivateKey
+}
+
+func newDeviceSigner(t *testing.T, authURL, token, studentID, deviceID string) *deviceSigner {
+	t.Helper()
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("keygen error: %v", err)
+	}
+	publicKeyBytes, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	if err != nil {
+		t.Fatalf("public key error: %v", err)
+	}
+	publicKeyPEM := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: publicKeyBytes}))
+	registerDeviceKey(t, authURL, token, deviceID, publicKeyPEM)
+	return &deviceSigner{
+		StudentID:  studentID,
+		DeviceID:   deviceID,
+		PrivateKey: privateKey,
+	}
+}
+
+func registerDeviceKey(t *testing.T, authURL, token, deviceID, publicKey string) {
+	t.Helper()
+	payload := map[string]string{
+		"device_identifier": deviceID,
+		"public_key":        publicKey,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal device: %v", err)
+	}
+	req, err := http.NewRequest(http.MethodPost, authURL+"/students/me/devices", bytes.NewBuffer(body))
+	if err != nil {
+		t.Fatalf("new device request: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("device request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		t.Fatalf("device register status %d", resp.StatusCode)
+	}
+}
+
 func TestStudentSignatureRules(t *testing.T) {
 	if os.Getenv("INTEGRATION_TESTS") != "1" {
 		t.Skip("set INTEGRATION_TESTS=1 to run")
@@ -43,6 +103,7 @@ func TestStudentSignatureRules(t *testing.T) {
 	course2ID := "11111111-1111-1111-1111-111111111116"
 	studentID := "22222222-2222-2222-2222-222222222223"
 	teacherID := "22222222-2222-2222-2222-222222222222"
+	deviceSigner := newDeviceSigner(t, authURL, token, studentID, "demo-device-1")
 
 	// Ensure teacher presence before student signatures.
 	_ = createTeacherSignature(t, attendanceURL, teacherToken, map[string]interface{}{
@@ -74,7 +135,7 @@ func TestStudentSignatureRules(t *testing.T) {
 		"method":  "beacon",
 		"student": studentID,
 	}
-	resp, body := doRequest(t, attendanceURL+"/signature", token, "demo-device-1", reqBody)
+	resp, body := doRequest(t, attendanceURL+"/signature", token, deviceSigner, reqBody)
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d", resp.StatusCode)
 	}
@@ -87,7 +148,7 @@ func TestStudentSignatureRules(t *testing.T) {
 	}
 
 	// On-time signature should be accepted with provided status (second course).
-	onTimeResp := createSignature(t, attendanceURL, token, "demo-device-1", map[string]interface{}{
+	onTimeResp := createSignature(t, attendanceURL, token, deviceSigner, map[string]interface{}{
 		"date":    onTime,
 		"course":  course2ID,
 		"status":  "signed",
@@ -99,7 +160,7 @@ func TestStudentSignatureRules(t *testing.T) {
 	}
 
 	// Late signature should be accepted with status late.
-	lateResp := createSignature(t, attendanceURL, token, "demo-device-1", map[string]interface{}{
+	lateResp := createSignature(t, attendanceURL, token, deviceSigner, map[string]interface{}{
 		"date":    late,
 		"course":  courseID,
 		"status":  "signed",
@@ -112,12 +173,19 @@ func TestStudentSignatureRules(t *testing.T) {
 
 	// Patch status to present and verify.
 	patchBody := map[string]interface{}{"status": "present"}
-	patchResp, _ := doRequestWithMethod(t, http.MethodPatch, attendanceURL+"/signature/"+lateResp.ID, token, "demo-device-1", patchBody)
+	patchResp, _ := doRequestWithMethod(t, http.MethodPatch, attendanceURL+"/signature/"+lateResp.ID, token, deviceSigner, patchBody)
 	if patchResp.StatusCode != http.StatusNoContent {
 		t.Fatalf("expected 204, got %d", patchResp.StatusCode)
 	}
 
-	getResp, getBody := doRequestWithMethod(t, http.MethodGet, attendanceURL+"/signature/"+lateResp.ID, token, "demo-device-1", nil)
+	// Teacher cannot update student image.
+	teacherPatch := map[string]interface{}{"image": "dGVzdC1pbWFnZS1uZXc="}
+	teacherResp, _ := doRequestWithMethod(t, http.MethodPatch, attendanceURL+"/signature/"+lateResp.ID, teacherToken, nil, teacherPatch)
+	if teacherResp.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d", teacherResp.StatusCode)
+	}
+
+	getResp, getBody := doRequestWithMethod(t, http.MethodGet, attendanceURL+"/signature/"+lateResp.ID, token, deviceSigner, nil)
 	if getResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200, got %d", getResp.StatusCode)
 	}
@@ -156,15 +224,15 @@ func TestTeacherSignatureRules(t *testing.T) {
 		t.Fatalf("expected teacher %s, got %s", teacherID, resp.Teacher)
 	}
 
-	// Teacher can patch status but not overwrite image with a new value.
+	// Teacher can patch status (and update own image if needed).
 	patchBody := map[string]interface{}{"status": "present"}
-	patchResp, _ := doRequestWithMethod(t, http.MethodPatch, attendanceURL+"/signature/"+resp.ID, token, "", patchBody)
+	patchResp, _ := doRequestWithMethod(t, http.MethodPatch, attendanceURL+"/signature/"+resp.ID, token, nil, patchBody)
 	if patchResp.StatusCode != http.StatusNoContent {
 		t.Fatalf("expected 204, got %d", patchResp.StatusCode)
 	}
 
 	// Validate status updated.
-	getResp, getBody := doRequestWithMethod(t, http.MethodGet, attendanceURL+"/signature/"+resp.ID, token, "", nil)
+	getResp, getBody := doRequestWithMethod(t, http.MethodGet, attendanceURL+"/signature/"+resp.ID, token, nil, nil)
 	if getResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200, got %d", getResp.StatusCode)
 	}
@@ -188,10 +256,11 @@ func TestAdminSignatureOverrides(t *testing.T) {
 	studentToken := login(t, authURL, "student@demo.local", "dev-password")
 	courseID := "11111111-1111-1111-1111-111111111114"
 	studentID := "22222222-2222-2222-2222-222222222223"
+	deviceSigner := newDeviceSigner(t, authURL, studentToken, studentID, "demo-device-1")
 
 	onTime := time.Date(2026, 1, 25, 9, 7, 0, 0, time.UTC).Unix()
 
-	sig := createSignature(t, attendanceURL, studentToken, "demo-device-1", map[string]interface{}{
+	sig := createSignature(t, attendanceURL, studentToken, deviceSigner, map[string]interface{}{
 		"date":    onTime,
 		"course":  courseID,
 		"status":  "signed",
@@ -202,12 +271,12 @@ func TestAdminSignatureOverrides(t *testing.T) {
 	patchBody := map[string]interface{}{
 		"status": "absent",
 	}
-	patchResp, _ := doRequestWithMethod(t, http.MethodPatch, attendanceURL+"/signature/"+sig.ID, adminToken, "", patchBody)
+	patchResp, _ := doRequestWithMethod(t, http.MethodPatch, attendanceURL+"/signature/"+sig.ID, adminToken, nil, patchBody)
 	if patchResp.StatusCode != http.StatusNoContent {
 		t.Fatalf("expected 204, got %d", patchResp.StatusCode)
 	}
 
-	getResp, getBody := doRequestWithMethod(t, http.MethodGet, attendanceURL+"/signature/"+sig.ID, adminToken, "", nil)
+	getResp, getBody := doRequestWithMethod(t, http.MethodGet, attendanceURL+"/signature/"+sig.ID, adminToken, nil, nil)
 	if getResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200, got %d", getResp.StatusCode)
 	}
@@ -244,8 +313,8 @@ func login(t *testing.T, authURL, email, password string) string {
 	return tokens.Token
 }
 
-func createSignature(t *testing.T, baseURL, token, deviceID string, payload map[string]interface{}) signatureResponse {
-	resp, body := doRequest(t, baseURL+"/signature", token, deviceID, payload)
+func createSignature(t *testing.T, baseURL, token string, signer *deviceSigner, payload map[string]interface{}) signatureResponse {
+	resp, body := doRequest(t, baseURL+"/signature", token, signer, payload)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200, got %d", resp.StatusCode)
 	}
@@ -260,7 +329,7 @@ func createSignature(t *testing.T, baseURL, token, deviceID string, payload map[
 }
 
 func createTeacherSignature(t *testing.T, baseURL, token string, payload map[string]interface{}) signatureResponse {
-	resp, body := doRequestWithMethod(t, http.MethodPost, baseURL+"/signature", token, "", payload)
+	resp, body := doRequestWithMethod(t, http.MethodPost, baseURL+"/signature", token, nil, payload)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200, got %d", resp.StatusCode)
 	}
@@ -274,11 +343,11 @@ func createTeacherSignature(t *testing.T, baseURL, token string, payload map[str
 	return sig
 }
 
-func doRequest(t *testing.T, url, token, deviceID string, payload map[string]interface{}) (*http.Response, []byte) {
-	return doRequestWithMethod(t, http.MethodPost, url, token, deviceID, payload)
+func doRequest(t *testing.T, url, token string, signer *deviceSigner, payload map[string]interface{}) (*http.Response, []byte) {
+	return doRequestWithMethod(t, http.MethodPost, url, token, signer, payload)
 }
 
-func doRequestWithMethod(t *testing.T, method, url, token, deviceID string, payload map[string]interface{}) (*http.Response, []byte) {
+func doRequestWithMethod(t *testing.T, method, url, token string, signer *deviceSigner, payload map[string]interface{}) (*http.Response, []byte) {
 	var bodyBytes []byte
 	if payload != nil {
 		var err error
@@ -293,8 +362,8 @@ func doRequestWithMethod(t *testing.T, method, url, token, deviceID string, payl
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
-	if deviceID != "" {
-		req.Header.Set("X-Device-ID", deviceID)
+	if signer != nil {
+		signDeviceRequest(t, req, bodyBytes, signer, payload)
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -306,6 +375,38 @@ func doRequestWithMethod(t *testing.T, method, url, token, deviceID string, payl
 		t.Fatalf("read response: %v", err)
 	}
 	return resp, body
+}
+
+func signDeviceRequest(t *testing.T, req *http.Request, body []byte, signer *deviceSigner, payload map[string]interface{}) {
+	t.Helper()
+	timestamp := time.Now().UTC().Unix()
+	timestampRaw := strconv.FormatInt(timestamp, 10)
+	bodyHash := sha256.Sum256(body)
+	challenge := ""
+	if payload != nil {
+		if raw, ok := payload["challenge"]; ok {
+			if value, ok := raw.(string); ok {
+				challenge = strings.TrimSpace(value)
+			}
+		}
+	}
+	message := strings.Join([]string{
+		req.Method,
+		req.URL.Path,
+		signer.StudentID,
+		signer.DeviceID,
+		timestampRaw,
+		base64.StdEncoding.EncodeToString(bodyHash[:]),
+		challenge,
+	}, "\n")
+	digest := sha256.Sum256([]byte(message))
+	signature, err := ecdsa.SignASN1(rand.Reader, signer.PrivateKey, digest[:])
+	if err != nil {
+		t.Fatalf("sign request: %v", err)
+	}
+	req.Header.Set("X-Device-ID", signer.DeviceID)
+	req.Header.Set("X-Device-Timestamp", timestampRaw)
+	req.Header.Set("X-Device-Signature", base64.StdEncoding.EncodeToString(signature))
 }
 
 func getenv(key, fallback string) string {

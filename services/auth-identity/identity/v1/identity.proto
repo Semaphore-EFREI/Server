@@ -23,7 +23,11 @@ message ValidateStudentDeviceRequest {
   string student_id = 1;
   string device_identifier = 2;
 }
-message ValidateStudentDeviceResponse { bool is_valid = 1; }
+message ValidateStudentDeviceResponse {
+  bool is_valid = 1;
+  string device_id = 2;
+  string public_key = 3;
+}
 
 service IdentityQueryService {
   rpc GetUserLite(GetUserLiteRequest) returns (GetUserLiteResponse);

@@ -13,6 +13,7 @@ require (
 	google.golang.org/protobuf v1.36.8
 	semaphore/academics v0.0.0
 	semaphore/auth-identity v0.0.0
+	semaphore/beacon v0.0.0
 )
 
 require (
@@ -39,3 +40,5 @@ require (
 replace semaphore/academics => ../academics
 
 replace semaphore/auth-identity => ../auth-identity
+
+replace semaphore/beacon => ../beacon

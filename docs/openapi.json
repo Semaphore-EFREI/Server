@@ -1647,7 +1647,7 @@
             "post": {
                 "tags": ["Signature"],
                 "summary": "Envoyer une signature",
-                "description": "Qui peux exécuter la requête ?\n  - Étudiants : Oui\n  - Enseignants: Oui\n  - Administration: Oui\n  - Développeurs: Interdit\n  - Balise: Interdit\n",
+                "description": "Qui peux exécuter la requête ?\n  - Étudiants : Oui\n  - Enseignants: Oui\n  - Administration: Oui\n  - Développeurs: Interdit\n  - Balise: Interdit\n-\nÉtudiants : fournir `challenge` dans le body et les en-têtes `X-Device-*`.",
                 "operationId": "postSignature",
                 "security": [
                     {
@@ -1656,13 +1656,13 @@
                 ],
                 "parameters": [
                     {
-                        "name": "challenge",
-                        "in": "header",
-                        "description": "Challenge ECDSA passé par lors de la vérification du code (uniquement pour les étudiants)",
-                        "schema": {
-                            "type": "string",
-                            "example": "MEYCIQC0/VJ3c5EHLZnbcykRfcyxtb6FGifQhDn8u7z5ZCVw2wIhAIu7Di/2YkL2Qh299f6n9RCxxOS+0z5qylR92A+zqJOw"
-                        }
+                        "$ref": "#/components/parameters/X-Device-ID"
+                    },
+                    {
+                        "$ref": "#/components/parameters/X-Device-Timestamp"
+                    },
+                    {
+                        "$ref": "#/components/parameters/X-Device-Signature"
                     }
                 ],
                 "requestBody": {
@@ -1748,6 +1748,15 @@
                         "format": "uuid",
                         "example": "31c14825-de80-43b5-88cc-89e21882a79d"
                     }
+                },
+                {
+                    "$ref": "#/components/parameters/X-Device-ID"
+                },
+                {
+                    "$ref": "#/components/parameters/X-Device-Timestamp"
+                },
+                {
+                    "$ref": "#/components/parameters/X-Device-Signature"
                 }
             ],
             "get": {
@@ -1891,6 +1900,15 @@
                 ],
                 "parameters": [
                     {
+                        "$ref": "#/components/parameters/X-Device-ID"
+                    },
+                    {
+                        "$ref": "#/components/parameters/X-Device-Timestamp"
+                    },
+                    {
+                        "$ref": "#/components/parameters/X-Device-Signature"
+                    },
+                    {
                         "name": "courseId",
                         "in": "query",
                         "schema": {
@@ -1977,6 +1995,15 @@
                 ],
                 "parameters": [
                     {
+                        "$ref": "#/components/parameters/X-Device-ID"
+                    },
+                    {
+                        "$ref": "#/components/parameters/X-Device-Timestamp"
+                    },
+                    {
+                        "$ref": "#/components/parameters/X-Device-Signature"
+                    },
+                    {
                         "name": "courseId",
                         "in": "query",
                         "required": true,
@@ -2027,6 +2054,15 @@
                     }
                 ],
                 "parameters": [
+                    {
+                        "$ref": "#/components/parameters/X-Device-ID"
+                    },
+                    {
+                        "$ref": "#/components/parameters/X-Device-Timestamp"
+                    },
+                    {
+                        "$ref": "#/components/parameters/X-Device-Signature"
+                    },
                     {
                         "name": "beaconId",
                         "in": "query",
@@ -2087,6 +2123,15 @@
                             "format": "uuid",
                             "example": "31c14825-de80-43b5-88cc-89e21882a79d"
                         }
+                    },
+                    {
+                        "$ref": "#/components/parameters/X-Device-ID"
+                    },
+                    {
+                        "$ref": "#/components/parameters/X-Device-Timestamp"
+                    },
+                    {
+                        "$ref": "#/components/parameters/X-Device-Signature"
                     }
                 ],
                 "requestBody": {
@@ -2100,8 +2145,15 @@
                                     },
                                     {
                                         "type": "object",
-                                        "description": "Code signé par CMAC",
-                                        "required": ["signature"]
+                                        "description": "Preuve de balise pour obtenir un challenge",
+                                        "properties": {
+                                            "courseId": {
+                                                "type": "string",
+                                                "format": "uuid",
+                                                "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                                            }
+                                        },
+                                        "required": ["courseId", "signature"]
                                     }
                                 ]
                             }
@@ -2110,11 +2162,83 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Code validé",
+                        "description": "Challenge délivré",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/SignatureProof"
+                                    "$ref": "#/components/schemas/SignatureChallenge"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/403"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/409"
+                    },
+                    "default": {
+                        "$ref": "#/components/responses/UnknownError"
+                    }
+                }
+            }
+        },
+        "/signature/nfcCode/{beaconId}": {
+            "post": {
+                "tags": ["Signature"],
+                "summary": "Valider un code NFC (TOTP) de la balise",
+                "description": "Qui peux exécuter la requête ?\n  - Étudiants : Oui\n  - Enseignants: Interdit\n  - Administration: Interdit\n  - Développeurs: Interdit\n  - Balise: Interdit\n",
+                "operationId": "postNfcCode",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "beaconId",
+                        "in": "path",
+                        "description": "ID de la balise",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid",
+                            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                        }
+                    },
+                    {
+                        "$ref": "#/components/parameters/X-Device-ID"
+                    },
+                    {
+                        "$ref": "#/components/parameters/X-Device-Timestamp"
+                    },
+                    {
+                        "$ref": "#/components/parameters/X-Device-Signature"
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NfcCodeRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Challenge délivré",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SignatureChallenge"
                                 }
                             }
                         }
@@ -4993,7 +5117,7 @@
                                 "type": "integer",
                                 "format": "int16",
                                 "example": 15,
-                                "description": "Validité en minutes"
+                                "description": "Validité en secondes"
                             }
                         }
                     }
@@ -5013,6 +5137,22 @@
                     }
                 ]
             },
+            "NfcCodeRequest": {
+                "type": "object",
+                "description": "Code NFC (TOTP) de la balise pour obtenir un challenge.",
+                "required": ["courseId", "totpCode"],
+                "properties": {
+                    "courseId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                    },
+                    "totpCode": {
+                        "type": "string",
+                        "example": "123456"
+                    }
+                }
+            },
             "SignatureProof": {
                 "type": "object",
                 "properties": {
@@ -5024,6 +5164,23 @@
                         "type": "string",
                         "example": "MEYCIQC0/VJ3c5EHLZnbcykRfcyxtb6FGifQhDn8u7z5ZCVw2wIhAIu7Di/2YkL2Qh299f6n9RCxxOS+0z5qylR92A+zqJOw",
                         "description": "Signature ECDSA du serveur"
+                    }
+                }
+            },
+            "SignatureChallenge": {
+                "type": "object",
+                "description": "Challenge de signature (étudiant).",
+                "required": ["challenge", "expiresIn"],
+                "properties": {
+                    "challenge": {
+                        "type": "string",
+                        "description": "Nonce opaque, usage unique."
+                    },
+                    "expiresIn": {
+                        "type": "integer",
+                        "format": "int32",
+                        "example": 300,
+                        "description": "Durée de validité en secondes."
                     }
                 }
             },
@@ -5042,8 +5199,8 @@
             },
             "StudentSignatureRequest": {
                 "type": "object",
-                "description": "Signature étudiant (payload de création)",
-                "required": ["date", "course", "status", "method", "student"],
+                "description": "Signature étudiant (payload de création). Nécessite un challenge obtenu via `/signature/buzzlightyear` ou `/signature/nfcCode`.",
+                "required": ["date", "course", "status", "method", "student", "challenge"],
                 "properties": {
                     "date": {
                         "type": "integer",
@@ -5062,6 +5219,11 @@
                     "method": {
                         "type": "string",
                         "enum": ["nfc", "beacon", "buzzLightyear", "web", "self", "admin"]
+                    },
+                    "challenge": {
+                        "type": "string",
+                        "description": "Challenge opaque (TTL court, usage unique).",
+                        "example": "bG9yZW0tY2hhbGxlbmdlLTE2ZjBiM2M2"
                     },
                     "image": {
                         "type": "string",
@@ -5697,6 +5859,40 @@
                     }
                 },
                 "required": ["code", "message"]
+            }
+        },
+        "parameters": {
+            "X-Device-ID": {
+                "name": "X-Device-ID",
+                "in": "header",
+                "required": false,
+                "description": "Identifiant du device actif (étudiant uniquement). Requis sur `/signature*` et `/signatures*` pour les étudiants.",
+                "schema": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                }
+            },
+            "X-Device-Timestamp": {
+                "name": "X-Device-Timestamp",
+                "in": "header",
+                "required": false,
+                "description": "Timestamp Unix en secondes (étudiant uniquement). Fenêtre de tolérance ±30s.",
+                "schema": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 1751358516
+                }
+            },
+            "X-Device-Signature": {
+                "name": "X-Device-Signature",
+                "in": "header",
+                "required": false,
+                "description": "Signature ECDSA P-256 (base64 DER) du message canonique :\n`method\\npath\\nstudentId\\ndeviceId\\ntimestamp\\nbodySha256\\nchallenge`.\n`bodySha256` = base64 SHA-256 du body brut (body vide = hash vide).\n`challenge` = nonce retourné par `/signature/buzzlightyear` ou `/signature/nfcCode` (ou chaîne vide si aucun challenge).",
+                "schema": {
+                    "type": "string",
+                    "example": "MEYCIQC0/VJ3c5EHLZnbcykRfcyxtb6FGifQhDn8u7z5ZCVw2wIhAIu7Di/2YkL2Qh299f6n9RCxxOS+0z5qylR92A+zqJOw"
+                }
             }
         },
         "responses": {

@@ -449,6 +449,15 @@ func (s *Store) UpdateDeviceLastSeen(ctx context.Context, deviceID string, seenA
 	return err
 }
 
+func (s *Store) UpdateDevicePublicKey(ctx context.Context, deviceID, publicKey string, seenAt time.Time) error {
+	_, err := s.pool.Exec(ctx, `
+    UPDATE student_devices
+    SET public_key = $1, last_seen_at = $2
+    WHERE id = $3
+  `, publicKey, seenAt, deviceID)
+	return err
+}
+
 func exists(ctx context.Context, pool *pgxpool.Pool, query string, arg string) bool {
 	var exists bool
 	_ = pool.QueryRow(ctx, `SELECT EXISTS (`+query+`)`, arg).Scan(&exists)

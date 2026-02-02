@@ -16,10 +16,13 @@ type Config struct {
 	ServiceAuthToken          string
 	AcademicsGRPCAddr         string
 	IdentityGRPCAddr          string
+	BeaconGRPCAddr            string
 	GRPCDialTimeout           time.Duration
 	RedisAddr                 string
 	RedisPassword             string
 	BuzzLightyearTTL          time.Duration
+	SignatureChallengeTTL     time.Duration
+	DeviceSignatureWindow     time.Duration
 	SignatureCloseJobEnabled  bool
 	SignatureCloseJobInterval time.Duration
 	SignatureCloseJobTimeout  time.Duration
@@ -35,10 +38,13 @@ func Load() Config {
 		ServiceAuthToken:          getenv("SERVICE_AUTH_TOKEN", ""),
 		AcademicsGRPCAddr:         getenv("ACADEMICS_GRPC_ADDR", "127.0.0.1:9092"),
 		IdentityGRPCAddr:          getenv("IDENTITY_GRPC_ADDR", "127.0.0.1:9091"),
+		BeaconGRPCAddr:            getenv("BEACON_GRPC_ADDR", "127.0.0.1:9094"),
 		GRPCDialTimeout:           getenvDuration("GRPC_DIAL_TIMEOUT", 5*time.Second),
 		RedisAddr:                 getenv("REDIS_ADDR", ""),
 		RedisPassword:             getenv("REDIS_PASSWORD", ""),
 		BuzzLightyearTTL:          getenvDuration("BUZZLIGHTYEAR_TTL", 45*time.Second),
+		SignatureChallengeTTL:     getenvDuration("SIGNATURE_CHALLENGE_TTL", 5*time.Minute),
+		DeviceSignatureWindow:     getenvDuration("DEVICE_SIGNATURE_WINDOW", 30*time.Second),
 		SignatureCloseJobEnabled:  getenvBool("SIGNATURE_CLOSE_JOB_ENABLED", true),
 		SignatureCloseJobInterval: getenvDuration("SIGNATURE_CLOSE_JOB_INTERVAL", 1*time.Minute),
 		SignatureCloseJobTimeout:  getenvDuration("SIGNATURE_CLOSE_JOB_TIMEOUT", 10*time.Second),
