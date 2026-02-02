@@ -126,13 +126,13 @@ type teacherSignatureResponse struct {
 }
 
 type createSignatureRequest struct {
-	Date          int64   `json:"date"`
-	Course        string  `json:"course"`
-	Status        string  `json:"status"`
-	Image         *string `json:"image"`
-	Method        string  `json:"method"`
-	Student       string  `json:"student"`
-	Teacher       string  `json:"teacher"`
+	Date    int64   `json:"date"`
+	Course  string  `json:"course"`
+	Status  string  `json:"status"`
+	Image   *string `json:"image"`
+	Method  string  `json:"method"`
+	Student string  `json:"student"`
+	Teacher string  `json:"teacher"`
 }
 
 type patchSignatureRequest struct {

@@ -64,13 +64,13 @@ pipeline {
             set -e
             if ! command -v buildctl >/dev/null 2>&1; then
               echo "Installing buildctl..."
-              curl -sL "https://github.com/moby/buildkit/releases/download/v$${BUILDKIT_VERSION}/buildkit-v$${BUILDKIT_VERSION}.linux-amd64.tar.gz" \
+              curl -sL "https://github.com/moby/buildkit/releases/download/v$BUILDKIT_VERSION/buildkit-v$BUILDKIT_VERSION.linux-amd64.tar.gz" \
                 | tar -xz -C /usr/local
             fi
 
             if ! command -v kubectl >/dev/null 2>&1; then
               echo "Installing kubectl..."
-              curl -LO "https://dl.k8s.io/release/$${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+              curl -LO "https://dl.k8s.io/release/$KUBECTL_VERSION/bin/linux/amd64/kubectl"
               install -m 0755 kubectl /usr/local/bin/kubectl
               rm kubectl
             fi
@@ -111,12 +111,12 @@ pipeline {
             DOCKERFILE
 
             buildctl \
-              --addr "$${BUILDKIT_HOST}" \
+              --addr "$BUILDKIT_HOST" \
               build \
               --frontend dockerfile.v0 \
               --local context=. \
               --local dockerfile=. \
-              --output 'type=image,"name=$${REGISTRY_PUSH_HOST}/$${IMAGE_NAME}:$${BUILD_NUMBER},$${REGISTRY_PUSH_HOST}/$${IMAGE_NAME}:latest,$${REGISTRY_HOST}/$${IMAGE_NAME}:$${BUILD_NUMBER},$${REGISTRY_HOST}/$${IMAGE_NAME}:latest",push=true,registry.insecure=true'
+              --output "type=image,name=$REGISTRY_PUSH_HOST/$IMAGE_NAME:$BUILD_NUMBER,$REGISTRY_PUSH_HOST/$IMAGE_NAME:latest,$REGISTRY_HOST/$IMAGE_NAME:$BUILD_NUMBER,$REGISTRY_HOST/$IMAGE_NAME:latest,push=true,registry.insecure=true"
           '''
         }
       }
@@ -133,9 +133,9 @@ pipeline {
               sh '''
                 set -e
                 kubectl set image deployment/frontend \
-                  frontend=$${REGISTRY_HOST}/$${IMAGE_NAME}:$${BUILD_NUMBER} \
-                  -n "$${K8S_NAMESPACE}"
-                kubectl rollout status deployment/frontend -n "$${K8S_NAMESPACE}" --timeout=5m
+                  frontend=$REGISTRY_HOST/$IMAGE_NAME:$BUILD_NUMBER \
+                  -n "$K8S_NAMESPACE"
+                kubectl rollout status deployment/frontend -n "$K8S_NAMESPACE" --timeout=5m
               '''
             }
           }

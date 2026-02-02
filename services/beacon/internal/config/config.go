@@ -8,32 +8,32 @@ import (
 )
 
 type Config struct {
-	HTTPAddr         string
-	GRPCAddr         string
-	DatabaseURL      string
-	JWTPublicKey     string
-	JWTIssuer        string
-	ServiceAuthToken string
-	AttendanceAddr   string
-	GRPCDialTimeout  time.Duration
-	BeaconTokenTTL   time.Duration
-	BeaconRefreshTTL time.Duration
-	BeaconAuthWindow time.Duration
+	HTTPAddr           string
+	GRPCAddr           string
+	DatabaseURL        string
+	JWTPublicKey       string
+	JWTIssuer          string
+	ServiceAuthToken   string
+	AttendanceAddr     string
+	GRPCDialTimeout    time.Duration
+	BeaconTokenTTL     time.Duration
+	BeaconRefreshTTL   time.Duration
+	BeaconAuthWindow   time.Duration
 }
 
 func Load() Config {
 	return Config{
-		HTTPAddr:         getenv("HTTP_ADDR", ":8084"),
-		GRPCAddr:         getenv("GRPC_ADDR", ":9094"),
-		DatabaseURL:      getenv("DATABASE_URL", "postgres://postgres:postgres@127.0.0.1:5432/beacon?sslmode=disable"),
-		JWTPublicKey:     getenvKey("JWT_PUBLIC_KEY", ""),
-		JWTIssuer:        getenv("JWT_ISSUER", "semaphore-auth-identity"),
-		ServiceAuthToken: getenv("SERVICE_AUTH_TOKEN", ""),
-		AttendanceAddr:   getenv("ATTENDANCE_GRPC_ADDR", "127.0.0.1:9093"),
-		GRPCDialTimeout:  getenvDuration("GRPC_DIAL_TIMEOUT", 5*time.Second),
-		BeaconTokenTTL:   getenvDuration("BEACON_TOKEN_TTL", 15*time.Minute),
-		BeaconRefreshTTL: getenvDuration("BEACON_REFRESH_TTL", 30*24*time.Hour),
-		BeaconAuthWindow: getenvDuration("BEACON_AUTH_WINDOW", 5*time.Minute),
+		HTTPAddr:           getenv("HTTP_ADDR", ":8084"),
+		GRPCAddr:           getenv("GRPC_ADDR", ":9094"),
+		DatabaseURL:        getenv("DATABASE_URL", "postgres://postgres:postgres@127.0.0.1:5432/beacon?sslmode=disable"),
+		JWTPublicKey:       getenvKey("JWT_PUBLIC_KEY", ""),
+		JWTIssuer:          getenv("JWT_ISSUER", "semaphore-auth-identity"),
+		ServiceAuthToken:   getenv("SERVICE_AUTH_TOKEN", ""),
+		AttendanceAddr:     getenv("ATTENDANCE_GRPC_ADDR", "127.0.0.1:9093"),
+		GRPCDialTimeout:    getenvDuration("GRPC_DIAL_TIMEOUT", 5*time.Second),
+		BeaconTokenTTL:     getenvDuration("BEACON_TOKEN_TTL", 15*time.Minute),
+		BeaconRefreshTTL:   getenvDuration("BEACON_REFRESH_TTL", 30*24*time.Hour),
+		BeaconAuthWindow:   getenvDuration("BEACON_AUTH_WINDOW", 5*time.Minute),
 	}
 }
 

@@ -1,24 +1,29 @@
-# Semaphore Specs
+# Semaphore
 
-This repository contains the specification package for Semaphore (a course attendance system). It is not an implementation yet—treat the contents as the source of truth for architecture, APIs, and domain rules, including Envoy for public REST exposure and gRPC for internal service calls.
+This repository contains the specification package **and** the Go microservice implementations for Semaphore (course attendance system). Use the docs as the source of truth for architecture, APIs, and domain rules (Envoy for public REST exposure, gRPC for internal service calls), then align code to the contracts.
 
 ## Contents
+- `docs/README.md`: documentation index with current source-of-truth references and archives.
 - `docs/Semaphore_Spec.md`: functional and technical specification.
+- `docs/openapi.json`: REST API contract (OpenAPI 3.0.4, canonical).
 - `docs/4-microservices-architecture-grpc.md`: service boundaries and gRPC contracts.
 - `docs/4-microservices-architecture_gateway.md`: Envoy edge architecture and public REST routing.
-- `docs/openapi.json`: REST API contract (OpenAPI 3.0.4).
-- `docs/technical-stack.md`: proposed implementation stack and tooling.
-- `docs/ChartDB_per_service.json`: per-service database diagram export.
 - `docs/database-schema.md`: per-service database documentation and enums.
 - `docs/database-implementation.md`: migration and seed instructions for dev.
+- `docs/ChartDB_per_service.json`: per-service database diagram export.
+- `docs/technical-stack.md`: proposed implementation stack and tooling.
+- `docs/agent-context.md`: ops context for Envoy Gateway + mTLS.
+- `docs/archive/README.md`: historical planning/status docs.
 - `migrations/`: per-service SQL migrations (schema + seed).
-- `services/auth-identity`: first microservice implementation (Go).
-- `services/academics`: academics microservice implementation (Go).
-- `services/attendance`: attendance microservice implementation (Go).
-- `services/beacon`: beacon microservice implementation (Go).
+- `services/auth-identity`: auth-identity microservice (Go).
+- `services/academics`: academics microservice (Go).
+- `services/attendance`: attendance microservice (Go).
+- `services/beacon`: beacon microservice (Go).
+- `docker/`: container images and Envoy assets.
+- `k8s/`: Kubernetes manifests (Istio, gateway, monitoring).
 
 ## Documentation
-Start with `docs/README.md` for a guided map of the specs, architecture notes, and data-model references.
+Start with `docs/README.md` for a guided map of specs, architecture notes, and data-model references.
 
 ## Auth-Identity Service
 The first microservice is implemented in `services/auth-identity`. It provides JWT auth, refresh tokens, user CRUD, student/teacher endpoints aligned with OpenAPI, device binding, and a gRPC IdentityQueryService for internal lookups. See `services/auth-identity/README.md` for usage.

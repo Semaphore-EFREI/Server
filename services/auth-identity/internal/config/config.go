@@ -8,34 +8,34 @@ import (
 )
 
 type Config struct {
-	HTTPAddr          string
-	GRPCAddr          string
-	DatabaseURL       string
-	JWTPrivateKey     string
-	JWTPublicKey      string
-	JWTIssuer         string
-	ServiceAuthToken  string
-	AccessTokenTTL    time.Duration
-	RefreshTokenTTL   time.Duration
-	DeviceRebindAfter time.Duration
-	AcademicsGRPCAddr string
-	GRPCDialTimeout   time.Duration
+	HTTPAddr           string
+	GRPCAddr           string
+	DatabaseURL        string
+	JWTPrivateKey      string
+	JWTPublicKey       string
+	JWTIssuer          string
+	ServiceAuthToken   string
+	AccessTokenTTL     time.Duration
+	RefreshTokenTTL    time.Duration
+	DeviceRebindAfter  time.Duration
+	AcademicsGRPCAddr  string
+	GRPCDialTimeout    time.Duration
 }
 
 func Load() Config {
 	return Config{
-		HTTPAddr:          getenv("HTTP_ADDR", ":8081"),
-		GRPCAddr:          getenv("GRPC_ADDR", ":9091"),
-		DatabaseURL:       getenv("DATABASE_URL", "postgres://postgres:postgres@127.0.0.1:5432/auth_identity?sslmode=disable"),
-		JWTPrivateKey:     getenvKey("JWT_PRIVATE_KEY", ""),
-		JWTPublicKey:      getenvKey("JWT_PUBLIC_KEY", ""),
-		JWTIssuer:         getenv("JWT_ISSUER", "semaphore-auth-identity"),
-		ServiceAuthToken:  getenv("SERVICE_AUTH_TOKEN", ""),
-		AccessTokenTTL:    getenvDuration("ACCESS_TOKEN_TTL", 15*time.Minute),
-		RefreshTokenTTL:   getenvDuration("REFRESH_TOKEN_TTL", 30*24*time.Hour),
-		DeviceRebindAfter: getenvDuration("DEVICE_REBIND_AFTER", 7*24*time.Hour),
-		AcademicsGRPCAddr: getenv("ACADEMICS_GRPC_ADDR", "127.0.0.1:9092"),
-		GRPCDialTimeout:   getenvDuration("GRPC_DIAL_TIMEOUT", 5*time.Second),
+		HTTPAddr:           getenv("HTTP_ADDR", ":8081"),
+		GRPCAddr:           getenv("GRPC_ADDR", ":9091"),
+		DatabaseURL:        getenv("DATABASE_URL", "postgres://postgres:postgres@127.0.0.1:5432/auth_identity?sslmode=disable"),
+		JWTPrivateKey:      getenvKey("JWT_PRIVATE_KEY", ""),
+		JWTPublicKey:       getenvKey("JWT_PUBLIC_KEY", ""),
+		JWTIssuer:          getenv("JWT_ISSUER", "semaphore-auth-identity"),
+		ServiceAuthToken:   getenv("SERVICE_AUTH_TOKEN", ""),
+		AccessTokenTTL:     getenvDuration("ACCESS_TOKEN_TTL", 15*time.Minute),
+		RefreshTokenTTL:    getenvDuration("REFRESH_TOKEN_TTL", 30*24*time.Hour),
+		DeviceRebindAfter:  getenvDuration("DEVICE_REBIND_AFTER", 7*24*time.Hour),
+		AcademicsGRPCAddr:  getenv("ACADEMICS_GRPC_ADDR", "127.0.0.1:9092"),
+		GRPCDialTimeout:    getenvDuration("GRPC_DIAL_TIMEOUT", 5*time.Second),
 	}
 }
 

@@ -2,9 +2,9 @@
 
 This folder contains the source-of-truth specifications, contracts, and architecture notes for Semaphore. Start here to understand the system before changing code or adding services.
 
-## Core specs
+## Specifications & contracts (source of truth)
 - `Semaphore_Spec.md`: functional + technical spec (roles, rules, business constraints).
-- `openapi.json`: public REST contract served via Envoy.
+- `openapi.json`: public REST contract served via Envoy (canonical).
 - `4-microservices-architecture-grpc.md`: internal gRPC boundaries and required contracts.
 - `4-microservices-architecture_gateway.md`: Envoy edge responsibilities and routing model.
 
@@ -15,3 +15,9 @@ This folder contains the source-of-truth specifications, contracts, and architec
 
 ## Implementation choices
 - `technical-stack.md`: recommended stack and tooling (Go + Postgres + sqlc + migrations).
+
+## Operations & infra notes
+- `agent-context.md`: Envoy Gateway + mTLS operational context (k8s + Terraform notes).
+
+## Archive (historical planning/status)
+- `archive/README.md`: index of archived docs.
