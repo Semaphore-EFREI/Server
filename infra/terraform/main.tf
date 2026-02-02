@@ -38,13 +38,56 @@ resource "kubernetes_manifest" "semaphore_https_redirect" {
   }
 }
 
+resource "kubernetes_manifest" "semaphore_api_cors" {
+  manifest = {
+    apiVersion = "traefik.io/v1alpha1"
+    kind       = "Middleware"
+    metadata = {
+      name      = "semaphore-api-cors"
+      namespace = local.gateway_namespace
+    }
+    spec = {
+      headers = {
+        accessControlAllowCredentials = true
+        accessControlAllowHeaders = [
+          "authorization",
+          "content-type",
+          "x-device-id",
+          "x-student-id",
+          "x-course-id",
+          "idempotency-key",
+        ]
+        accessControlAllowMethods = [
+          "GET",
+          "POST",
+          "PUT",
+          "PATCH",
+          "DELETE",
+          "OPTIONS",
+        ]
+        accessControlAllowOriginList = [
+          "https://semaphore.lebonnec.uk",
+          "https://semaphore.deway.fr",
+          "https://app.semaphore.deway.fr",
+          "http://localhost:3000",
+          "http://localhost:5173",
+        ]
+        accessControlExposeHeaders = [
+          "content-length",
+        ]
+        addVaryHeader = true
+      }
+    }
+  }
+}
+
 resource "kubernetes_ingress_v1" "semaphore_gateway_http" {
   metadata {
     name      = "semaphore-gateway-http"
     namespace = local.gateway_namespace
     annotations = {
       "traefik.ingress.kubernetes.io/router.entrypoints" = "web"
-      "traefik.ingress.kubernetes.io/router.middlewares" = "${var.istio_namespace}-semaphore-https-redirect@kubernetescrd"
+      "traefik.ingress.kubernetes.io/router.middlewares" = "${var.istio_namespace}-semaphore-https-redirect@kubernetescrd,${local.gateway_namespace}-semaphore-api-cors@kubernetescrd"
     }
   }
 
@@ -84,6 +127,7 @@ resource "kubernetes_ingress_v1" "semaphore_gateway_https" {
       "cert-manager.io/cluster-issuer"                   = var.tls_cluster_issuer
       "traefik.ingress.kubernetes.io/router.entrypoints" = "websecure"
       "traefik.ingress.kubernetes.io/router.tls"         = "true"
+      "traefik.ingress.kubernetes.io/router.middlewares" = "${local.gateway_namespace}-semaphore-api-cors@kubernetescrd"
     }
   }
 

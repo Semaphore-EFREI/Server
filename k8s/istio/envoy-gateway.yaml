@@ -262,30 +262,6 @@ spec:
         issuer: semaphore-auth-identity
         remoteJWKS:
           uri: http://auth-identity.semaphore.svc.cluster.local:8081/.well-known/jwks.json
-  cors:
-    allowOrigins:
-      - "https://semaphore.lebonnec.uk"
-      - "https://semaphore.deway.fr"
-      - "https://app.semaphore.deway.fr"
-      - "http://localhost:3000"
-      - "http://localhost:5173"
-    allowMethods:
-      - GET
-      - POST
-      - PUT
-      - PATCH
-      - DELETE
-      - OPTIONS
-    allowHeaders:
-      - authorization
-      - content-type
-      - x-device-id
-      - x-student-id
-      - x-course-id
-      - idempotency-key
-    exposeHeaders:
-      - content-length
-    allowCredentials: true
 
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1
@@ -298,30 +274,13 @@ spec:
     group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: semaphore-auth-identity-public
-  cors:
-    allowOrigins:
-      - "https://semaphore.lebonnec.uk"
-      - "https://semaphore.deway.fr"
-      - "https://app.semaphore.deway.fr"
-      - "http://localhost:3000"
-      - "http://localhost:5173"
-    allowMethods:
-      - GET
-      - POST
-      - PUT
-      - PATCH
-      - DELETE
-      - OPTIONS
-    allowHeaders:
-      - authorization
-      - content-type
-      - x-device-id
-      - x-student-id
-      - x-course-id
-      - idempotency-key
-    exposeHeaders:
-      - content-length
-    allowCredentials: true
+  jwt:
+    optional: true
+    providers:
+      - name: semaphore_jwt
+        issuer: semaphore-auth-identity
+        remoteJWKS:
+          uri: http://auth-identity.semaphore.svc.cluster.local:8081/.well-known/jwks.json
 
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1
@@ -340,30 +299,6 @@ spec:
         issuer: semaphore-auth-identity
         remoteJWKS:
           uri: http://auth-identity.semaphore.svc.cluster.local:8081/.well-known/jwks.json
-  cors:
-    allowOrigins:
-      - "https://semaphore.lebonnec.uk"
-      - "https://semaphore.deway.fr"
-      - "https://app.semaphore.deway.fr"
-      - "http://localhost:3000"
-      - "http://localhost:5173"
-    allowMethods:
-      - GET
-      - POST
-      - PUT
-      - PATCH
-      - DELETE
-      - OPTIONS
-    allowHeaders:
-      - authorization
-      - content-type
-      - x-device-id
-      - x-student-id
-      - x-course-id
-      - idempotency-key
-    exposeHeaders:
-      - content-length
-    allowCredentials: true
 
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1
@@ -382,30 +317,6 @@ spec:
         issuer: semaphore-auth-identity
         remoteJWKS:
           uri: http://auth-identity.semaphore.svc.cluster.local:8081/.well-known/jwks.json
-  cors:
-    allowOrigins:
-      - "https://semaphore.lebonnec.uk"
-      - "https://semaphore.deway.fr"
-      - "https://app.semaphore.deway.fr"
-      - "http://localhost:3000"
-      - "http://localhost:5173"
-    allowMethods:
-      - GET
-      - POST
-      - PUT
-      - PATCH
-      - DELETE
-      - OPTIONS
-    allowHeaders:
-      - authorization
-      - content-type
-      - x-device-id
-      - x-student-id
-      - x-course-id
-      - idempotency-key
-    exposeHeaders:
-      - content-length
-    allowCredentials: true
 
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1
@@ -424,30 +335,6 @@ spec:
         issuer: semaphore-auth-identity
         remoteJWKS:
           uri: http://auth-identity.semaphore.svc.cluster.local:8081/.well-known/jwks.json
-  cors:
-    allowOrigins:
-      - "https://semaphore.lebonnec.uk"
-      - "https://semaphore.deway.fr"
-      - "https://app.semaphore.deway.fr"
-      - "http://localhost:3000"
-      - "http://localhost:5173"
-    allowMethods:
-      - GET
-      - POST
-      - PUT
-      - PATCH
-      - DELETE
-      - OPTIONS
-    allowHeaders:
-      - authorization
-      - content-type
-      - x-device-id
-      - x-student-id
-      - x-course-id
-      - idempotency-key
-    exposeHeaders:
-      - content-length
-    allowCredentials: true
 
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1
@@ -467,27 +354,3 @@ spec:
         issuer: semaphore-auth-identity
         remoteJWKS:
           uri: http://auth-identity.semaphore.svc.cluster.local:8081/.well-known/jwks.json
-  cors:
-    allowOrigins:
-      - "https://semaphore.lebonnec.uk"
-      - "https://semaphore.deway.fr"
-      - "https://app.semaphore.deway.fr"
-      - "http://localhost:3000"
-      - "http://localhost:5173"
-    allowMethods:
-      - GET
-      - POST
-      - PUT
-      - PATCH
-      - DELETE
-      - OPTIONS
-    allowHeaders:
-      - authorization
-      - content-type
-      - x-device-id
-      - x-student-id
-      - x-course-id
-      - idempotency-key
-    exposeHeaders:
-      - content-length
-    allowCredentials: true
