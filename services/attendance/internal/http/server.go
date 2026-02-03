@@ -806,6 +806,8 @@ func (s *Server) handlePostBuzzlightyear(w http.ResponseWriter, r *http.Request)
 			writeError(w, http.StatusBadRequest, "invalid_request")
 		case codes.FailedPrecondition:
 			writeError(w, http.StatusForbidden, "invalid_signature_key")
+		case codes.Internal:
+			writeError(w, http.StatusInternalServerError, "proof_store_failed")
 		default:
 			writeError(w, http.StatusInternalServerError, "server_error")
 		}
