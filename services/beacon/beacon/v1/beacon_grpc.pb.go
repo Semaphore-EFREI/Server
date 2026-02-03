@@ -19,9 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	BeaconQueryService_ListBeaconsByClassroom_FullMethodName = "/beacon.api.v1.BeaconQueryService/ListBeaconsByClassroom"
-	BeaconQueryService_ValidateNfcCode_FullMethodName        = "/beacon.api.v1.BeaconQueryService/ValidateNfcCode"
-	BeaconQueryService_GetNfcCode_FullMethodName             = "/beacon.api.v1.BeaconQueryService/GetNfcCode"
+	BeaconQueryService_ListBeaconsByClassroom_FullMethodName     = "/beacon.api.v1.BeaconQueryService/ListBeaconsByClassroom"
+	BeaconQueryService_ValidateNfcCode_FullMethodName            = "/beacon.api.v1.BeaconQueryService/ValidateNfcCode"
+	BeaconQueryService_ValidateBuzzLightyearProof_FullMethodName = "/beacon.api.v1.BeaconQueryService/ValidateBuzzLightyearProof"
+	BeaconQueryService_GetNfcCode_FullMethodName                 = "/beacon.api.v1.BeaconQueryService/GetNfcCode"
 )
 
 // BeaconQueryServiceClient is the client API for BeaconQueryService service.
@@ -32,6 +33,8 @@ type BeaconQueryServiceClient interface {
 	ListBeaconsByClassroom(ctx context.Context, in *ListBeaconsByClassroomRequest, opts ...grpc.CallOption) (*ListBeaconsByClassroomResponse, error)
 	// ValidateNfcCode validates a TOTP code emitted by a beacon.
 	ValidateNfcCode(ctx context.Context, in *ValidateNfcCodeRequest, opts ...grpc.CallOption) (*ValidateNfcCodeResponse, error)
+	// ValidateBuzzLightyearProof validates a beacon-signed BuzzLightyear code.
+	ValidateBuzzLightyearProof(ctx context.Context, in *ValidateBuzzLightyearProofRequest, opts ...grpc.CallOption) (*ValidateBuzzLightyearProofResponse, error)
 	// GetNfcCode returns the current TOTP code for a beacon (debug only).
 	GetNfcCode(ctx context.Context, in *GetNfcCodeRequest, opts ...grpc.CallOption) (*GetNfcCodeResponse, error)
 }
@@ -62,6 +65,15 @@ func (c *beaconQueryServiceClient) ValidateNfcCode(ctx context.Context, in *Vali
 	return out, nil
 }
 
+func (c *beaconQueryServiceClient) ValidateBuzzLightyearProof(ctx context.Context, in *ValidateBuzzLightyearProofRequest, opts ...grpc.CallOption) (*ValidateBuzzLightyearProofResponse, error) {
+	out := new(ValidateBuzzLightyearProofResponse)
+	err := c.cc.Invoke(ctx, BeaconQueryService_ValidateBuzzLightyearProof_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *beaconQueryServiceClient) GetNfcCode(ctx context.Context, in *GetNfcCodeRequest, opts ...grpc.CallOption) (*GetNfcCodeResponse, error) {
 	out := new(GetNfcCodeResponse)
 	err := c.cc.Invoke(ctx, BeaconQueryService_GetNfcCode_FullMethodName, in, out, opts...)
@@ -79,6 +91,8 @@ type BeaconQueryServiceServer interface {
 	ListBeaconsByClassroom(context.Context, *ListBeaconsByClassroomRequest) (*ListBeaconsByClassroomResponse, error)
 	// ValidateNfcCode validates a TOTP code emitted by a beacon.
 	ValidateNfcCode(context.Context, *ValidateNfcCodeRequest) (*ValidateNfcCodeResponse, error)
+	// ValidateBuzzLightyearProof validates a beacon-signed BuzzLightyear code.
+	ValidateBuzzLightyearProof(context.Context, *ValidateBuzzLightyearProofRequest) (*ValidateBuzzLightyearProofResponse, error)
 	// GetNfcCode returns the current TOTP code for a beacon (debug only).
 	GetNfcCode(context.Context, *GetNfcCodeRequest) (*GetNfcCodeResponse, error)
 	mustEmbedUnimplementedBeaconQueryServiceServer()
@@ -93,6 +107,9 @@ func (UnimplementedBeaconQueryServiceServer) ListBeaconsByClassroom(context.Cont
 }
 func (UnimplementedBeaconQueryServiceServer) ValidateNfcCode(context.Context, *ValidateNfcCodeRequest) (*ValidateNfcCodeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ValidateNfcCode not implemented")
+}
+func (UnimplementedBeaconQueryServiceServer) ValidateBuzzLightyearProof(context.Context, *ValidateBuzzLightyearProofRequest) (*ValidateBuzzLightyearProofResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ValidateBuzzLightyearProof not implemented")
 }
 func (UnimplementedBeaconQueryServiceServer) GetNfcCode(context.Context, *GetNfcCodeRequest) (*GetNfcCodeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetNfcCode not implemented")
@@ -146,6 +163,24 @@ func _BeaconQueryService_ValidateNfcCode_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _BeaconQueryService_ValidateBuzzLightyearProof_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidateBuzzLightyearProofRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BeaconQueryServiceServer).ValidateBuzzLightyearProof(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BeaconQueryService_ValidateBuzzLightyearProof_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BeaconQueryServiceServer).ValidateBuzzLightyearProof(ctx, req.(*ValidateBuzzLightyearProofRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _BeaconQueryService_GetNfcCode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetNfcCodeRequest)
 	if err := dec(in); err != nil {
@@ -178,6 +213,10 @@ var BeaconQueryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ValidateNfcCode",
 			Handler:    _BeaconQueryService_ValidateNfcCode_Handler,
+		},
+		{
+			MethodName: "ValidateBuzzLightyearProof",
+			Handler:    _BeaconQueryService_ValidateBuzzLightyearProof_Handler,
 		},
 		{
 			MethodName: "GetNfcCode",

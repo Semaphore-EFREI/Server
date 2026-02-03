@@ -10,10 +10,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 
 	beaconv1 "semaphore/beacon/beacon/v1"
-	"semaphore/beacon/internal/clients"
 	"semaphore/beacon/internal/config"
 	"semaphore/beacon/internal/db"
 	beacongrpc "semaphore/beacon/internal/grpc"
@@ -33,13 +33,27 @@ func main() {
 	defer pool.Close()
 
 	store := db.NewStore(pool)
-	clients, err := clients.New(ctx, cfg.AttendanceAddr, cfg.ServiceAuthToken, cfg.GRPCDialTimeout)
-	if err != nil {
-		log.Fatalf("grpc dial failed: %v", err)
-	}
-	defer clients.Close()
 
-	server, err := internalhttp.NewServer(cfg, store, clients.Attendance)
+	var redisClient *redis.Client
+	if cfg.RedisAddr != "" {
+		redisClient = redis.NewClient(&redis.Options{
+			Addr:     cfg.RedisAddr,
+			Password: cfg.RedisPassword,
+		})
+		pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		if err := redisClient.Ping(pingCtx).Err(); err != nil {
+			cancel()
+			log.Fatalf("redis ping failed: %v", err)
+		}
+		cancel()
+		defer func() {
+			if err := redisClient.Close(); err != nil {
+				log.Printf("redis close error: %v", err)
+			}
+		}()
+	}
+
+	server, err := internalhttp.NewServer(cfg, store)
 	if err != nil {
 		log.Fatalf("server init failed: %v", err)
 	}
@@ -58,7 +72,7 @@ func main() {
 		log.Fatalf("grpc jwt auth init failed: %v", err)
 	}
 	grpcServer := grpc.NewServer(grpc.ChainUnaryInterceptor(serviceAuthInterceptor, authInterceptor))
-	beaconv1.RegisterBeaconQueryServiceServer(grpcServer, beacongrpc.NewBeaconQueryServer(store))
+	beaconv1.RegisterBeaconQueryServiceServer(grpcServer, beacongrpc.NewBeaconQueryServer(store, redisClient, cfg.ProofReplayTTL))
 	beaconv1.RegisterBeaconCommandServiceServer(grpcServer, beacongrpc.NewBeaconCommandServer(store))
 
 	go func() {

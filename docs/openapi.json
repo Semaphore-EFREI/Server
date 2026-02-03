@@ -2062,17 +2062,6 @@
                     },
                     {
                         "$ref": "#/components/parameters/X-Device-Signature"
-                    },
-                    {
-                        "name": "beaconId",
-                        "in": "query",
-                        "description": "ID de la balise (optionnel)",
-                        "required": false,
-                        "schema": {
-                            "type": "string",
-                            "format": "uuid",
-                            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
-                        }
                     }
                 ],
                 "responses": {
@@ -4715,13 +4704,13 @@
                     },
                     "signatureKey": {
                         "type": "string",
-                        "example": "MIICXAIBAAKBgQCPvp9Rfh2XUgQAlGNnu7BzkBE5/xifgjkwlem",
-                        "description": "Clef publique ECDSA."
+                        "example": "MDEyMzQ1Njc4OWFiY2RlZg==",
+                        "description": "Clef symétrique AES pour CMAC (16/24/32 octets) encodée en base32 (TOTP) ou base64."
                     },
                     "totpKey": {
                         "type": "string",
                         "example": "MIICXAIBAAKBgQCPvp9Rfh2XUgQAlGNnu7BzkBE5/xifgjkwlem",
-                        "description": "Clef TOTP pour générer les codes NFC"
+                        "description": "Clef TOTP pour générer les codes NFC (base64)."
                     },
                     "classroom": {
                         "type": "string",
@@ -5130,8 +5119,9 @@
                         "properties": {
                             "signature": {
                                 "type": "string",
-                                "format": "hex",
-                                "example": "4878726b 44b48b79 3d6d3558 942273e4"
+                                "format": "byte",
+                                "example": "MDEyMzQ1Njc4OWFiY2RlZg==",
+                                "description": "Signature AES-CMAC (base64) du code BuzzLightyear (chaîne décimale)."
                             }
                         }
                     }

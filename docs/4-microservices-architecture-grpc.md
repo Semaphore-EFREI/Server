@@ -389,7 +389,7 @@ service IdentityQueryService {
 Beacon service owns beacon authentication and verification, so other services never touch private keys/totp secrets.
 
 ### Beacon responsibilities
-- Maintain beacon keys (`signature_key` = public key, `totp_key`)
+- Maintain beacon keys (`signature_key` = AES-CMAC symmetric key, `totp_key`)
 - Authenticate beacons (signed timestamp)
 - Validate buzzLightyear proof payload
 - Resolve assigned `classroom_id` for beacon

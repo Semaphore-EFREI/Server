@@ -41,12 +41,15 @@ Validation rules:
 Challenge is issued **only after** validating the beacon proof.
 
 ### BuzzLightyear (flash)
-1) `GET /signature/buzzlightyear?beaconId=` returns a 28-bit code (short TTL, e.g., 15s).
+1) `GET /signature/buzzlightyear` returns a 28-bit code (short TTL, e.g., 15s). One active code per student (new request overwrites the previous code).
 2) Mobile flashes code to beacon.
 3) `POST /signature/buzzlightyear/{beaconId}` with:
    - `courseId`
-   - `signature` (beacon-signed proof of the 28-bit code)
+   - `signature` (base64 AES-CMAC of the decimal code string using the beacon signature key)
 4) On success, server returns a **challenge**.
+   - Beacon proof is validated by the beacon service and treated as single-use (replay rejected).
+   - Beacon must be assigned to a classroom linked to the course.
+   - Replay cache is stored in Redis with a short TTL (defaults to 90s).
 
 ### NFC (TOTP)
 1) Beacon emits TOTP via NFC.
@@ -54,6 +57,7 @@ Challenge is issued **only after** validating the beacon proof.
    - `courseId`
    - `totpCode`
 3) On success, server returns a **challenge**.
+   - Beacon must be assigned to a classroom linked to the course.
 
 ### Challenge payload
 Server returns:

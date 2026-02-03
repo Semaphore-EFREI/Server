@@ -350,6 +350,15 @@ spec:
                 secretKeyRef:
                   name: service-auth-token
                   key: service-auth-token
+            - name: REDIS_ADDR
+              value: redis:6379
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-credentials
+                  key: redis-password
+            - name: BUZZLIGHTYEAR_PROOF_TTL
+              value: 90s
             - name: ACADEMICS_GRPC_ADDR
               value: academics:9092
             - name: GRPC_DIAL_TIMEOUT
@@ -851,15 +860,6 @@ spec:
                 secretKeyRef:
                   name: service-auth-token
                   key: service-auth-token
-            - name: ATTENDANCE_GRPC_ADDR
-              value: attendance:9093
-            - name: REDIS_ADDR
-              value: redis:6379
-            - name: REDIS_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: redis-credentials
-                  key: redis-password
           readinessProbe:
             httpGet:
               path: /health

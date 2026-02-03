@@ -27,6 +27,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	academicsv1 "semaphore/academics/academics/v1"
 	"semaphore/attendance/internal/auth"
@@ -683,6 +685,10 @@ func (s *Server) handleGetBuzzlightyear(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
+	if strings.TrimSpace(claims.UserID) == "" {
+		writeError(w, http.StatusUnauthorized, "invalid_token")
+		return
+	}
 
 	code, err := randomBuzzLightyearCode()
 	if err != nil {
@@ -690,22 +696,14 @@ func (s *Server) handleGetBuzzlightyear(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	beaconID := strings.TrimSpace(r.URL.Query().Get("beaconId"))
-	if beaconID != "" {
-		if _, err := uuid.Parse(beaconID); err != nil {
-			writeError(w, http.StatusBadRequest, "invalid_beacon_id")
-			return
-		}
-	}
-
-	if err := s.storeBuzzLightyearCode(r.Context(), beaconID, code); err != nil {
+	if err := s.storeBuzzLightyearCode(r.Context(), claims.UserID, code); err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error")
 		return
 	}
 
 	writeJSON(w, http.StatusOK, map[string]int32{
 		"code":     code,
-		"validity": 15,
+		"validity": int32(s.buzzTTL.Seconds()),
 	})
 }
 
@@ -717,6 +715,10 @@ func (s *Server) handlePostBuzzlightyear(w http.ResponseWriter, r *http.Request)
 	}
 	if claims.UserType != "student" {
 		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+	if strings.TrimSpace(claims.UserID) == "" {
+		writeError(w, http.StatusUnauthorized, "invalid_token")
 		return
 	}
 
@@ -751,7 +753,7 @@ func (s *Server) handlePostBuzzlightyear(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	code, ok, err := s.loadBuzzLightyearCode(r.Context(), beaconID)
+	code, ok, err := s.loadBuzzLightyearCode(r.Context(), claims.UserID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error")
 		return
@@ -760,7 +762,7 @@ func (s *Server) handlePostBuzzlightyear(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusNotFound, "code_not_found")
 		return
 	}
-	_ = s.clearBuzzLightyearCode(r.Context(), beaconID)
+	_ = s.clearBuzzLightyearCode(r.Context(), claims.UserID)
 
 	courseResp, err := s.academics.GetCourse(r.Context(), &academicsv1.GetCourseRequest{CourseId: req.CourseID})
 	if err != nil || courseResp.GetCourse() == nil {
@@ -782,6 +784,57 @@ func (s *Server) handlePostBuzzlightyear(w http.ResponseWriter, r *http.Request)
 	}
 	if !methodAllowedForStudent(db.SignatureMethod("buzzLightyear"), prefs) {
 		writeError(w, http.StatusForbidden, "method_not_allowed")
+		return
+	}
+
+	if s.beacon == nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+	proofResp, err := s.beacon.ValidateBuzzLightyearProof(r.Context(), &beaconv1.ValidateBuzzLightyearProofRequest{
+		BeaconId:  beaconID,
+		Code:      code,
+		Signature: req.Signature,
+		StudentId: claims.UserID,
+	})
+	if err != nil {
+		switch status.Code(err) {
+		case codes.NotFound:
+			writeError(w, http.StatusNotFound, "beacon_not_found")
+		case codes.InvalidArgument:
+			writeError(w, http.StatusBadRequest, "invalid_request")
+		case codes.FailedPrecondition:
+			writeError(w, http.StatusForbidden, "invalid_signature_key")
+		default:
+			writeError(w, http.StatusInternalServerError, "server_error")
+		}
+		return
+	}
+	if !proofResp.GetIsValid() {
+		switch proofResp.GetErrorCode() {
+		case "classroom_not_assigned":
+			writeError(w, http.StatusForbidden, "beacon_not_assigned")
+		case "proof_replay":
+			writeError(w, http.StatusConflict, "proof_replay")
+		default:
+			writeError(w, http.StatusForbidden, "invalid_signature")
+		}
+		return
+	}
+	if strings.TrimSpace(proofResp.GetClassroomId()) == "" {
+		writeError(w, http.StatusForbidden, "beacon_not_assigned")
+		return
+	}
+	classroomResp, err := s.academics.ValidateClassroomCourse(r.Context(), &academicsv1.ValidateClassroomCourseRequest{
+		ClassroomId: proofResp.GetClassroomId(),
+		CourseId:    req.CourseID,
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+	if !classroomResp.GetIsLinked() {
+		writeError(w, http.StatusForbidden, "beacon_not_linked")
 		return
 	}
 
@@ -888,8 +941,37 @@ func (s *Server) handlePostNfcCode(w http.ResponseWriter, r *http.Request) {
 		BeaconId: beaconID,
 		TotpCode: req.TotpCode,
 	})
-	if err != nil || !resp.GetIsValid() {
-		writeError(w, http.StatusForbidden, "invalid_totp_code")
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+	if !resp.GetIsValid() {
+		switch resp.GetErrorCode() {
+		case "classroom_not_assigned":
+			writeError(w, http.StatusForbidden, "beacon_not_assigned")
+		case "invalid_totp_code":
+			writeError(w, http.StatusForbidden, "invalid_totp_code")
+		case "totp_key_missing":
+			writeError(w, http.StatusForbidden, "invalid_totp_key")
+		default:
+			writeError(w, http.StatusForbidden, "invalid_totp_code")
+		}
+		return
+	}
+	if strings.TrimSpace(resp.GetClassroomId()) == "" {
+		writeError(w, http.StatusForbidden, "beacon_not_assigned")
+		return
+	}
+	classroomResp, err := s.academics.ValidateClassroomCourse(r.Context(), &academicsv1.ValidateClassroomCourseRequest{
+		ClassroomId: resp.GetClassroomId(),
+		CourseId:    req.CourseID,
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+	if !classroomResp.GetIsLinked() {
+		writeError(w, http.StatusForbidden, "beacon_not_linked")
 		return
 	}
 
@@ -958,8 +1040,9 @@ func (s *Server) handleGetNfcDebugCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"totpCode":    resp.GetTotpCode(),
-		"generatedAt": resp.GetGeneratedAt(),
+		"totpCode":          resp.GetTotpCode(),
+		"generatedAt":       resp.GetGeneratedAt(),
+		"secretFingerprint": resp.GetSecretFingerprint(),
 	})
 }
 
@@ -1695,19 +1778,19 @@ func randomBuzzLightyearCode() (int32, error) {
 	return int32(value.Int64()), nil
 }
 
-func (s *Server) storeBuzzLightyearCode(ctx context.Context, beaconID string, code int32) error {
+func (s *Server) storeBuzzLightyearCode(ctx context.Context, userID string, code int32) error {
 	if s.redis == nil {
-		return nil
+		return errors.New("redis_not_configured")
 	}
-	key := buzzLightyearKey(beaconID, code)
+	key := buzzLightyearKey(userID)
 	return s.redis.Set(ctx, key, strconv.FormatInt(int64(code), 10), s.buzzTTL).Err()
 }
 
-func (s *Server) loadBuzzLightyearCode(ctx context.Context, beaconID string) (int32, bool, error) {
+func (s *Server) loadBuzzLightyearCode(ctx context.Context, userID string) (int32, bool, error) {
 	if s.redis == nil {
-		return 0, false, nil
+		return 0, false, errors.New("redis_not_configured")
 	}
-	key := buzzLightyearKey(beaconID, 0)
+	key := buzzLightyearKey(userID)
 	value, err := s.redis.Get(ctx, key).Result()
 	if err == redis.Nil {
 		return 0, false, nil
@@ -1722,19 +1805,16 @@ func (s *Server) loadBuzzLightyearCode(ctx context.Context, beaconID string) (in
 	return int32(parsed), true, nil
 }
 
-func (s *Server) clearBuzzLightyearCode(ctx context.Context, beaconID string) error {
+func (s *Server) clearBuzzLightyearCode(ctx context.Context, userID string) error {
 	if s.redis == nil {
-		return nil
+		return errors.New("redis_not_configured")
 	}
-	key := buzzLightyearKey(beaconID, 0)
+	key := buzzLightyearKey(userID)
 	return s.redis.Del(ctx, key).Err()
 }
 
-func buzzLightyearKey(beaconID string, code int32) string {
-	if beaconID == "" {
-		return fmt.Sprintf("buzzlightyear:%d", code)
-	}
-	return fmt.Sprintf("buzzlightyear:%s", beaconID)
+func buzzLightyearKey(userID string) string {
+	return fmt.Sprintf("buzzlightyear:%s", userID)
 }
 
 type signatureChallengeRecord struct {

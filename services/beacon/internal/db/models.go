@@ -20,25 +20,3 @@ type Beacon struct {
 	LastSeenAt     pgtype.Timestamptz `db:"last_seen_at" json:"last_seen_at"`
 	DeletedAt      pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
 }
-
-type BeaconIdempotencyKey struct {
-	ID             pgtype.UUID        `db:"id" json:"id"`
-	BeaconID       pgtype.UUID        `db:"beacon_id" json:"beacon_id"`
-	Key            string             `db:"key" json:"key"`
-	Endpoint       string             `db:"endpoint" json:"endpoint"`
-	ResponseStatus int32              `db:"response_status" json:"response_status"`
-	ResponseBody   pgtype.Text        `db:"response_body" json:"response_body"`
-	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
-}
-
-type BeaconToken struct {
-	ID               pgtype.UUID        `db:"id" json:"id"`
-	BeaconID         pgtype.UUID        `db:"beacon_id" json:"beacon_id"`
-	TokenHash        string             `db:"token_hash" json:"token_hash"`
-	RefreshTokenHash string             `db:"refresh_token_hash" json:"refresh_token_hash"`
-	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ExpiresAt        pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
-	RefreshExpiresAt pgtype.Timestamptz `db:"refresh_expires_at" json:"refresh_expires_at"`
-	RevokedAt        pgtype.Timestamptz `db:"revoked_at" json:"revoked_at"`
-	LastUsedAt       pgtype.Timestamptz `db:"last_used_at" json:"last_used_at"`
-}

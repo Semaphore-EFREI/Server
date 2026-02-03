@@ -40,6 +40,21 @@ message ValidateNfcCodeRequest {
 
 message ValidateNfcCodeResponse {
   bool is_valid = 1;
+  string classroom_id = 2;
+  string error_code = 3;
+}
+
+message ValidateBuzzLightyearProofRequest {
+  string beacon_id = 1;
+  int32 code = 2;
+  string signature = 3;
+  string student_id = 4;
+}
+
+message ValidateBuzzLightyearProofResponse {
+  bool is_valid = 1;
+  string error_code = 2;
+  string classroom_id = 3;
 }
 
 message GetNfcCodeRequest {
@@ -49,6 +64,8 @@ message GetNfcCodeRequest {
 message GetNfcCodeResponse {
   string totp_code = 1;
   int64 generated_at = 2;
+  // Debug-only fingerprint of the decoded TOTP secret.
+  string secret_fingerprint = 3;
 }
 
 // BeaconQueryService exposes read-only beacon data.
@@ -57,6 +74,8 @@ service BeaconQueryService {
   rpc ListBeaconsByClassroom(ListBeaconsByClassroomRequest) returns (ListBeaconsByClassroomResponse);
   // ValidateNfcCode validates a TOTP code emitted by a beacon.
   rpc ValidateNfcCode(ValidateNfcCodeRequest) returns (ValidateNfcCodeResponse);
+  // ValidateBuzzLightyearProof validates a beacon-signed BuzzLightyear code.
+  rpc ValidateBuzzLightyearProof(ValidateBuzzLightyearProofRequest) returns (ValidateBuzzLightyearProofResponse);
   // GetNfcCode returns the current TOTP code for a beacon (debug only).
   rpc GetNfcCode(GetNfcCodeRequest) returns (GetNfcCodeResponse);
 }

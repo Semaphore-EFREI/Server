@@ -132,7 +132,9 @@ services:
       JWT_PUBLIC_KEY_FILE: "/run/semaphore-jwt/public.pem"
       JWT_ISSUER: "semaphore-auth-identity"
       SERVICE_AUTH_TOKEN: "dev-service-token"
-      ATTENDANCE_GRPC_ADDR: "attendance:9093"
+      REDIS_ADDR: "redis:6379"
+      REDIS_PASSWORD: "your_redis_password"
+      BUZZLIGHTYEAR_PROOF_TTL: "90s"
     volumes:
       - .:/workspace
       - ./docker/jwt:/run/semaphore-jwt:ro
@@ -141,8 +143,6 @@ services:
         condition: service_healthy
       migrations:
         condition: service_completed_successfully
-      attendance:
-        condition: service_started
 
   envoy:
     image: envoyproxy/envoy:v1.29-latest

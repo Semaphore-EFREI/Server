@@ -4,10 +4,9 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha1"
-	"encoding/base32"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -26,11 +26,17 @@ import (
 
 type BeaconQueryServer struct {
 	beaconv1.UnimplementedBeaconQueryServiceServer
-	store *db.Store
+	store          *db.Store
+	redis          *redis.Client
+	proofReplayTTL time.Duration
 }
 
-func NewBeaconQueryServer(store *db.Store) *BeaconQueryServer {
-	return &BeaconQueryServer{store: store}
+func NewBeaconQueryServer(store *db.Store, redisClient *redis.Client, proofReplayTTL time.Duration) *BeaconQueryServer {
+	return &BeaconQueryServer{
+		store:          store,
+		redis:          redisClient,
+		proofReplayTTL: proofReplayTTL,
+	}
 }
 
 func (s *BeaconQueryServer) ListBeaconsByClassroom(ctx context.Context, req *beaconv1.ListBeaconsByClassroomRequest) (*beaconv1.ListBeaconsByClassroomResponse, error) {
@@ -66,11 +72,17 @@ func (s *BeaconQueryServer) ValidateNfcCode(ctx context.Context, req *beaconv1.V
 	if err != nil {
 		return nil, status.Error(codes.NotFound, "beacon not found")
 	}
+	if !beacon.ClassroomID.Valid {
+		return &beaconv1.ValidateNfcCodeResponse{IsValid: false, ErrorCode: "classroom_not_assigned"}, nil
+	}
 	if !beacon.TotpKey.Valid || strings.TrimSpace(beacon.TotpKey.String) == "" {
-		return &beaconv1.ValidateNfcCodeResponse{IsValid: false}, nil
+		return &beaconv1.ValidateNfcCodeResponse{IsValid: false, ErrorCode: "totp_key_missing"}, nil
 	}
 	valid := validateTotpCode(beacon.TotpKey.String, req.GetTotpCode(), time.Now().UTC())
-	return &beaconv1.ValidateNfcCodeResponse{IsValid: valid}, nil
+	if !valid {
+		return &beaconv1.ValidateNfcCodeResponse{IsValid: false, ErrorCode: "invalid_totp_code"}, nil
+	}
+	return &beaconv1.ValidateNfcCodeResponse{IsValid: true, ClassroomId: uuidString(beacon.ClassroomID)}, nil
 }
 
 func (s *BeaconQueryServer) GetNfcCode(ctx context.Context, req *beaconv1.GetNfcCodeRequest) (*beaconv1.GetNfcCodeResponse, error) {
@@ -93,9 +105,11 @@ func (s *BeaconQueryServer) GetNfcCode(ctx context.Context, req *beaconv1.GetNfc
 		return nil, status.Error(codes.FailedPrecondition, "totp_key invalid")
 	}
 	now := time.Now().UTC()
+	fingerprint := sha256.Sum256(secretBytes)
 	return &beaconv1.GetNfcCodeResponse{
-		TotpCode:    generateTotp(secretBytes, now),
-		GeneratedAt: now.Unix(),
+		TotpCode:          generateTotp(secretBytes, now),
+		GeneratedAt:       now.Unix(),
+		SecretFingerprint: hex.EncodeToString(fingerprint[:]),
 	}, nil
 }
 
@@ -127,7 +141,7 @@ func uuidString(id pgtype.UUID) string {
 }
 
 const (
-	totpStepSeconds = 30
+	totpStepSeconds = 5
 	totpDigits      = 6
 )
 
@@ -154,19 +168,13 @@ func decodeTotpSecret(secret string) ([]byte, error) {
 	if secret == "" {
 		return nil, errors.New("empty_secret")
 	}
-	if decoded, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(secret); err == nil {
-		return decoded, nil
-	}
 	if decoded, err := base64.StdEncoding.DecodeString(secret); err == nil {
 		return decoded, nil
 	}
 	if decoded, err := base64.RawStdEncoding.DecodeString(secret); err == nil {
 		return decoded, nil
 	}
-	if decoded, err := hex.DecodeString(secret); err == nil {
-		return decoded, nil
-	}
-	return []byte(secret), nil
+	return nil, errors.New("invalid_secret")
 }
 
 func generateTotp(secret []byte, t time.Time) string {

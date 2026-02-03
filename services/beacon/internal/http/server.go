@@ -2,7 +2,6 @@ package http
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
 	"errors"
@@ -17,11 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
-	attendancev1 "semaphore/attendance/attendance/v1"
 	"semaphore/beacon/internal/auth"
 	"semaphore/beacon/internal/config"
 	"semaphore/beacon/internal/db"
@@ -31,16 +26,15 @@ import (
 type Server struct {
 	cfg          config.Config
 	store        *db.Store
-	attendance   attendancev1.AttendanceCommandServiceClient
 	jwtPublicKey *rsa.PublicKey
 }
 
-func NewServer(cfg config.Config, store *db.Store, attendance attendancev1.AttendanceCommandServiceClient) (*Server, error) {
+func NewServer(cfg config.Config, store *db.Store) (*Server, error) {
 	publicKey, err := auth.ParseRSAPublicKey(cfg.JWTPublicKey)
 	if err != nil {
 		return nil, err
 	}
-	return &Server{cfg: cfg, store: store, attendance: attendance, jwtPublicKey: publicKey}, nil
+	return &Server{cfg: cfg, store: store, jwtPublicKey: publicKey}, nil
 }
 
 func (s *Server) Router() http.Handler {
@@ -52,10 +46,10 @@ func (s *Server) Router() http.Handler {
 	r.Handle("/metrics", promhttp.Handler())
 
 	r.With(s.authMiddleware, s.requireAdminOrDev).Get("/beacons", s.handleListBeacons)
-	r.With(s.authMiddleware, s.requireAdminOrDev).Post("/beacon", s.handleCreateBeacon)
+	r.With(s.authMiddleware, s.requireDev).Post("/beacon", s.handleCreateBeacon)
 	r.With(s.authMiddleware, s.requireAdminOrDev).Get("/beacon/{beaconId}", s.handleGetBeacon)
-	r.With(s.authMiddleware, s.requireAdminOrDev).Patch("/beacon/{beaconId}", s.handlePatchBeacon)
-	r.With(s.authMiddleware, s.requireAdminOrDev).Delete("/beacon/{beaconId}", s.handleDeleteBeacon)
+	r.With(s.authMiddleware, s.requireDev).Patch("/beacon/{beaconId}", s.handlePatchBeacon)
+	r.With(s.authMiddleware, s.requireDev).Delete("/beacon/{beaconId}", s.handleDeleteBeacon)
 	r.With(s.authMiddleware, s.requireAdminOrDev).Post("/beacon/{beaconId}/classroom", s.handleAssignBeaconClassroom)
 	r.With(s.authMiddleware, s.requireAdminOrDev).Delete("/beacon/{beaconId}/classroom/{classroomId}", s.handleRemoveBeaconClassroom)
 
@@ -65,13 +59,6 @@ func (s *Server) Router() http.Handler {
 // Auth middleware (dev/admin)
 
 type claimsKey struct{}
-
-type beaconKey struct{}
-
-type beaconContext struct {
-	BeaconID string
-	TokenID  string
-}
 
 func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -118,72 +105,7 @@ func claimsFromContext(ctx context.Context) *auth.Claims {
 	return claims
 }
 
-func (s *Server) beaconAuthMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token := bearerToken(r.Header.Get("Authorization"))
-		if token == "" {
-			writeError(w, http.StatusUnauthorized, "missing_token")
-			return
-		}
-		hash := auth.HashToken(token)
-		stored, err := s.store.Queries.GetBeaconTokenByHash(r.Context(), hash)
-		if err != nil {
-			writeError(w, http.StatusUnauthorized, "invalid_token")
-			return
-		}
-		if stored.ExpiresAt.Valid && stored.ExpiresAt.Time.Before(time.Now().UTC()) {
-			writeError(w, http.StatusUnauthorized, "token_expired")
-			return
-		}
-		if stored.BeaconID.Valid {
-			_ = s.store.Queries.TouchBeaconToken(r.Context(), db.TouchBeaconTokenParams{
-				ID:         stored.ID,
-				LastUsedAt: pgTime(time.Now().UTC()),
-			})
-		}
-
-		ctx := context.WithValue(r.Context(), beaconKey{}, &beaconContext{
-			BeaconID: uuidString(stored.BeaconID),
-			TokenID:  uuidString(stored.ID),
-		})
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-
-func beaconFromContext(ctx context.Context) *beaconContext {
-	value := ctx.Value(beaconKey{})
-	beacon, _ := value.(*beaconContext)
-	return beacon
-}
-
 // Models
-
-type tokenRequest struct {
-	BeaconID  string `json:"beaconId"`
-	Timestamp int64  `json:"timestamp"`
-	Signature string `json:"signature"`
-}
-
-type tokenResponse struct {
-	Token        string `json:"token"`
-	RefreshToken string `json:"refreshToken"`
-}
-
-type refreshRequest struct {
-	BeaconID     string `json:"beaconId"`
-	RefreshToken string `json:"refreshToken"`
-}
-
-type buzzLightyearRequest struct {
-	BeaconID  string `json:"beaconId"`
-	Code      int32  `json:"code"`
-	Signature string `json:"signature"`
-}
-
-type patchBeaconKeyRequest struct {
-	ID      string `json:"id"`
-	TOTPKey string `json:"totpKey"`
-}
 
 type devBeaconRequest struct {
 	SerialNumber   int64   `json:"serialNumber"`
@@ -214,265 +136,6 @@ type beaconResponse struct {
 }
 
 // Handlers
-
-func (s *Server) handleBeaconAuthToken(w http.ResponseWriter, r *http.Request) {
-	var req tokenRequest
-	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request")
-		return
-	}
-	if req.BeaconID == "" || req.Timestamp == 0 || req.Signature == "" {
-		writeError(w, http.StatusBadRequest, "missing_fields")
-		return
-	}
-	beaconID, err := uuid.Parse(req.BeaconID)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_beacon_id")
-		return
-	}
-
-	beacon, err := s.store.Queries.GetBeacon(r.Context(), pgUUID(beaconID))
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			writeError(w, http.StatusNotFound, "beacon_not_found")
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "server_error")
-		return
-	}
-
-	if !validateTimestamp(req.Timestamp, s.cfg.BeaconAuthWindow) {
-		writeError(w, http.StatusForbidden, "invalid_timestamp")
-		return
-	}
-	if beacon.SignatureKey == "" {
-		writeError(w, http.StatusForbidden, "invalid_signature")
-		return
-	}
-
-	if beacon.ID.Valid {
-		_ = s.store.Queries.UpdateBeaconLastSeen(r.Context(), db.UpdateBeaconLastSeenParams{
-			ID:         beacon.ID,
-			LastSeenAt: pgTime(time.Now().UTC()),
-		})
-	}
-
-	accessToken, refreshToken, err := s.issueBeaconTokens(r.Context(), beaconID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "token_issue_failed")
-		return
-	}
-	writeJSON(w, http.StatusOK, tokenResponse{Token: accessToken, RefreshToken: refreshToken})
-}
-
-func (s *Server) handleBeaconRefresh(w http.ResponseWriter, r *http.Request) {
-	var req refreshRequest
-	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request")
-		return
-	}
-	if req.BeaconID == "" || req.RefreshToken == "" {
-		writeError(w, http.StatusBadRequest, "missing_fields")
-		return
-	}
-	beaconID, err := uuid.Parse(req.BeaconID)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_beacon_id")
-		return
-	}
-
-	stored, err := s.store.Queries.GetBeaconTokenByRefresh(r.Context(), auth.HashToken(req.RefreshToken))
-	if err != nil {
-		writeError(w, http.StatusForbidden, "invalid_refresh_token")
-		return
-	}
-	if !stored.BeaconID.Valid || uuidString(stored.BeaconID) != beaconID.String() {
-		writeError(w, http.StatusForbidden, "invalid_refresh_token")
-		return
-	}
-	if stored.RefreshExpiresAt.Valid && stored.RefreshExpiresAt.Time.Before(time.Now().UTC()) {
-		writeError(w, http.StatusForbidden, "refresh_token_expired")
-		return
-	}
-
-	_ = s.store.Queries.RevokeBeaconToken(r.Context(), db.RevokeBeaconTokenParams{
-		ID:        stored.ID,
-		RevokedAt: pgTime(time.Now().UTC()),
-	})
-
-	accessToken, refreshToken, err := s.issueBeaconTokens(r.Context(), beaconID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "token_issue_failed")
-		return
-	}
-
-	writeJSON(w, http.StatusOK, tokenResponse{Token: accessToken, RefreshToken: refreshToken})
-}
-
-func (s *Server) handleBuzzLightyear(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	beaconCtx := beaconFromContext(ctx)
-	if beaconCtx == nil || beaconCtx.BeaconID == "" {
-		writeError(w, http.StatusUnauthorized, "missing_token")
-		return
-	}
-
-	idempotencyKey := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
-	if idempotencyKey == "" {
-		writeError(w, http.StatusBadRequest, "missing_idempotency_key")
-		return
-	}
-
-	endpoint := "POST /beacon/buzzLightyear"
-	beaconUUID, err := parseUUID(beaconCtx.BeaconID)
-	if err != nil {
-		writeError(w, http.StatusUnauthorized, "invalid_token")
-		return
-	}
-	if resp, ok := s.respondFromIdempotency(ctx, beaconUUID, idempotencyKey, endpoint, w); ok {
-		_ = resp
-		return
-	}
-
-	var req buzzLightyearRequest
-	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request")
-		return
-	}
-	if req.BeaconID == "" || req.Signature == "" {
-		writeError(w, http.StatusBadRequest, "missing_fields")
-		return
-	}
-	if req.BeaconID != beaconCtx.BeaconID {
-		writeError(w, http.StatusForbidden, "forbidden")
-		return
-	}
-
-	studentID := r.Header.Get("X-Student-ID")
-	courseID := r.Header.Get("X-Course-ID")
-	if studentID == "" || courseID == "" {
-		writeError(w, http.StatusBadRequest, "missing_student_or_course")
-		return
-	}
-	if _, err := uuid.Parse(studentID); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_student_id")
-		return
-	}
-	if _, err := uuid.Parse(courseID); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_course_id")
-		return
-	}
-
-	beaconID, err := uuid.Parse(req.BeaconID)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_beacon_id")
-		return
-	}
-	beacon, err := s.store.Queries.GetBeacon(ctx, pgUUID(beaconID))
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			writeError(w, http.StatusNotFound, "beacon_not_found")
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "server_error")
-		return
-	}
-
-	if beacon.ClassroomID.Valid == false {
-		writeError(w, http.StatusBadRequest, "classroom_not_assigned")
-		return
-	}
-
-	if beacon.ID.Valid {
-		_ = s.store.Queries.UpdateBeaconLastSeen(ctx, db.UpdateBeaconLastSeenParams{
-			ID:         beacon.ID,
-			LastSeenAt: pgTime(time.Now().UTC()),
-		})
-	}
-
-	payload, err := randomProofPayload()
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "proof_generation_failed")
-		return
-	}
-
-	respStatus, respBody, err := s.submitBeaconAttempt(ctx, studentID, courseID, beacon, payload)
-	if err != nil {
-		writeError(w, respStatus, respBody)
-		return
-	}
-
-	if respStatus == http.StatusNoContent {
-		s.storeIdempotency(ctx, beaconUUID, idempotencyKey, endpoint, respStatus, "")
-		w.WriteHeader(http.StatusNoContent)
-		return
-	}
-
-	payloadBody, _ := json.Marshal(map[string]string{"error": respBody})
-	s.storeIdempotency(ctx, beaconUUID, idempotencyKey, endpoint, respStatus, string(payloadBody))
-	writeJSON(w, respStatus, map[string]string{"error": respBody})
-}
-
-func (s *Server) handlePatchBeaconKey(w http.ResponseWriter, r *http.Request) {
-	beaconCtx := beaconFromContext(r.Context())
-	if beaconCtx == nil {
-		writeError(w, http.StatusUnauthorized, "missing_token")
-		return
-	}
-	pathID := chi.URLParam(r, "beaconId")
-	if pathID == "" {
-		writeError(w, http.StatusBadRequest, "missing_beacon_id")
-		return
-	}
-	if pathID != beaconCtx.BeaconID {
-		writeError(w, http.StatusForbidden, "forbidden")
-		return
-	}
-
-	var req patchBeaconKeyRequest
-	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request")
-		return
-	}
-	if req.ID == "" || req.TOTPKey == "" {
-		writeError(w, http.StatusBadRequest, "missing_fields")
-		return
-	}
-	if req.ID != pathID {
-		writeError(w, http.StatusBadRequest, "id_mismatch")
-		return
-	}
-
-	beaconID, err := uuid.Parse(req.ID)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_beacon_id")
-		return
-	}
-
-	if _, err := s.store.Queries.GetBeacon(r.Context(), pgUUID(beaconID)); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			writeError(w, http.StatusNotFound, "beacon_not_found")
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "server_error")
-		return
-	}
-
-	if err := s.store.Queries.UpdateBeaconTOTP(r.Context(), db.UpdateBeaconTOTPParams{
-		ID:        pgUUID(beaconID),
-		TotpKey:   pgText(req.TOTPKey),
-		UpdatedAt: pgTime(time.Now().UTC()),
-	}); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			writeError(w, http.StatusNotFound, "beacon_not_found")
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "server_error")
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
-}
 
 func (s *Server) handleListBeacons(w http.ResponseWriter, r *http.Request) {
 	limit := 200
@@ -701,127 +364,6 @@ func (s *Server) handleRemoveBeaconClassroom(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
-}
-
-// Helpers
-
-func (s *Server) issueBeaconTokens(ctx context.Context, beaconID uuid.UUID) (string, string, error) {
-	accessToken, err := auth.NewOpaqueToken()
-	if err != nil {
-		return "", "", err
-	}
-	refreshToken, err := auth.NewOpaqueToken()
-	if err != nil {
-		return "", "", err
-	}
-
-	now := time.Now().UTC()
-	_, err = s.store.Queries.CreateBeaconToken(ctx, db.CreateBeaconTokenParams{
-		ID:               pgUUID(uuid.New()),
-		BeaconID:         pgUUID(beaconID),
-		TokenHash:        auth.HashToken(accessToken),
-		RefreshTokenHash: auth.HashToken(refreshToken),
-		CreatedAt:        pgTime(now),
-		ExpiresAt:        pgTime(now.Add(s.cfg.BeaconTokenTTL)),
-		RefreshExpiresAt: pgTime(now.Add(s.cfg.BeaconRefreshTTL)),
-		RevokedAt:        pgtype.Timestamptz{},
-		LastUsedAt:       pgtype.Timestamptz{},
-	})
-	if err != nil {
-		return "", "", err
-	}
-	return accessToken, refreshToken, nil
-}
-
-func (s *Server) submitBeaconAttempt(ctx context.Context, studentID, courseID string, beacon db.Beacon, payload []byte) (int, string, error) {
-	requestCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	proof := &attendancev1.BeaconProof{
-		BeaconId:     uuidString(beacon.ID),
-		ClassroomId:  uuidString(beacon.ClassroomID),
-		ProofType:    "buzzLightyear",
-		ProofPayload: payload,
-		ProofTime:    timestamppb.New(time.Now().UTC()),
-	}
-
-	resp, err := s.attendance.CreateSignatureAttempt(requestCtx, &attendancev1.CreateSignatureAttemptRequest{
-		CourseId:    courseID,
-		StudentId:   studentID,
-		Method:      attendancev1.SignatureMethod_SIGNATURE_METHOD_FLASHLIGHT,
-		BeaconProof: proof,
-		ReceivedAt:  timestamppb.New(time.Now().UTC()),
-	})
-	if err != nil {
-		if status.Code(err) == codes.NotFound {
-			return http.StatusNotFound, "course_not_found", err
-		}
-		if status.Code(err) == codes.InvalidArgument {
-			return http.StatusBadRequest, "invalid_request", err
-		}
-		return http.StatusInternalServerError, "server_error", err
-	}
-
-	if resp.GetStatus() == attendancev1.SignatureStatus_SIGNATURE_STATUS_REFUSED {
-		return http.StatusForbidden, resp.GetMessage(), nil
-	}
-	return http.StatusNoContent, "", nil
-}
-
-func (s *Server) respondFromIdempotency(ctx context.Context, beaconID pgtype.UUID, key, endpoint string, w http.ResponseWriter) (db.BeaconIdempotencyKey, bool) {
-	record, err := s.store.Queries.GetBeaconIdempotency(ctx, db.GetBeaconIdempotencyParams{
-		BeaconID: beaconID,
-		Key:      key,
-		Endpoint: endpoint,
-	})
-	if err != nil {
-		return db.BeaconIdempotencyKey{}, false
-	}
-	if record.ResponseBody.Valid {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(int(record.ResponseStatus))
-		_, _ = w.Write([]byte(record.ResponseBody.String))
-		return record, true
-	}
-	w.WriteHeader(int(record.ResponseStatus))
-	return record, true
-}
-
-func (s *Server) storeIdempotency(ctx context.Context, beaconID pgtype.UUID, key, endpoint string, statusCode int, body string) {
-	var responseBody pgtype.Text
-	if body != "" {
-		responseBody = pgText(body)
-	}
-	_ = s.store.Queries.CreateBeaconIdempotency(ctx, db.CreateBeaconIdempotencyParams{
-		ID:             pgUUID(uuid.New()),
-		BeaconID:       beaconID,
-		Key:            key,
-		Endpoint:       endpoint,
-		ResponseStatus: int32(statusCode),
-		ResponseBody:   responseBody,
-		CreatedAt:      pgTime(time.Now().UTC()),
-	})
-}
-
-func randomProofPayload() ([]byte, error) {
-	buf := make([]byte, 4)
-	if _, err := rand.Read(buf); err != nil {
-		return nil, err
-	}
-	return buf, nil
-}
-
-func validateTimestamp(tsMillis int64, window time.Duration) bool {
-	if tsMillis <= 0 {
-		return false
-	}
-	requestTime := time.UnixMilli(tsMillis)
-	now := time.Now().UTC()
-	delta := now.Sub(requestTime)
-	if delta < 0 {
-		delta = -delta
-	}
-	return delta <= window
 }
 
 func mapBeacon(beacon db.Beacon) beaconResponse {
