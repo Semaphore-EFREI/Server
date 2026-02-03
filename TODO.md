@@ -1,6 +1,6 @@
 
 ## TODO
-1. [P1] Implement cascade delete of student signatures and devices when a student is deleted in auth-identity.
+1. [P0] Implement cascade delete of student signatures and devices when a student is deleted in auth-identity. Also remove from groups and courses in academics.
 2. [P2] Finalize and document the beacon gRPC → attendance integration flow.
 3. [P1] Add unit and integration tests to improve coverage in all services.
 4. [P1] Implement missing attendance rules: teacher presence gating, school preference method enforcement, open/close signing endpoints.

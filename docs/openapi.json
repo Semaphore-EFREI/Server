@@ -2090,7 +2090,7 @@
                 }
             }
         },
-        "/signature/buzzlightyear/{beaconId}": {
+        "/signature/buzzlightyear/{serialNumber}": {
             "post": {
                 "tags": ["Signature"],
                 "summary": "Renvoyer le code signé par la balise",
@@ -2103,14 +2103,14 @@
                 ],
                 "parameters": [
                     {
-                        "name": "beaconId",
+                        "name": "serialNumber",
                         "in": "path",
-                        "description": "ID de la balise",
+                        "description": "Numéro de série de la balise",
                         "required": true,
                         "schema": {
-                            "type": "string",
-                            "format": "uuid",
-                            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                            "type": "integer",
+                            "format": "int64",
+                            "example": 16543
                         }
                     },
                     {
@@ -2178,7 +2178,7 @@
                 }
             }
         },
-        "/signature/nfcCode/{beaconId}": {
+        "/signature/nfcCode/{serialNumber}": {
             "post": {
                 "tags": ["Signature"],
                 "summary": "Valider un code NFC (TOTP) de la balise",
@@ -2191,14 +2191,14 @@
                 ],
                 "parameters": [
                     {
-                        "name": "beaconId",
+                        "name": "serialNumber",
                         "in": "path",
-                        "description": "ID de la balise",
+                        "description": "Numéro de série de la balise",
                         "required": true,
                         "schema": {
-                            "type": "string",
-                            "format": "uuid",
-                            "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                            "type": "integer",
+                            "format": "int64",
+                            "example": 16543
                         }
                     },
                     {

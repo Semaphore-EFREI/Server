@@ -62,14 +62,11 @@ func (s *BeaconQueryServer) ListBeaconsByClassroom(ctx context.Context, req *bea
 }
 
 func (s *BeaconQueryServer) ValidateNfcCode(ctx context.Context, req *beaconv1.ValidateNfcCodeRequest) (*beaconv1.ValidateNfcCodeResponse, error) {
-	if req.GetBeaconId() == "" || req.GetTotpCode() == "" {
-		return nil, status.Error(codes.InvalidArgument, "beacon_id and totp_code required")
+	if req.GetBeaconSerialNumber() <= 0 || req.GetTotpCode() == "" {
+		return nil, status.Error(codes.InvalidArgument, "beacon_serial_number and totp_code required")
 	}
-	beaconUUID, err := uuid.Parse(req.GetBeaconId())
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid beacon_id")
-	}
-	beacon, err := s.store.Queries.GetBeacon(ctx, pgUUID(beaconUUID))
+	serial := strconv.FormatInt(req.GetBeaconSerialNumber(), 10)
+	beacon, err := s.store.Queries.GetBeaconBySerial(ctx, serial)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, "beacon not found")
 	}
@@ -87,14 +84,11 @@ func (s *BeaconQueryServer) ValidateNfcCode(ctx context.Context, req *beaconv1.V
 }
 
 func (s *BeaconQueryServer) GetNfcCode(ctx context.Context, req *beaconv1.GetNfcCodeRequest) (*beaconv1.GetNfcCodeResponse, error) {
-	if req.GetBeaconId() == "" {
-		return nil, status.Error(codes.InvalidArgument, "beacon_id required")
+	if req.GetBeaconSerialNumber() <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "beacon_serial_number required")
 	}
-	beaconUUID, err := uuid.Parse(req.GetBeaconId())
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid beacon_id")
-	}
-	beacon, err := s.store.Queries.GetBeacon(ctx, pgUUID(beaconUUID))
+	serial := strconv.FormatInt(req.GetBeaconSerialNumber(), 10)
+	beacon, err := s.store.Queries.GetBeaconBySerial(ctx, serial)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, "beacon not found")
 	}

@@ -9,10 +9,10 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"google.golang.org/grpc/codes"
@@ -31,14 +31,11 @@ const (
 var errProofReplay = errors.New("proof_replay")
 
 func (s *BeaconQueryServer) ValidateBuzzLightyearProof(ctx context.Context, req *beaconv1.ValidateBuzzLightyearProofRequest) (*beaconv1.ValidateBuzzLightyearProofResponse, error) {
-	if req.GetBeaconId() == "" || req.GetSignature() == "" || req.GetStudentId() == "" || req.GetCode() == 0 {
-		return nil, status.Error(codes.InvalidArgument, "beacon_id, student_id, code, and signature required")
+	if req.GetBeaconSerialNumber() <= 0 || req.GetSignature() == "" || req.GetStudentId() == "" || req.GetCode() == 0 {
+		return nil, status.Error(codes.InvalidArgument, "beacon_serial_number, student_id, code, and signature required")
 	}
-	beaconUUID, err := uuid.Parse(req.GetBeaconId())
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid beacon_id")
-	}
-	beacon, err := s.store.Queries.GetBeacon(ctx, pgUUID(beaconUUID))
+	serial := strconv.FormatInt(req.GetBeaconSerialNumber(), 10)
+	beacon, err := s.store.Queries.GetBeaconBySerial(ctx, serial)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, status.Error(codes.NotFound, "beacon not found")

@@ -488,6 +488,7 @@ def main():
             "programVersion": f"v-seed-{seed}",
         },
     )
+    beacon_serial = str(beacon["serialNumber"])
     state["created"]["beacon_id"] = beacon["id"]
     state["totp_secret_b64"] = totp_secret_b64
 
@@ -577,7 +578,7 @@ def main():
     buzz_challenge = request_with_device(
         "POST",
         args.base_url,
-        f"/signature/buzzlightyear/{beacon['id']}",
+        f"/signature/buzzlightyear/{beacon_serial}",
         buzz_token,
         buzz_signer,
         body={"signature": buzz_signature, "courseId": course["id"]},
@@ -609,7 +610,7 @@ def main():
     try:
         debug_resp = request_json(
             "GET",
-            f"{args.base_url}/signature/nfcCode/{beacon['id']}/debug",
+            f"{args.base_url}/signature/nfcCode/{beacon_serial}/debug",
             token=admin_token,
         )
         debug_code = debug_resp.get("totpCode")
@@ -639,7 +640,7 @@ def main():
     nfc_challenge = request_with_device(
         "POST",
         args.base_url,
-        f"/signature/nfcCode/{beacon['id']}",
+        f"/signature/nfcCode/{beacon_serial}",
         nfc_token,
         nfc_signer,
         body={"courseId": course["id"], "totpCode": nfc_code},
@@ -699,7 +700,7 @@ def main():
     temp_challenge = request_with_device(
         "POST",
         args.base_url,
-        f"/signature/buzzlightyear/{beacon['id']}",
+        f"/signature/buzzlightyear/{beacon_serial}",
         buzz_token,
         buzz_signer,
         body={"signature": temp_signature, "courseId": course["id"]},

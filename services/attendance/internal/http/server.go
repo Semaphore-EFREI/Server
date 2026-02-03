@@ -82,9 +82,9 @@ func (s *Server) Router() http.Handler {
 	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Post("/signature", s.handleCreateSignature)
 	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Get("/signature/{signatureId}", s.handleGetSignature)
 	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Get("/signature/buzzlightyear", s.handleGetBuzzlightyear)
-	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Post("/signature/buzzlightyear/{beaconId}", s.handlePostBuzzlightyear)
-	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Post("/signature/nfcCode/{beaconId}", s.handlePostNfcCode)
-	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Get("/signature/nfcCode/{beaconId}/debug", s.handleGetNfcDebugCode)
+	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Post("/signature/buzzlightyear/{serialNumber}", s.handlePostBuzzlightyear)
+	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Post("/signature/nfcCode/{serialNumber}", s.handlePostNfcCode)
+	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Get("/signature/nfcCode/{serialNumber}/debug", s.handleGetNfcDebugCode)
 	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Patch("/signature/{signatureId}", s.handlePatchSignature)
 	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Delete("/signature/{signatureId}", s.handleDeleteSignature)
 	r.With(s.authMiddleware, s.studentDeviceSignatureMiddleware).Get("/signatures", s.handleListSignatures)
@@ -722,13 +722,14 @@ func (s *Server) handlePostBuzzlightyear(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	beaconID := chi.URLParam(r, "beaconId")
-	if beaconID == "" {
-		writeError(w, http.StatusBadRequest, "missing_beacon_id")
+	serialParam := chi.URLParam(r, "serialNumber")
+	if serialParam == "" {
+		writeError(w, http.StatusBadRequest, "missing_beacon_serial")
 		return
 	}
-	if _, err := uuid.Parse(beaconID); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_beacon_id")
+	beaconSerial, err := strconv.ParseInt(serialParam, 10, 64)
+	if err != nil || beaconSerial <= 0 {
+		writeError(w, http.StatusBadRequest, "invalid_beacon_serial")
 		return
 	}
 
@@ -792,10 +793,10 @@ func (s *Server) handlePostBuzzlightyear(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	proofResp, err := s.beacon.ValidateBuzzLightyearProof(r.Context(), &beaconv1.ValidateBuzzLightyearProofRequest{
-		BeaconId:  beaconID,
-		Code:      code,
-		Signature: req.Signature,
-		StudentId: claims.UserID,
+		BeaconSerialNumber: beaconSerial,
+		Code:               code,
+		Signature:          req.Signature,
+		StudentId:          claims.UserID,
 	})
 	if err != nil {
 		switch status.Code(err) {
@@ -879,13 +880,14 @@ func (s *Server) handlePostNfcCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	beaconID := chi.URLParam(r, "beaconId")
-	if beaconID == "" {
-		writeError(w, http.StatusBadRequest, "missing_beacon_id")
+	serialParam := chi.URLParam(r, "serialNumber")
+	if serialParam == "" {
+		writeError(w, http.StatusBadRequest, "missing_beacon_serial")
 		return
 	}
-	if _, err := uuid.Parse(beaconID); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_beacon_id")
+	beaconSerial, err := strconv.ParseInt(serialParam, 10, 64)
+	if err != nil || beaconSerial <= 0 {
+		writeError(w, http.StatusBadRequest, "invalid_beacon_serial")
 		return
 	}
 
@@ -938,8 +940,8 @@ func (s *Server) handlePostNfcCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp, err := s.beacon.ValidateNfcCode(r.Context(), &beaconv1.ValidateNfcCodeRequest{
-		BeaconId: beaconID,
-		TotpCode: req.TotpCode,
+		BeaconSerialNumber: beaconSerial,
+		TotpCode:           req.TotpCode,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error")
@@ -1019,13 +1021,14 @@ func (s *Server) handleGetNfcDebugCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	beaconID := chi.URLParam(r, "beaconId")
-	if beaconID == "" {
-		writeError(w, http.StatusBadRequest, "missing_beacon_id")
+	serialParam := chi.URLParam(r, "serialNumber")
+	if serialParam == "" {
+		writeError(w, http.StatusBadRequest, "missing_beacon_serial")
 		return
 	}
-	if _, err := uuid.Parse(beaconID); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_beacon_id")
+	beaconSerial, err := strconv.ParseInt(serialParam, 10, 64)
+	if err != nil || beaconSerial <= 0 {
+		writeError(w, http.StatusBadRequest, "invalid_beacon_serial")
 		return
 	}
 	if s.beacon == nil {
@@ -1033,7 +1036,7 @@ func (s *Server) handleGetNfcDebugCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp, err := s.beacon.GetNfcCode(r.Context(), &beaconv1.GetNfcCodeRequest{
-		BeaconId: beaconID,
+		BeaconSerialNumber: beaconSerial,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error")

@@ -43,7 +43,7 @@ Challenge is issued **only after** validating the beacon proof.
 ### BuzzLightyear (flash)
 1) `GET /signature/buzzlightyear` returns a 28-bit code (short TTL, e.g., 15s). One active code per student (new request overwrites the previous code).
 2) Mobile flashes code to beacon.
-3) `POST /signature/buzzlightyear/{beaconId}` with:
+3) `POST /signature/buzzlightyear/{serialNumber}` with:
    - `courseId`
    - `signature` (base64 AES-CMAC of the decimal code string using the beacon signature key)
 4) On success, server returns a **challenge**.
@@ -53,7 +53,7 @@ Challenge is issued **only after** validating the beacon proof.
 
 ### NFC (TOTP)
 1) Beacon emits TOTP via NFC.
-2) `POST /signature/nfcCode/{beaconId}` with:
+2) `POST /signature/nfcCode/{serialNumber}` with:
    - `courseId`
    - `totpCode`
 3) On success, server returns a **challenge**.
