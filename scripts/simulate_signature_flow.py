@@ -21,6 +21,8 @@ except ImportError as exc:
 try:
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.hazmat.primitives.cmac import CMAC
+    from cryptography.hazmat.primitives.ciphers import algorithms
 except ImportError as exc:
     raise SystemExit(
         "Missing dependency: cryptography. Install with: pip install cryptography") from exc
@@ -44,12 +46,6 @@ def parse_args():
         "SEMAPHORE_DEV_PASSWORD", "").strip(), help="Dev password")
     parser.add_argument("--seed", default="",
                         help="Seed string for naming and cleanup")
-    parser.add_argument(
-        "--totp-mode",
-        choices=["auto", "base32", "string"],
-        default=os.getenv("SEMAPHORE_TOTP_MODE", "auto"),
-        help="TOTP secret interpretation (auto tries base32 then raw string).",
-    )
     parser.add_argument(
         "--state-file", default=DEFAULT_STATE_FILE, help="State file path")
     parser.add_argument("--cleanup", action="store_true",
@@ -239,20 +235,9 @@ def now_unix():
     return int(time.time())
 
 
-def random_base32_secret(byte_len=20):
+def random_base64_secret(byte_len=20):
     raw = os.urandom(byte_len)
-    return base64.b32encode(raw).decode("ascii").strip("=").upper(), raw
-
-
-def totp_candidate_secrets(secret_b32, raw_bytes, mode):
-    if mode == "base32":
-        return [("base32", raw_bytes)]
-    if mode == "string":
-        return [("string", secret_b32.encode("utf-8"))]
-    return [
-        ("base32", raw_bytes),
-        ("string", secret_b32.encode("utf-8")),
-    ]
+    return base64.b64encode(raw).decode("ascii"), raw
 
 
 def build_state(seed):
@@ -267,7 +252,7 @@ def build_state(seed):
             "beacon_id": None,
             "signatures": [],
         },
-        "totp_secret_b32": None,
+        "totp_secret_b64": None,
     }
 
 
@@ -490,20 +475,21 @@ def main():
         body={"teacherId": teacher["id"]},
     )
 
-    totp_secret_b32, totp_secret_raw = random_base32_secret()
+    totp_secret_b64, totp_secret_raw = random_base64_secret()
+    buzz_key_raw = os.urandom(32)
     beacon = request_json(
         "POST",
         f"{args.base_url}/beacon",
         token=dev_token,
         body={
             "serialNumber": random.randint(10000, 99999),
-            "signatureKey": base64.b64encode(os.urandom(32)).decode("ascii"),
-            "totpKey": totp_secret_b32,
+            "signatureKey": base64.b64encode(buzz_key_raw).decode("ascii"),
+            "totpKey": totp_secret_b64,
             "programVersion": f"v-seed-{seed}",
         },
     )
     state["created"]["beacon_id"] = beacon["id"]
-    state["totp_secret_b32"] = totp_secret_b32
+    state["totp_secret_b64"] = totp_secret_b64
 
     request_json(
         "POST",
@@ -581,17 +567,20 @@ def main():
     buzz_code = request_with_device(
         "GET",
         args.base_url,
-        f"/signature/buzzlightyear?beaconId={beacon['id']}",
+        "/signature/buzzlightyear",
         buzz_token,
         buzz_signer,
     )
+    buzz_cmac = CMAC(algorithms.AES(buzz_key_raw))
+    buzz_cmac.update(str(buzz_code["code"]).encode("utf-8"))
+    buzz_signature = base64.b64encode(buzz_cmac.finalize()).decode("ascii")
     buzz_challenge = request_with_device(
         "POST",
         args.base_url,
         f"/signature/buzzlightyear/{beacon['id']}",
         buzz_token,
         buzz_signer,
-        body={"signature": "deadbeef", "courseId": course["id"]},
+        body={"signature": buzz_signature, "courseId": course["id"]},
     )
     buzz_sig = request_with_device(
         "POST",
@@ -633,65 +622,28 @@ def main():
 
     if debug_code:
         server_ts = server_time.timestamp()
-        local_base32 = totp(totp_secret_raw, server_ts)
-        local_string = totp(totp_secret_b32.encode("utf-8"), server_ts)
-        print(f"NFC local base32 code (auth time): {local_base32}")
-        print(f"NFC local string code (auth time): {local_string}")
+        local_base64 = totp(totp_secret_raw, server_ts)
+        print(f"NFC local base64 code (auth time): {local_base64}")
         if debug_generated_at is not None:
             try:
                 debug_ts = float(debug_generated_at)
                 drift = debug_ts - server_ts
                 print(f"NFC time drift (debug - auth): {drift:.0f}s")
-                local_base32_dbg = totp(totp_secret_raw, debug_ts)
-                local_string_dbg = totp(
-                    totp_secret_b32.encode("utf-8"), debug_ts)
+                local_base64_dbg = totp(totp_secret_raw, debug_ts)
                 print(
-                    f"NFC local base32 code (debug time): {local_base32_dbg}")
-                print(
-                    f"NFC local string code (debug time): {local_string_dbg}")
+                    f"NFC local base64 code (debug time): {local_base64_dbg}")
             except (TypeError, ValueError):
                 pass
 
-    nfc_challenge = None
-    last_error = None
-    if debug_code:
-        try:
-            nfc_challenge = request_with_device(
-                "POST",
-                args.base_url,
-                f"/signature/nfcCode/{beacon['id']}",
-                nfc_token,
-                nfc_signer,
-                body={"courseId": course["id"], "totpCode": debug_code},
-            )
-        except RuntimeError as err:
-            last_error = err
-            if "invalid_totp_code" not in str(err):
-                raise
-
-    for mode, secret in totp_candidate_secrets(totp_secret_b32, totp_secret_raw, args.totp_mode):
-        if nfc_challenge is not None:
-            break
-        totp_code = totp(secret, time.time())
-        try:
-            nfc_challenge = request_with_device(
-                "POST",
-                args.base_url,
-                f"/signature/nfcCode/{beacon['id']}",
-                nfc_token,
-                nfc_signer,
-                body={"courseId": course["id"], "totpCode": totp_code},
-            )
-            if mode != "base32":
-                print(f"NFC TOTP accepted using mode: {mode}")
-            break
-        except RuntimeError as err:
-            last_error = err
-            if "invalid_totp_code" in str(err):
-                continue
-            raise
-    if nfc_challenge is None and last_error is not None:
-        raise last_error
+    nfc_code = debug_code or totp(totp_secret_raw, time.time())
+    nfc_challenge = request_with_device(
+        "POST",
+        args.base_url,
+        f"/signature/nfcCode/{beacon['id']}",
+        nfc_token,
+        nfc_signer,
+        body={"courseId": course["id"], "totpCode": nfc_code},
+    )
     nfc_sig = request_with_device(
         "POST",
         args.base_url,
@@ -714,7 +666,7 @@ def main():
     resp = request_with_custom_headers(
         "GET",
         args.base_url,
-        f"/signature/buzzlightyear?beaconId={beacon['id']}",
+        "/signature/buzzlightyear",
         buzz_token,
     )
     expect_error(resp, "device_not_allowed")
@@ -727,27 +679,30 @@ def main():
     resp = request_with_custom_headers(
         "GET",
         args.base_url,
-        f"/signature/buzzlightyear?beaconId={beacon['id']}",
+        "/signature/buzzlightyear",
         buzz_token,
         headers=bad_headers,
     )
     expect_error(resp, "device_signature_invalid")
 
     # Challenge should not be reusable across courses.
-    _ = request_with_device(
+    temp_code = request_with_device(
         "GET",
         args.base_url,
-        f"/signature/buzzlightyear?beaconId={beacon['id']}",
+        "/signature/buzzlightyear",
         buzz_token,
         buzz_signer,
     )
+    temp_cmac = CMAC(algorithms.AES(buzz_key_raw))
+    temp_cmac.update(str(temp_code["code"]).encode("utf-8"))
+    temp_signature = base64.b64encode(temp_cmac.finalize()).decode("ascii")
     temp_challenge = request_with_device(
         "POST",
         args.base_url,
         f"/signature/buzzlightyear/{beacon['id']}",
         buzz_token,
         buzz_signer,
-        body={"signature": "deadbeef", "courseId": course["id"]},
+        body={"signature": temp_signature, "courseId": course["id"]},
     )
     mismatch_resp = request_with_device_response(
         "POST",

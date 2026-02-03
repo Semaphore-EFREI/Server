@@ -8,7 +8,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.5.5
 	github.com/prometheus/client_golang v1.23.2
-	github.com/redis/go-redis/v9 v9.5.1
+	github.com/redis/go-redis/v9 v9.17.3
 	google.golang.org/grpc v1.62.1
 	google.golang.org/protobuf v1.36.8
 	semaphore/academics v0.0.0
