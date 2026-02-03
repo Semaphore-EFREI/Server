@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 import argparse
 import base64
+import concurrent.futures
 import datetime as dt
 import json
 import os
+import random
 import re
+import threading
 import unicodedata
 import uuid
 from pathlib import Path
@@ -32,6 +35,15 @@ SIGNATURE_METHODS = {
     "excused": "self",
     "invalid": "beacon",
 }
+SIGNATURE_METHOD_VALUES = [
+    "nfc",
+    "beacon",
+    "buzzLightyear",
+    "teacher",
+    "web",
+    "self",
+    "admin",
+]
 
 
 def require_requests():
@@ -400,20 +412,26 @@ def normalize_data(force: bool, beacon_count: int | None):
     courses = []
     now = dt.datetime.now(dt.timezone.utc)
     day_offsets = list(range(-10, 11))
-    slot_hours = [8, 11, 14]
+    slot_hours = [[8, 0], [9, 0], [11, 30], [13, 40], [16, 0], [18, 0]]
+    course_repeat = 4
+    course_catalog = []
+    for _ in range(course_repeat):
+        course_catalog.extend(course_names)
     used_course_keys = set()
-    for idx, name in enumerate(course_names):
+    for idx, name in enumerate(course_catalog):
         base_key = slugify(name)
         key = unique_key(base_key, used_course_keys)
-        day_offset = day_offsets[idx % len(day_offsets)]
-        slot_hour = slot_hours[idx % len(slot_hours)]
+        day_index = idx % len(day_offsets)
+        slot_index = (idx // len(day_offsets)) % len(slot_hours)
+        day_offset = day_offsets[day_index]
+        slot_hour = slot_hours[slot_index]
         day = (now + dt.timedelta(days=day_offset)).date()
         start = dt.datetime(
             day.year,
             day.month,
             day.day,
-            slot_hour,
-            0,
+            slot_hour[0],
+            slot_hour[1],
             0,
             tzinfo=dt.timezone.utc,
         )
@@ -484,7 +502,10 @@ def normalize_data(force: bool, beacon_count: int | None):
         DATA_DIR / "signatures").glob("*") if p.is_file()]
     status_count = len(SIGNATURE_STATUSES)
     sig_index = 0
+    now_ts = int(dt.datetime.now(dt.timezone.utc).timestamp())
     for course in courses:
+        if course["date"] > now_ts:
+            continue
         group_keys = course.get("studentGroups") or []
         student_keys = set()
         for group_key in group_keys:
@@ -519,6 +540,21 @@ def normalize_data(force: bool, beacon_count: int | None):
                 "imageFile": image_file,
             })
             sig_index += 1
+
+        if teacher_key:
+            if not image_files:
+                raise SystemExit(
+                    "No images found in scripts/data/signatures for signed signatures.")
+            signatures.append({
+                "key": f"signature-teacher-{course['key']}-{teacher_key}",
+                "courseKey": course["key"],
+                "teacherKey": teacher_key,
+                "signatureType": "teacher",
+                "status": "signed",
+                "method": random.choice(SIGNATURE_METHOD_VALUES),
+                "offsetMinutes": 8,
+                "imageFile": image_files[sig_index % len(image_files)],
+            })
 
     write_json(NORMALIZED_DIR / "schools.json", schools)
     write_json(NORMALIZED_DIR / "admins.json", admins)
@@ -617,22 +653,44 @@ class Progress:
         self.label = label
         self.total = max(1, total)
         self.current = 0
+        self._lock = threading.Lock()
 
     def step(self, message: str = ""):
-        self.current += 1
-        width = 28
-        filled = int(width * self.current / self.total)
-        bar = "#" * filled + "-" * (width - filled)
-        suffix = f" {message}" if message else ""
-        print(f"\r{self.label}: [{bar}] {self.current}/{self.total}{suffix}", end="", flush=True)
-        if self.current >= self.total:
-            print()
+        with self._lock:
+            self.current += 1
+            width = 28
+            filled = int(width * self.current / self.total)
+            bar = "#" * filled + "-" * (width - filled)
+            suffix = f" {message}" if message else ""
+            print(
+                f"\r{self.label}: [{bar}] {self.current}/{self.total}{suffix}", end="", flush=True)
+            if self.current >= self.total:
+                print()
 
 
 def make_progress(label: str, total: int) -> Progress | None:
     if total <= 0:
         return None
     return Progress(label, total)
+
+
+def run_concurrent(items, worker, max_workers: int):
+    if max_workers <= 1 or len(items) <= 1:
+        for item in items:
+            worker(item)
+        return
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=min(max_workers, len(items))
+    ) as executor:
+        futures = [executor.submit(worker, item) for item in items]
+        for future in concurrent.futures.as_completed(futures):
+            future.result()
+
+
+def update_state(state: "StateStore", lock: threading.Lock, category: str, key: str, value: str):
+    with lock:
+        state.set(category, key, value)
+        state.save()
 
 
 def ensure_school(client: ApiClient, token: str, school: dict, state: StateStore):
@@ -668,22 +726,29 @@ def ensure_admins(
     admins: list,
     state: StateStore,
     progress: Progress | None = None,
+    state_lock: threading.Lock | None = None,
+    max_workers: int = 1,
 ):
     existing = client.request("GET", f"/admins/{school_id}", token=token) or []
     by_email = {entry.get("email", "").lower(): entry for entry in existing}
-    for admin in admins:
+
+    def worker(admin):
         key = admin["key"]
         if state.get("admins", key):
             if progress:
                 progress.step(admin["key"])
-            continue
+            return
         email = admin["email"].lower()
         if email in by_email:
-            state.set("admins", key, by_email[email]["id"])
-            state.save()
+            if state_lock:
+                update_state(state, state_lock, "admins",
+                             key, by_email[email]["id"])
+            else:
+                state.set("admins", key, by_email[email]["id"])
+                state.save()
             if progress:
                 progress.step(admin["key"])
-            continue
+            return
         payload = {
             "email": admin["email"],
             "password": admin["password"],
@@ -694,10 +759,15 @@ def ensure_admins(
             "school": school_id,
         }
         created = client.request("POST", "/admin", token=token, body=payload)
-        state.set("admins", key, created["id"])
-        state.save()
+        if state_lock:
+            update_state(state, state_lock, "admins", key, created["id"])
+        else:
+            state.set("admins", key, created["id"])
+            state.save()
         if progress:
             progress.step(admin["key"])
+
+    run_concurrent(admins, worker, max_workers)
 
 
 def ensure_teachers(
@@ -707,23 +777,30 @@ def ensure_teachers(
     teachers: list,
     state: StateStore,
     progress: Progress | None = None,
+    state_lock: threading.Lock | None = None,
+    max_workers: int = 1,
 ):
     existing = client.request(
         "GET", f"/teachers/{school_id}", token=token) or []
     by_email = {entry.get("email", "").lower(): entry for entry in existing}
-    for teacher in teachers:
+
+    def worker(teacher):
         key = teacher["key"]
         if state.get("teachers", key):
             if progress:
                 progress.step(teacher["key"])
-            continue
+            return
         email = teacher["email"].lower()
         if email in by_email:
-            state.set("teachers", key, by_email[email]["id"])
-            state.save()
+            if state_lock:
+                update_state(state, state_lock, "teachers",
+                             key, by_email[email]["id"])
+            else:
+                state.set("teachers", key, by_email[email]["id"])
+                state.save()
             if progress:
                 progress.step(teacher["key"])
-            continue
+            return
         payload = {
             "email": teacher["email"],
             "password": teacher["password"],
@@ -733,10 +810,15 @@ def ensure_teachers(
             "school": school_id,
         }
         created = client.request("POST", "/teacher", token=token, body=payload)
-        state.set("teachers", key, created["id"])
-        state.save()
+        if state_lock:
+            update_state(state, state_lock, "teachers", key, created["id"])
+        else:
+            state.set("teachers", key, created["id"])
+            state.save()
         if progress:
             progress.step(teacher["key"])
+
+    run_concurrent(teachers, worker, max_workers)
 
 
 def ensure_students(
@@ -746,23 +828,30 @@ def ensure_students(
     students: list,
     state: StateStore,
     progress: Progress | None = None,
+    state_lock: threading.Lock | None = None,
+    max_workers: int = 1,
 ):
     existing = client.request(
         "GET", f"/students/{school_id}", token=token) or []
     by_email = {entry.get("email", "").lower(): entry for entry in existing}
-    for student in students:
+
+    def worker(student):
         key = student["key"]
         if state.get("students", key):
             if progress:
                 progress.step(student["key"])
-            continue
+            return
         email = student["email"].lower()
         if email in by_email:
-            state.set("students", key, by_email[email]["id"])
-            state.save()
+            if state_lock:
+                update_state(state, state_lock, "students",
+                             key, by_email[email]["id"])
+            else:
+                state.set("students", key, by_email[email]["id"])
+                state.save()
             if progress:
                 progress.step(student["key"])
-            continue
+            return
         payload = {
             "email": student["email"],
             "password": student["password"],
@@ -773,10 +862,15 @@ def ensure_students(
             "school": school_id,
         }
         created = client.request("POST", "/student", token=token, body=payload)
-        state.set("students", key, created["id"])
-        state.save()
+        if state_lock:
+            update_state(state, state_lock, "students", key, created["id"])
+        else:
+            state.set("students", key, created["id"])
+            state.save()
         if progress:
             progress.step(student["key"])
+
+    run_concurrent(students, worker, max_workers)
 
 
 def ensure_devices(
@@ -785,18 +879,20 @@ def ensure_devices(
     students: list,
     state: StateStore,
     progress: Progress | None = None,
+    max_workers: int = 1,
 ):
-    for student in students:
+
+    def worker(student):
         student_id = state.get("students", student["key"])
         if not student_id:
             if progress:
                 progress.step(student["key"])
-            continue
+            return
         try:
             client.request("GET", f"/student/{student_id}/device", token=token)
             if progress:
                 progress.step(student["key"])
-            continue
+            return
         except RuntimeError as exc:
             if "404" not in str(exc):
                 raise
@@ -814,6 +910,8 @@ def ensure_devices(
         if progress:
             progress.step(student["key"])
 
+    run_concurrent(students, worker, max_workers)
+
 
 def ensure_groups(
     client: ApiClient,
@@ -822,23 +920,30 @@ def ensure_groups(
     groups: list,
     state: StateStore,
     progress: Progress | None = None,
+    state_lock: threading.Lock | None = None,
+    max_workers: int = 1,
 ):
     existing = client.request(
         "GET", f"/studentGroups/{school_id}", token=token) or []
     by_name = {entry.get("name", "").lower(): entry for entry in existing}
-    for group in groups:
+
+    def worker(group):
         key = group["key"]
         if state.get("groups", key):
             if progress:
                 progress.step(group["key"])
-            continue
+            return
         name = group["name"].lower()
         if name in by_name:
-            state.set("groups", key, by_name[name]["id"])
-            state.save()
+            if state_lock:
+                update_state(state, state_lock, "groups",
+                             key, by_name[name]["id"])
+            else:
+                state.set("groups", key, by_name[name]["id"])
+                state.save()
             if progress:
                 progress.step(group["key"])
-            continue
+            return
         payload = {
             "name": group["name"],
             "singleStudentGroup": group.get("singleStudentGroup", False),
@@ -846,10 +951,15 @@ def ensure_groups(
         }
         created = client.request(
             "POST", "/studentGroup", token=token, body=payload)
-        state.set("groups", key, created["id"])
-        state.save()
+        if state_lock:
+            update_state(state, state_lock, "groups", key, created["id"])
+        else:
+            state.set("groups", key, created["id"])
+            state.save()
         if progress:
             progress.step(group["key"])
+
+    run_concurrent(groups, worker, max_workers)
 
 
 def ensure_group_memberships(
@@ -858,13 +968,15 @@ def ensure_group_memberships(
     groups: list,
     state: StateStore,
     progress: Progress | None = None,
+    max_workers: int = 1,
 ):
-    for group in groups:
+
+    def worker(group):
         group_id = state.get("groups", group["key"])
         if not group_id:
             if progress:
                 progress.step(group["key"])
-            continue
+            return
         current = client.request(
             "GET", f"/studentGroup/{group_id}?include=students", token=token) or {}
         existing_students = {entry.get("id")
@@ -877,12 +989,14 @@ def ensure_group_memberships(
         if not desired_ids:
             if progress:
                 progress.step(group["key"])
-            continue
+            return
         payload = {"studentsIds": desired_ids}
         client.request(
             "POST", f"/studentGroup/{group_id}/students", token=token, body=payload)
         if progress:
             progress.step(group["key"])
+
+    run_concurrent(groups, worker, max_workers)
 
 
 def ensure_classrooms(
@@ -892,30 +1006,42 @@ def ensure_classrooms(
     classrooms: list,
     state: StateStore,
     progress: Progress | None = None,
+    state_lock: threading.Lock | None = None,
+    max_workers: int = 1,
 ):
     existing = client.request(
         "GET", f"/classrooms/{school_id}", token=token) or []
     by_name = {entry.get("name", "").lower(): entry for entry in existing}
-    for room in classrooms:
+
+    def worker(room):
         key = room["key"]
         if state.get("classrooms", key):
             if progress:
                 progress.step(room["key"])
-            continue
+            return
         name = room["name"].lower()
         if name in by_name:
-            state.set("classrooms", key, by_name[name]["id"])
-            state.save()
+            if state_lock:
+                update_state(state, state_lock, "classrooms",
+                             key, by_name[name]["id"])
+            else:
+                state.set("classrooms", key, by_name[name]["id"])
+                state.save()
             if progress:
                 progress.step(room["key"])
-            continue
+            return
         payload = {"name": room["name"], "school": school_id}
         created = client.request("POST", "/classroom",
                                  token=token, body=payload)
-        state.set("classrooms", key, created["id"])
-        state.save()
+        if state_lock:
+            update_state(state, state_lock, "classrooms", key, created["id"])
+        else:
+            state.set("classrooms", key, created["id"])
+            state.save()
         if progress:
             progress.step(room["key"])
+
+    run_concurrent(classrooms, worker, max_workers)
 
 
 def build_existing_courses_index(client: ApiClient, admin_token: str):
@@ -943,23 +1069,30 @@ def ensure_courses(
     state: StateStore,
     id_map: dict,
     progress: Progress | None = None,
+    state_lock: threading.Lock | None = None,
+    max_workers: int = 1,
 ):
     existing_index = build_existing_courses_index(
         client, admin_token) if admin_token else {}
-    for course in courses:
+
+    def worker(course):
         key = course["key"]
         if state.get("courses", key):
             if progress:
                 progress.step(course["key"])
-            continue
+            return
         lookup_key = (course["name"].lower(),
                       course["date"], course["endDate"])
         if lookup_key in existing_index:
-            state.set("courses", key, existing_index[lookup_key]["id"])
-            state.save()
+            if state_lock:
+                update_state(state, state_lock, "courses", key,
+                             existing_index[lookup_key]["id"])
+            else:
+                state.set("courses", key, existing_index[lookup_key]["id"])
+                state.save()
             if progress:
                 progress.step(course["key"])
-            continue
+            return
         payload = {
             "name": course["name"],
             "date": course["date"],
@@ -971,10 +1104,15 @@ def ensure_courses(
             "studentGroupsId": [state.get("groups", k) for k in course.get("studentGroups", []) if state.get("groups", k)],
         }
         created = client.request("POST", "/course", token=token, body=payload)
-        state.set("courses", key, created["id"])
-        state.save()
+        if state_lock:
+            update_state(state, state_lock, "courses", key, created["id"])
+        else:
+            state.set("courses", key, created["id"])
+            state.save()
         if progress:
             progress.step(course["key"])
+
+    run_concurrent(courses, worker, max_workers)
 
 
 def ensure_beacons(
@@ -983,22 +1121,29 @@ def ensure_beacons(
     beacons: list,
     state: StateStore,
     progress: Progress | None = None,
+    state_lock: threading.Lock | None = None,
+    max_workers: int = 1,
 ):
     existing = client.request("GET", "/beacons", token=token) or []
     by_serial = {entry.get("serialNumber"): entry for entry in existing}
-    for beacon in beacons:
+
+    def worker(beacon):
         key = beacon["key"]
         if state.get("beacons", key):
             if progress:
                 progress.step(beacon["key"])
-            continue
+            return
         serial = beacon["serialNumber"]
         if serial in by_serial:
-            state.set("beacons", key, by_serial[serial]["id"])
-            state.save()
+            if state_lock:
+                update_state(state, state_lock, "beacons",
+                             key, by_serial[serial]["id"])
+            else:
+                state.set("beacons", key, by_serial[serial]["id"])
+                state.save()
             if progress:
                 progress.step(beacon["key"])
-            continue
+            return
         classroom_id = state.get("classrooms", beacon.get(
             "classroomKey")) if beacon.get("classroomKey") else None
         payload = {
@@ -1010,13 +1155,25 @@ def ensure_beacons(
         if classroom_id:
             payload["classroom"] = classroom_id
         created = client.request("POST", "/beacon", token=token, body=payload)
-        state.set("beacons", key, created["id"])
-        state.save()
+        if state_lock:
+            update_state(state, state_lock, "beacons", key, created["id"])
+        else:
+            state.set("beacons", key, created["id"])
+            state.save()
         if progress:
             progress.step(beacon["key"])
 
+    run_concurrent(beacons, worker, max_workers)
 
-def seed_data(base_url: str, dev_email: str, dev_password: str, state_path: Path, skip_devices: bool):
+
+def seed_data(
+    base_url: str,
+    dev_email: str,
+    dev_password: str,
+    state_path: Path,
+    skip_devices: bool,
+    concurrency: int,
+):
     client = ApiClient(base_url)
     token = client.login(dev_email, dev_password)
 
@@ -1024,6 +1181,7 @@ def seed_data(base_url: str, dev_email: str, dev_password: str, state_path: Path
     state = StateStore(state_path)
 
     school = data["schools"][0]
+    state_lock = threading.Lock()
     school_progress = make_progress("School", 1)
     school_id = ensure_school(client, token, school, state)
     if school_progress:
@@ -1036,6 +1194,8 @@ def seed_data(base_url: str, dev_email: str, dev_password: str, state_path: Path
         data["admins"],
         state,
         progress=make_progress("Admins", len(data["admins"])),
+        state_lock=state_lock,
+        max_workers=concurrency,
     )
     ensure_teachers(
         client,
@@ -1044,6 +1204,8 @@ def seed_data(base_url: str, dev_email: str, dev_password: str, state_path: Path
         data["teachers"],
         state,
         progress=make_progress("Teachers", len(data["teachers"])),
+        state_lock=state_lock,
+        max_workers=concurrency,
     )
     ensure_students(
         client,
@@ -1052,6 +1214,8 @@ def seed_data(base_url: str, dev_email: str, dev_password: str, state_path: Path
         data["students"],
         state,
         progress=make_progress("Students", len(data["students"])),
+        state_lock=state_lock,
+        max_workers=concurrency,
     )
 
     admin_token = None
@@ -1066,6 +1230,7 @@ def seed_data(base_url: str, dev_email: str, dev_password: str, state_path: Path
             data["students"],
             state,
             progress=make_progress("Devices", len(data["students"])),
+            max_workers=concurrency,
         )
 
     ensure_groups(
@@ -1075,6 +1240,8 @@ def seed_data(base_url: str, dev_email: str, dev_password: str, state_path: Path
         data["groups"],
         state,
         progress=make_progress("Groups", len(data["groups"])),
+        state_lock=state_lock,
+        max_workers=concurrency,
     )
     groups_with_students = [g for g in data["groups"] if g.get("students")]
     ensure_group_memberships(
@@ -1083,6 +1250,7 @@ def seed_data(base_url: str, dev_email: str, dev_password: str, state_path: Path
         groups_with_students,
         state,
         progress=make_progress("Group members", len(groups_with_students)),
+        max_workers=concurrency,
     )
     ensure_classrooms(
         client,
@@ -1091,6 +1259,8 @@ def seed_data(base_url: str, dev_email: str, dev_password: str, state_path: Path
         data["classrooms"],
         state,
         progress=make_progress("Classrooms", len(data["classrooms"])),
+        state_lock=state_lock,
+        max_workers=concurrency,
     )
     ensure_courses(
         client,
@@ -1100,6 +1270,8 @@ def seed_data(base_url: str, dev_email: str, dev_password: str, state_path: Path
         state,
         {"school_id": school_id},
         progress=make_progress("Courses", len(data["courses"])),
+        state_lock=state_lock,
+        max_workers=concurrency,
     )
     ensure_beacons(
         client,
@@ -1107,6 +1279,8 @@ def seed_data(base_url: str, dev_email: str, dev_password: str, state_path: Path
         data["beacons"],
         state,
         progress=make_progress("Beacons", len(data["beacons"])),
+        state_lock=state_lock,
+        max_workers=concurrency,
     )
 
     print("Seeding completed. State saved to", state_path)
@@ -1193,19 +1367,14 @@ def generate_signature_sql(state_path: Path, output_path: Path):
     namespace = uuid.UUID("00000000-0000-0000-0000-000000000123")
 
     for entry in data["signatures"]:
-        course_key = entry["courseKey"]
-        student_key = entry["studentKey"]
-        if not course_key or not student_key:
-            continue
-        course_id = state.get("courses", course_key)
-        student_id = state.get("students", student_key)
-        if not course_id or not student_id:
+        course_key = entry.get("courseKey")
+        if not course_key:
             continue
 
-        teacher_id = state.get("teachers", entry.get(
-            "teacherKey")) if entry.get("teacherKey") else None
-        admin_id = state.get("admins", entry.get(
-            "adminKey")) if entry.get("adminKey") else None
+        sig_type = entry.get("signatureType") or "student"
+        course_id = state.get("courses", course_key)
+        if not course_id:
+            continue
 
         course = courses[course_key]
         start_time = dt.datetime.fromtimestamp(
@@ -1222,10 +1391,63 @@ def generate_signature_sql(state_path: Path, output_path: Path):
             image_name = entry.get("imageFile")
             if not image_name:
                 raise SystemExit(
-                    f"Signed signature missing imageFile for {course_key}/{student_key}.")
+                    f"Signed signature missing imageFile for {course_key}.")
             image_url = images.get(image_name)
             if not image_url:
                 raise SystemExit(f"Signature image not found: {image_name}")
+
+        if sig_type == "teacher":
+            teacher_key = entry.get("teacherKey")
+            if not teacher_key:
+                continue
+            teacher_id = state.get("teachers", teacher_key)
+            if not teacher_id:
+                continue
+            admin_id = state.get("admins", entry.get(
+                "adminKey")) if entry.get("adminKey") else None
+
+            signature_id = str(
+                uuid.uuid5(namespace, f"{course_id}:{teacher_id}:teacher"))
+
+            lines.append(
+                "INSERT INTO signatures (id, course_id, signed_at, status, method, image_url, created_at)"
+            )
+            lines.append(
+                "SELECT {id}, {course_id}, timestamptz '{signed_at}', {status}, {method}, {image_url}, now()"
+                " WHERE NOT EXISTS (SELECT 1 FROM signatures WHERE id = {id});".format(
+                    id=sql_quote(signature_id),
+                    course_id=sql_quote(course_id),
+                    signed_at=signed_at_sql,
+                    status=sql_quote(status),
+                    method=sql_quote(method),
+                    image_url=sql_quote(image_url),
+                )
+            )
+
+            lines.append(
+                "INSERT INTO teacher_signatures (signature_id, teacher_id, administrator_id, course_id)"
+            )
+            lines.append(
+                "SELECT {sig_id}, {teacher_id}, {admin_id}, {course_id}"
+                " WHERE NOT EXISTS (SELECT 1 FROM teacher_signatures WHERE signature_id = {sig_id});".format(
+                    sig_id=sql_quote(signature_id),
+                    teacher_id=sql_quote(teacher_id),
+                    admin_id=sql_quote(admin_id),
+                    course_id=sql_quote(course_id),
+                )
+            )
+            continue
+
+        student_key = entry.get("studentKey")
+        if not student_key:
+            continue
+        student_id = state.get("students", student_key)
+        if not student_id:
+            continue
+        teacher_id = state.get("teachers", entry.get(
+            "teacherKey")) if entry.get("teacherKey") else None
+        admin_id = state.get("admins", entry.get(
+            "adminKey")) if entry.get("adminKey") else None
 
         signature_id = str(uuid.uuid5(namespace, f"{course_id}:{student_id}"))
 
@@ -1288,6 +1510,8 @@ def parse_args():
                       "state.json"), help="State file path")
     seed.add_argument("--skip-devices", action="store_true",
                       help="Skip student device registration")
+    seed.add_argument("--concurrency", type=int, default=6,
+                      help="Max concurrent API calls per phase")
 
     cleanup = sub.add_parser(
         "cleanup", help="Remove previously seeded data via API")
@@ -1328,6 +1552,8 @@ def parse_args():
         "--state-file", default=str(NORMALIZED_DIR / "state.json"), help="State file path")
     all_cmd.add_argument("--skip-devices", action="store_true",
                          help="Skip student device registration")
+    all_cmd.add_argument("--concurrency", type=int, default=6,
+                         help="Max concurrent API calls per phase")
     all_cmd.add_argument(
         "--signature-sql",
         default=str(NORMALIZED_DIR / "attendance_signatures_seed.sql"),
@@ -1349,6 +1575,7 @@ def main():
             dev_password=args.dev_password,
             state_path=Path(args.state_file),
             skip_devices=args.skip_devices,
+            concurrency=args.concurrency,
         )
         return
     if args.command == "generate-signature-sql":
@@ -1371,6 +1598,7 @@ def main():
             dev_password=args.dev_password,
             state_path=Path(args.state_file),
             skip_devices=args.skip_devices,
+            concurrency=args.concurrency,
         )
         generate_signature_sql(Path(args.state_file), Path(args.signature_sql))
         return

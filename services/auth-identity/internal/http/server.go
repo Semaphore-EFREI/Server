@@ -109,6 +109,7 @@ func (s *Server) Router() http.Handler {
 	r.Route("/users", func(r chi.Router) {
 		r.With(s.authMiddleware, s.requireAdminOrDev).Get("/", s.handleListUsers)
 		r.With(s.authMiddleware, s.requireAdminOrDev).Post("/", s.handleCreateUser)
+		r.With(s.authMiddleware).Get("/batch", s.handleGetUsersBatch)
 		r.With(s.authMiddleware).Get("/{userID}", s.handleGetUser)
 		r.With(s.authMiddleware).Patch("/{userID}", s.handleUpdateUser)
 		r.With(s.authMiddleware, s.requireAdminOrDev).Delete("/{userID}", s.handleDeleteUser)
@@ -137,6 +138,13 @@ type userSummary struct {
 	UserType  string  `json:"userType"`
 	AdminRole *string `json:"adminRole,omitempty"`
 	StudentNo *string `json:"studentNumber,omitempty"`
+}
+
+type userBatchSummary struct {
+	ID        string `json:"id"`
+	UserType  string `json:"userType"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
 }
 
 type studentSummary struct {
@@ -624,6 +632,50 @@ func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, summaries)
+}
+
+func (s *Server) handleGetUsersBatch(w http.ResponseWriter, r *http.Request) {
+	claims := claimsFromContext(r.Context())
+	if claims == nil {
+		writeError(w, http.StatusUnauthorized, "missing_token")
+		return
+	}
+
+	rawIDs := r.URL.Query()["id"]
+	ids := normalizeBatchIDs(rawIDs)
+	if len(ids) == 0 {
+		writeJSON(w, http.StatusOK, []userBatchSummary{})
+		return
+	}
+
+	schoolID := ""
+	if claims.UserType != "dev" {
+		schoolID = claims.SchoolID
+	}
+
+	users, err := s.store.ListUserSummariesByIDs(r.Context(), ids, schoolID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error")
+		return
+	}
+
+	lookup := make(map[string]userBatchSummary, len(users))
+	for _, user := range users {
+		lookup[user.ID] = userBatchSummary{
+			ID:        user.ID,
+			UserType:  user.UserType,
+			FirstName: user.FirstName,
+			LastName:  user.LastName,
+		}
+	}
+
+	resp := make([]userBatchSummary, 0, len(lookup))
+	for _, id := range ids {
+		if summary, ok := lookup[id]; ok {
+			resp = append(resp, summary)
+		}
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {
@@ -1722,6 +1774,33 @@ func contains(values []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func normalizeBatchIDs(raw []string) []string {
+	if len(raw) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(raw))
+	ids := make([]string, 0, len(raw))
+	for _, value := range raw {
+		for _, item := range strings.Split(value, ",") {
+			trimmed := strings.TrimSpace(item)
+			if trimmed == "" {
+				continue
+			}
+			parsed, err := uuid.Parse(trimmed)
+			if err != nil {
+				continue
+			}
+			normalized := parsed.String()
+			if _, exists := seen[normalized]; exists {
+				continue
+			}
+			seen[normalized] = struct{}{}
+			ids = append(ids, normalized)
+		}
+	}
+	return ids
 }
 
 func bearerToken(header string) string {

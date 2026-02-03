@@ -13,6 +13,13 @@ type User struct {
 	UpdatedAt    time.Time
 }
 
+type UserSummaryLite struct {
+	ID        string
+	UserType  string
+	FirstName string
+	LastName  string
+}
+
 type Role struct {
 	UserID    string
 	UserType  string

@@ -15,6 +15,7 @@ type Config struct {
 	JWTIssuer              string
 	ServiceAuthToken       string
 	AttendanceGRPCAddr     string
+	IdentityGRPCAddr       string
 	BeaconGRPCAddr         string
 	GRPCDialTimeout        time.Duration
 	CourseDuration         time.Duration
@@ -30,6 +31,7 @@ func Load() Config {
 		JWTIssuer:              getenv("JWT_ISSUER", "semaphore-auth-identity"),
 		ServiceAuthToken:       getenv("SERVICE_AUTH_TOKEN", ""),
 		AttendanceGRPCAddr:     getenv("ATTENDANCE_GRPC_ADDR", "127.0.0.1:9093"),
+		IdentityGRPCAddr:       getenv("IDENTITY_GRPC_ADDR", "127.0.0.1:9091"),
 		BeaconGRPCAddr:         getenv("BEACON_GRPC_ADDR", "127.0.0.1:9094"),
 		GRPCDialTimeout:        getenvDuration("GRPC_DIAL_TIMEOUT", 5*time.Second),
 		CourseDuration:         getenvDuration("COURSE_DURATION", time.Hour),

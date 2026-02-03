@@ -3309,6 +3309,56 @@
                 }
             }
         },
+        "/users/batch": {
+            "get": {
+                "tags": ["Utilisateurs"],
+                "summary": "Obtenir plusieurs utilisateurs",
+                "description": "Qui peux exécuter la requête ?\n  - Étudiants : Oui (même école)\n  - Enseignants: Oui (même école)\n  - Administration: Oui (même école)\n  - Développeurs: Oui\n  - Balise: Interdit\n",
+                "operationId": "getUsersBatch",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "query",
+                        "description": "IDs des utilisateurs",
+                        "required": false,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "format": "uuid",
+                                "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Succès requête",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/UserBatchSummary"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/401"
+                    },
+                    "default": {
+                        "$ref": "#/components/responses/UnknownError"
+                    }
+                }
+            }
+        },
         "/users/{userID}": {
             "parameters": [
                 {
@@ -4667,6 +4717,29 @@
                     }
                 }
             },
+            "UserBatchSummary": {
+                "type": "object",
+                "description": "Résumé utilisateur (batch)",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                    },
+                    "userType": {
+                        "type": "string",
+                        "example": "teacher"
+                    },
+                    "firstName": {
+                        "type": "string",
+                        "example": "Marc"
+                    },
+                    "lastName": {
+                        "type": "string",
+                        "example": "DUPONT"
+                    }
+                }
+            },
             "Beacon": {
                 "type": "object",
                 "description": "Objet représentant une balise",
@@ -4840,30 +4913,20 @@
                             "classrooms": {
                                 "type": "array",
                                 "items": {
-                                    "$ref": "#/components/schemas/Classroom"
+                                    "$ref": "#/components/schemas/ClassroomSummary"
                                 }
                             },
                             "signature": {
                                 "type": "array",
                                 "items": {
-                                    "oneOf": [
-                                        {
-                                            "$ref": "#/components/schemas/StudentSignature"
-                                        },
-                                        {
-                                            "$ref": "#/components/schemas/TeacherSignature"
-                                        }
-                                    ],
-                                    "discriminator": {
-                                        "propertyName": "type"
-                                    }
+                                    "$ref": "#/components/schemas/SignatureSummary"
                                 }
                             },
                             "teachers": {
                                 "type": "array",
                                 "description": "Liste des enseignants associés au cours",
                                 "items": {
-                                    "$ref": "#/components/schemas/Teacher"
+                                    "$ref": "#/components/schemas/TeacherSummary"
                                 }
                             },
                             "students": {
@@ -4890,6 +4953,86 @@
                         }
                     }
                 ]
+            },
+            "TeacherSummary": {
+                "type": "object",
+                "description": "Résumé enseignant",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                    },
+                    "firstName": {
+                        "type": "string",
+                        "example": "Marc"
+                    },
+                    "lastName": {
+                        "type": "string",
+                        "example": "DUPONT"
+                    }
+                }
+            },
+            "ClassroomSummary": {
+                "type": "object",
+                "description": "Résumé classe",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "A001"
+                    }
+                }
+            },
+            "SignatureSummary": {
+                "type": "object",
+                "description": "Résumé signature",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": ["student", "teacher"],
+                        "example": "student"
+                    },
+                    "course": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                    },
+                    "date": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 1751358516
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["signed", "present", "absent", "late", "excused", "invalid"],
+                        "example": "signed"
+                    },
+                    "method": {
+                        "type": "string",
+                        "enum": ["nfc", "beacon", "buzzLightyear", "admin", "teacher", "web", "self"],
+                        "example": "beacon"
+                    },
+                    "student": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                    },
+                    "teacher": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                    }
+                }
             },
             "Classroom": {
                 "type": "object",

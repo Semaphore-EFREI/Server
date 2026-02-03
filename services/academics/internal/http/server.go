@@ -24,6 +24,7 @@ import (
 	"semaphore/academics/internal/config"
 	"semaphore/academics/internal/db"
 	attendancev1 "semaphore/attendance/attendance/v1"
+	identityv1 "semaphore/auth-identity/identity/v1"
 	beaconv1 "semaphore/beacon/beacon/v1"
 )
 
@@ -31,12 +32,13 @@ type Server struct {
 	cfg           config.Config
 	store         *db.Store
 	attendance    attendancev1.AttendanceQueryServiceClient
+	identity      identityv1.IdentityQueryServiceClient
 	beacon        beaconv1.BeaconQueryServiceClient
 	beaconCommand beaconv1.BeaconCommandServiceClient
 	jwtPublicKey  *rsa.PublicKey
 }
 
-func NewServer(cfg config.Config, store *db.Store, attendance attendancev1.AttendanceQueryServiceClient, beacon beaconv1.BeaconQueryServiceClient, beaconCommand beaconv1.BeaconCommandServiceClient) (*Server, error) {
+func NewServer(cfg config.Config, store *db.Store, attendance attendancev1.AttendanceQueryServiceClient, identity identityv1.IdentityQueryServiceClient, beacon beaconv1.BeaconQueryServiceClient, beaconCommand beaconv1.BeaconCommandServiceClient) (*Server, error) {
 	publicKey, err := auth.ParseRSAPublicKey(cfg.JWTPublicKey)
 	if err != nil {
 		return nil, err
@@ -45,6 +47,7 @@ func NewServer(cfg config.Config, store *db.Store, attendance attendancev1.Atten
 		cfg:           cfg,
 		store:         store,
 		attendance:    attendance,
+		identity:      identity,
 		beacon:        beacon,
 		beaconCommand: beaconCommand,
 		jwtPublicKey:  publicKey,
@@ -821,7 +824,7 @@ func (s *Server) handleGetCourses(w http.ResponseWriter, r *http.Request) {
 			resp = append(resp, mapCourse(course))
 			continue
 		}
-		entry, err := s.buildCourseEntry(r.Context(), course, courseIncludes{
+		entry, err := s.buildCourseEntry(r.Context(), claims, course, courseIncludes{
 			Classrooms:    includeClassrooms,
 			Signatures:    includeSignatures,
 			Teachers:      includeTeachers,
@@ -968,17 +971,17 @@ type courseIncludes struct {
 	StudentGroups bool
 }
 
-func (s *Server) buildCourseEntry(ctx context.Context, course courseEntry, includes courseIncludes) (map[string]interface{}, error) {
+func (s *Server) buildCourseEntry(ctx context.Context, claims *auth.Claims, course courseEntry, includes courseIncludes) (map[string]interface{}, error) {
 	entry := mapCourseBase(course)
 	if includes.Classrooms {
 		classrooms, err := s.store.Queries.ListClassroomsByCourse(ctx, course.ID)
 		if err != nil {
 			return nil, err
 		}
-		entry["classrooms"] = mapClassroomResponses(classrooms)
+		entry["classrooms"] = mapClassroomSummaries(classrooms)
 	}
 	if includes.Signatures {
-		signatures, err := s.listCourseSignatures(ctx, course.ID)
+		signatures, err := s.listCourseSignatures(ctx, claims, course.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -989,7 +992,16 @@ func (s *Server) buildCourseEntry(ctx context.Context, course courseEntry, inclu
 		if err != nil {
 			return nil, err
 		}
-		entry["teachers"] = mapTeacherRefs(teacherIDs)
+		ids := make([]string, 0, len(teacherIDs))
+		for _, id := range teacherIDs {
+			ids = append(ids, uuidString(id))
+		}
+		summaries, err := s.listUserSummaries(ctx, claims, ids)
+		if err != nil {
+			entry["teachers"] = []teacherSummary{}
+		} else {
+			entry["teachers"] = mapTeacherSummaries(ids, summaries)
+		}
 	}
 	if includes.Students || includes.SoloStudents || includes.StudentGroups {
 		groups, students, soloStudents, err := s.listCourseStudents(ctx, course.ID)
@@ -1009,7 +1021,7 @@ func (s *Server) buildCourseEntry(ctx context.Context, course courseEntry, inclu
 	return entry, nil
 }
 
-func (s *Server) listCourseSignatures(ctx context.Context, courseID pgtype.UUID) ([]any, error) {
+func (s *Server) listCourseSignatures(ctx context.Context, claims *auth.Claims, courseID pgtype.UUID) ([]any, error) {
 	if s.attendance == nil {
 		return nil, errors.New("attendance client not configured")
 	}
@@ -1020,6 +1032,15 @@ func (s *Server) listCourseSignatures(ctx context.Context, courseID pgtype.UUID)
 	}
 
 	items := make([]any, 0, len(resp.GetStudentSignatures())+len(resp.GetTeacherSignatures()))
+	if claims != nil && claims.UserType == "student" {
+		for _, sig := range resp.GetStudentSignatures() {
+			if sig.GetStudentId() != claims.UserID {
+				continue
+			}
+			items = append(items, mapStudentSignatureFromGRPC(sig))
+		}
+		return items, nil
+	}
 	for _, sig := range resp.GetStudentSignatures() {
 		items = append(items, mapStudentSignatureFromGRPC(sig))
 	}
@@ -1048,6 +1069,35 @@ func (s *Server) listClassroomBeacons(ctx context.Context, authHeader string, cl
 		items = append(items, mapBeaconFromGRPC(beacon))
 	}
 	return items, nil
+}
+
+func (s *Server) listUserSummaries(ctx context.Context, claims *auth.Claims, ids []string) (map[string]userBatchSummary, error) {
+	if s.identity == nil {
+		return nil, errors.New("identity client not configured")
+	}
+	if len(ids) == 0 {
+		return map[string]userBatchSummary{}, nil
+	}
+
+	req := &identityv1.ListUsersSummaryRequest{UserIds: ids}
+	if claims != nil && claims.UserType != "dev" {
+		req.SchoolId = claims.SchoolID
+	}
+	resp, err := s.identity.ListUsersSummary(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	lookup := make(map[string]userBatchSummary, len(resp.GetUsers()))
+	for _, user := range resp.GetUsers() {
+		lookup[user.GetId()] = userBatchSummary{
+			ID:        user.GetId(),
+			UserType:  user.GetUserType(),
+			FirstName: user.GetFirstname(),
+			LastName:  user.GetLastname(),
+		}
+	}
+	return lookup, nil
 }
 
 func (s *Server) listCourseStudents(ctx context.Context, courseID pgtype.UUID) ([]db.StudentGroup, []string, []string, error) {
@@ -1338,7 +1388,7 @@ func (s *Server) handleGetCourse(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, mapCourse(courseEntryFromGetCourse(course)))
 		return
 	}
-	entry, err := s.buildCourseEntry(r.Context(), courseEntryFromGetCourse(course), courseIncludes{
+	entry, err := s.buildCourseEntry(r.Context(), claims, courseEntryFromGetCourse(course), courseIncludes{
 		Classrooms:    includeClassrooms,
 		Signatures:    includeSignatures,
 		Teachers:      includeTeachers,
@@ -2195,8 +2245,22 @@ type studentRef struct {
 	ID string `json:"id"`
 }
 
-type teacherRef struct {
-	ID string `json:"id"`
+type teacherSummary struct {
+	ID        string `json:"id"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+}
+
+type classroomSummary struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type userBatchSummary struct {
+	ID        string `json:"id"`
+	UserType  string `json:"userType"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
 }
 
 func mapClassroomResponses(classrooms []db.Classroom) []classroomResponse {
@@ -2206,6 +2270,17 @@ func mapClassroomResponses(classrooms []db.Classroom) []classroomResponse {
 			ID:     uuidString(room.ID),
 			Name:   room.Name,
 			School: uuidString(room.SchoolID),
+		})
+	}
+	return resp
+}
+
+func mapClassroomSummaries(classrooms []db.Classroom) []classroomSummary {
+	resp := make([]classroomSummary, 0, len(classrooms))
+	for _, room := range classrooms {
+		resp = append(resp, classroomSummary{
+			ID:   uuidString(room.ID),
+			Name: room.Name,
 		})
 	}
 	return resp
@@ -2227,10 +2302,18 @@ func mapStudentRefs(ids []pgtype.UUID) []studentRef {
 	return resp
 }
 
-func mapTeacherRefs(ids []pgtype.UUID) []teacherRef {
-	resp := make([]teacherRef, 0, len(ids))
+func mapTeacherSummaries(ids []string, summaries map[string]userBatchSummary) []teacherSummary {
+	resp := make([]teacherSummary, 0, len(ids))
 	for _, id := range ids {
-		resp = append(resp, teacherRef{ID: uuidString(id)})
+		summary, ok := summaries[id]
+		if !ok {
+			continue
+		}
+		resp = append(resp, teacherSummary{
+			ID:        summary.ID,
+			FirstName: summary.FirstName,
+			LastName:  summary.LastName,
+		})
 	}
 	return resp
 }
@@ -2339,7 +2422,7 @@ func courseEntriesFromListCoursesByStudentGroup(rows []db.ListCoursesByStudentGr
 }
 
 func mapStudentSignatureFromGRPC(sig *attendancev1.StudentSignature) map[string]interface{} {
-	entry := mapSignatureBaseFromGRPC(sig.GetId(), sig.GetCourseId(), sig.GetSignedAt(), sig.GetStatus(), sig.GetMethod(), sig.GetImage(), sig.GetAdministratorId())
+	entry := mapSignatureBaseFromGRPC(sig.GetId(), sig.GetCourseId(), sig.GetSignedAt(), sig.GetStatus(), sig.GetMethod())
 	entry["student"] = sig.GetStudentId()
 	if sig.GetTeacherId() != "" {
 		entry["teacher"] = sig.GetTeacherId()
@@ -2349,13 +2432,13 @@ func mapStudentSignatureFromGRPC(sig *attendancev1.StudentSignature) map[string]
 }
 
 func mapTeacherSignatureFromGRPC(sig *attendancev1.TeacherSignature) map[string]interface{} {
-	entry := mapSignatureBaseFromGRPC(sig.GetId(), sig.GetCourseId(), sig.GetSignedAt(), sig.GetStatus(), sig.GetMethod(), sig.GetImage(), sig.GetAdministratorId())
+	entry := mapSignatureBaseFromGRPC(sig.GetId(), sig.GetCourseId(), sig.GetSignedAt(), sig.GetStatus(), sig.GetMethod())
 	entry["teacher"] = sig.GetTeacherId()
 	entry["type"] = "teacher"
 	return entry
 }
 
-func mapSignatureBaseFromGRPC(id, courseID string, signedAt *timestamppb.Timestamp, status, method, image, administrator string) map[string]interface{} {
+func mapSignatureBaseFromGRPC(id, courseID string, signedAt *timestamppb.Timestamp, status, method string) map[string]interface{} {
 	entry := map[string]interface{}{
 		"id":     id,
 		"course": courseID,
@@ -2364,12 +2447,6 @@ func mapSignatureBaseFromGRPC(id, courseID string, signedAt *timestamppb.Timesta
 	}
 	if signedAt != nil {
 		entry["date"] = signedAt.AsTime().Unix()
-	}
-	if image != "" {
-		entry["image"] = image
-	}
-	if administrator != "" {
-		entry["administrator"] = administrator
 	}
 	return entry
 }

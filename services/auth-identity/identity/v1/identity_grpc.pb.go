@@ -22,6 +22,7 @@ const (
 	IdentityQueryService_GetUserLite_FullMethodName           = "/identity.api.v1.IdentityQueryService/GetUserLite"
 	IdentityQueryService_Exists_FullMethodName                = "/identity.api.v1.IdentityQueryService/Exists"
 	IdentityQueryService_ValidateStudentDevice_FullMethodName = "/identity.api.v1.IdentityQueryService/ValidateStudentDevice"
+	IdentityQueryService_ListUsersSummary_FullMethodName      = "/identity.api.v1.IdentityQueryService/ListUsersSummary"
 )
 
 // IdentityQueryServiceClient is the client API for IdentityQueryService service.
@@ -31,6 +32,7 @@ type IdentityQueryServiceClient interface {
 	GetUserLite(ctx context.Context, in *GetUserLiteRequest, opts ...grpc.CallOption) (*GetUserLiteResponse, error)
 	Exists(ctx context.Context, in *ExistsRequest, opts ...grpc.CallOption) (*ExistsResponse, error)
 	ValidateStudentDevice(ctx context.Context, in *ValidateStudentDeviceRequest, opts ...grpc.CallOption) (*ValidateStudentDeviceResponse, error)
+	ListUsersSummary(ctx context.Context, in *ListUsersSummaryRequest, opts ...grpc.CallOption) (*ListUsersSummaryResponse, error)
 }
 
 type identityQueryServiceClient struct {
@@ -68,6 +70,15 @@ func (c *identityQueryServiceClient) ValidateStudentDevice(ctx context.Context, 
 	return out, nil
 }
 
+func (c *identityQueryServiceClient) ListUsersSummary(ctx context.Context, in *ListUsersSummaryRequest, opts ...grpc.CallOption) (*ListUsersSummaryResponse, error) {
+	out := new(ListUsersSummaryResponse)
+	err := c.cc.Invoke(ctx, IdentityQueryService_ListUsersSummary_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // IdentityQueryServiceServer is the server API for IdentityQueryService service.
 // All implementations must embed UnimplementedIdentityQueryServiceServer
 // for forward compatibility
@@ -75,6 +86,7 @@ type IdentityQueryServiceServer interface {
 	GetUserLite(context.Context, *GetUserLiteRequest) (*GetUserLiteResponse, error)
 	Exists(context.Context, *ExistsRequest) (*ExistsResponse, error)
 	ValidateStudentDevice(context.Context, *ValidateStudentDeviceRequest) (*ValidateStudentDeviceResponse, error)
+	ListUsersSummary(context.Context, *ListUsersSummaryRequest) (*ListUsersSummaryResponse, error)
 	mustEmbedUnimplementedIdentityQueryServiceServer()
 }
 
@@ -90,6 +102,9 @@ func (UnimplementedIdentityQueryServiceServer) Exists(context.Context, *ExistsRe
 }
 func (UnimplementedIdentityQueryServiceServer) ValidateStudentDevice(context.Context, *ValidateStudentDeviceRequest) (*ValidateStudentDeviceResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ValidateStudentDevice not implemented")
+}
+func (UnimplementedIdentityQueryServiceServer) ListUsersSummary(context.Context, *ListUsersSummaryRequest) (*ListUsersSummaryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListUsersSummary not implemented")
 }
 func (UnimplementedIdentityQueryServiceServer) mustEmbedUnimplementedIdentityQueryServiceServer() {}
 
@@ -158,6 +173,24 @@ func _IdentityQueryService_ValidateStudentDevice_Handler(srv interface{}, ctx co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _IdentityQueryService_ListUsersSummary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListUsersSummaryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IdentityQueryServiceServer).ListUsersSummary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IdentityQueryService_ListUsersSummary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IdentityQueryServiceServer).ListUsersSummary(ctx, req.(*ListUsersSummaryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // IdentityQueryService_ServiceDesc is the grpc.ServiceDesc for IdentityQueryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -176,6 +209,10 @@ var IdentityQueryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ValidateStudentDevice",
 			Handler:    _IdentityQueryService_ValidateStudentDevice_Handler,
+		},
+		{
+			MethodName: "ListUsersSummary",
+			Handler:    _IdentityQueryService_ListUsersSummary_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

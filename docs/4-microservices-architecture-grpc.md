@@ -368,6 +368,13 @@ message UserLite {
   string user_type = 6; // student/teacher/admin/dev
 }
 
+message UserSummary {
+  string id = 1;
+  string user_type = 2; // student/teacher/admin/dev
+  string firstname = 3;
+  string lastname = 4;
+}
+
 message GetUserLiteRequest { string user_id = 1; }
 message GetUserLiteResponse { UserLite user = 1; }
 
@@ -380,11 +387,19 @@ message ValidateStudentDeviceRequest {
 }
 message ValidateStudentDeviceResponse { bool is_valid = 1; }
 
+message ListUsersSummaryRequest {
+  repeated string user_ids = 1;
+  string school_id = 2;
+}
+message ListUsersSummaryResponse { repeated UserSummary users = 1; }
+
 service IdentityQueryService {
   rpc GetUserLite(GetUserLiteRequest) returns (GetUserLiteResponse);
   rpc Exists(ExistsRequest) returns (ExistsResponse);
   rpc ValidateStudentDevice(ValidateStudentDeviceRequest)
     returns (ValidateStudentDeviceResponse);
+  rpc ListUsersSummary(ListUsersSummaryRequest)
+    returns (ListUsersSummaryResponse);
 }
 ```
 

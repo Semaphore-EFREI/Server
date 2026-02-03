@@ -214,6 +214,54 @@ func (s *Store) ListUsers(ctx context.Context, limit int) ([]model.User, error) 
 	return users, rows.Err()
 }
 
+func (s *Store) ListUserSummariesByIDs(ctx context.Context, userIDs []string, schoolID string) ([]model.UserSummaryLite, error) {
+	if len(userIDs) == 0 {
+		return []model.UserSummaryLite{}, nil
+	}
+	query := `
+    SELECT u.id,
+           u.first_name,
+           u.last_name,
+           CASE
+             WHEN s.user_id IS NOT NULL THEN 'student'
+             WHEN t.user_id IS NOT NULL THEN 'teacher'
+             WHEN a.user_id IS NOT NULL THEN 'admin'
+             WHEN d.user_id IS NOT NULL THEN 'dev'
+             ELSE ''
+           END AS user_type
+    FROM users u
+    LEFT JOIN students s ON s.user_id = u.id
+    LEFT JOIN teachers t ON t.user_id = u.id
+    LEFT JOIN administrators a ON a.user_id = u.id
+    LEFT JOIN developers d ON d.user_id = u.id
+    WHERE u.id = ANY($1::uuid[])
+  `
+	args := []any{userIDs}
+	if schoolID != "" {
+		query += " AND u.school_id = $2"
+		args = append(args, schoolID)
+	}
+
+	rows, err := s.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	results := []model.UserSummaryLite{}
+	for rows.Next() {
+		var summary model.UserSummaryLite
+		if err := rows.Scan(&summary.ID, &summary.FirstName, &summary.LastName, &summary.UserType); err != nil {
+			return nil, err
+		}
+		if summary.UserType == "" {
+			continue
+		}
+		results = append(results, summary)
+	}
+	return results, rows.Err()
+}
+
 func (s *Store) GetStudentProfile(ctx context.Context, userID string) (model.StudentProfile, error) {
 	var user model.User
 	var studentNumber string

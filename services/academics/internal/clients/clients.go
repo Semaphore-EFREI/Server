@@ -10,12 +10,15 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	attendancev1 "semaphore/attendance/attendance/v1"
+	identityv1 "semaphore/auth-identity/identity/v1"
 	beaconv1 "semaphore/beacon/beacon/v1"
 )
 
 type Clients struct {
 	AttendanceConn *grpc.ClientConn
 	Attendance     attendancev1.AttendanceQueryServiceClient
+	IdentityConn   *grpc.ClientConn
+	Identity       identityv1.IdentityQueryServiceClient
 	BeaconConn     *grpc.ClientConn
 	Beacon         beaconv1.BeaconQueryServiceClient
 	BeaconCommand  beaconv1.BeaconCommandServiceClient
@@ -23,7 +26,7 @@ type Clients struct {
 
 const serviceTokenHeader = "x-service-token"
 
-func New(ctx context.Context, attendanceAddr, beaconAddr, serviceToken string, timeout time.Duration) (*Clients, error) {
+func New(ctx context.Context, attendanceAddr, identityAddr, beaconAddr, serviceToken string, timeout time.Duration) (*Clients, error) {
 	if serviceToken == "" {
 		return nil, errors.New("service auth token required")
 	}
@@ -31,14 +34,22 @@ func New(ctx context.Context, attendanceAddr, beaconAddr, serviceToken string, t
 	if err != nil {
 		return nil, err
 	}
+	identityConn, err := dial(ctx, identityAddr, serviceToken, timeout)
+	if err != nil {
+		_ = attendanceConn.Close()
+		return nil, err
+	}
 	beaconConn, err := dial(ctx, beaconAddr, serviceToken, timeout)
 	if err != nil {
 		_ = attendanceConn.Close()
+		_ = identityConn.Close()
 		return nil, err
 	}
 	return &Clients{
 		AttendanceConn: attendanceConn,
 		Attendance:     attendancev1.NewAttendanceQueryServiceClient(attendanceConn),
+		IdentityConn:   identityConn,
+		Identity:       identityv1.NewIdentityQueryServiceClient(identityConn),
 		BeaconConn:     beaconConn,
 		Beacon:         beaconv1.NewBeaconQueryServiceClient(beaconConn),
 		BeaconCommand:  beaconv1.NewBeaconCommandServiceClient(beaconConn),
@@ -51,6 +62,9 @@ func (c *Clients) Close() {
 	}
 	if c.AttendanceConn != nil {
 		_ = c.AttendanceConn.Close()
+	}
+	if c.IdentityConn != nil {
+		_ = c.IdentityConn.Close()
 	}
 	if c.BeaconConn != nil {
 		_ = c.BeaconConn.Close()
