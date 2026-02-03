@@ -123,6 +123,48 @@ func (s *AttendanceServer) CreateSignatureAttempt(ctx context.Context, req *atte
 	}, nil
 }
 
+func (s *AttendanceServer) DeleteStudentSignatures(ctx context.Context, req *attendancev1.DeleteStudentSignaturesRequest) (*attendancev1.DeleteStudentSignaturesResponse, error) {
+	if req.GetStudentId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "student_id required")
+	}
+	studentUUID, err := uuid.Parse(req.GetStudentId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid student_id")
+	}
+
+	var deletedCount int64
+	err = s.store.WithTx(ctx, func(q *db.Queries) error {
+		ids, err := q.ListActiveStudentSignatureIDs(ctx, pgUUID(studentUUID))
+		if err != nil {
+			return err
+		}
+		if len(ids) == 0 {
+			deletedCount = 0
+			return nil
+		}
+		deletedAt := nowPgTime()
+		if err := q.SoftDeleteSignaturesByStudent(ctx, db.SoftDeleteSignaturesByStudentParams{
+			StudentID: pgUUID(studentUUID),
+			DeletedAt: deletedAt,
+		}); err != nil {
+			return err
+		}
+		if err := q.SoftDeleteStudentSignaturesByStudent(ctx, db.SoftDeleteStudentSignaturesByStudentParams{
+			StudentID: pgUUID(studentUUID),
+			DeletedAt: deletedAt,
+		}); err != nil {
+			return err
+		}
+		deletedCount = int64(len(ids))
+		return nil
+	})
+	if err != nil {
+		return nil, status.Error(codes.Internal, "delete failed")
+	}
+
+	return &attendancev1.DeleteStudentSignaturesResponse{DeletedCount: deletedCount}, nil
+}
+
 func evaluateStatus(course *academicsv1.Course, allowed bool, signedAt time.Time) (db.SignatureStatus, string) {
 	if !allowed {
 		return db.SignatureStatus("absent"), "student not enrolled"

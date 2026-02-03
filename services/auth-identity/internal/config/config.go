@@ -19,6 +19,7 @@ type Config struct {
 	RefreshTokenTTL    time.Duration
 	DeviceRebindAfter  time.Duration
 	AcademicsGRPCAddr  string
+	AttendanceGRPCAddr string
 	GRPCDialTimeout    time.Duration
 }
 
@@ -35,6 +36,7 @@ func Load() Config {
 		RefreshTokenTTL:    getenvDuration("REFRESH_TOKEN_TTL", 30*24*time.Hour),
 		DeviceRebindAfter:  getenvDuration("DEVICE_REBIND_AFTER", 7*24*time.Hour),
 		AcademicsGRPCAddr:  getenv("ACADEMICS_GRPC_ADDR", "127.0.0.1:9092"),
+		AttendanceGRPCAddr: getenv("ATTENDANCE_GRPC_ADDR", "127.0.0.1:9093"),
 		GRPCDialTimeout:    getenvDuration("GRPC_DIAL_TIMEOUT", 5*time.Second),
 	}
 }

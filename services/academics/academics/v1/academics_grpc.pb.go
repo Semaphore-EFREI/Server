@@ -306,7 +306,8 @@ var AcademicsQueryService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	AcademicsCommandService_CloseExpiredCourses_FullMethodName = "/academics.api.v1.AcademicsCommandService/CloseExpiredCourses"
+	AcademicsCommandService_CloseExpiredCourses_FullMethodName     = "/academics.api.v1.AcademicsCommandService/CloseExpiredCourses"
+	AcademicsCommandService_RemoveStudentFromGroups_FullMethodName = "/academics.api.v1.AcademicsCommandService/RemoveStudentFromGroups"
 )
 
 // AcademicsCommandServiceClient is the client API for AcademicsCommandService service.
@@ -315,6 +316,8 @@ const (
 type AcademicsCommandServiceClient interface {
 	// CloseExpiredCourses closes courses past their signature delay.
 	CloseExpiredCourses(ctx context.Context, in *CloseExpiredCoursesRequest, opts ...grpc.CallOption) (*CloseExpiredCoursesResponse, error)
+	// RemoveStudentFromGroups removes a student from all groups/courses.
+	RemoveStudentFromGroups(ctx context.Context, in *RemoveStudentFromGroupsRequest, opts ...grpc.CallOption) (*RemoveStudentFromGroupsResponse, error)
 }
 
 type academicsCommandServiceClient struct {
@@ -334,12 +337,23 @@ func (c *academicsCommandServiceClient) CloseExpiredCourses(ctx context.Context,
 	return out, nil
 }
 
+func (c *academicsCommandServiceClient) RemoveStudentFromGroups(ctx context.Context, in *RemoveStudentFromGroupsRequest, opts ...grpc.CallOption) (*RemoveStudentFromGroupsResponse, error) {
+	out := new(RemoveStudentFromGroupsResponse)
+	err := c.cc.Invoke(ctx, AcademicsCommandService_RemoveStudentFromGroups_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AcademicsCommandServiceServer is the server API for AcademicsCommandService service.
 // All implementations must embed UnimplementedAcademicsCommandServiceServer
 // for forward compatibility
 type AcademicsCommandServiceServer interface {
 	// CloseExpiredCourses closes courses past their signature delay.
 	CloseExpiredCourses(context.Context, *CloseExpiredCoursesRequest) (*CloseExpiredCoursesResponse, error)
+	// RemoveStudentFromGroups removes a student from all groups/courses.
+	RemoveStudentFromGroups(context.Context, *RemoveStudentFromGroupsRequest) (*RemoveStudentFromGroupsResponse, error)
 	mustEmbedUnimplementedAcademicsCommandServiceServer()
 }
 
@@ -349,6 +363,9 @@ type UnimplementedAcademicsCommandServiceServer struct {
 
 func (UnimplementedAcademicsCommandServiceServer) CloseExpiredCourses(context.Context, *CloseExpiredCoursesRequest) (*CloseExpiredCoursesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CloseExpiredCourses not implemented")
+}
+func (UnimplementedAcademicsCommandServiceServer) RemoveStudentFromGroups(context.Context, *RemoveStudentFromGroupsRequest) (*RemoveStudentFromGroupsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RemoveStudentFromGroups not implemented")
 }
 func (UnimplementedAcademicsCommandServiceServer) mustEmbedUnimplementedAcademicsCommandServiceServer() {
 }
@@ -382,6 +399,24 @@ func _AcademicsCommandService_CloseExpiredCourses_Handler(srv interface{}, ctx c
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AcademicsCommandService_RemoveStudentFromGroups_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveStudentFromGroupsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AcademicsCommandServiceServer).RemoveStudentFromGroups(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AcademicsCommandService_RemoveStudentFromGroups_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AcademicsCommandServiceServer).RemoveStudentFromGroups(ctx, req.(*RemoveStudentFromGroupsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AcademicsCommandService_ServiceDesc is the grpc.ServiceDesc for AcademicsCommandService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -392,6 +427,10 @@ var AcademicsCommandService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CloseExpiredCourses",
 			Handler:    _AcademicsCommandService_CloseExpiredCourses_Handler,
+		},
+		{
+			MethodName: "RemoveStudentFromGroups",
+			Handler:    _AcademicsCommandService_RemoveStudentFromGroups_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

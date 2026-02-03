@@ -61,6 +61,7 @@ services:
       JWT_ISSUER: "semaphore-auth-identity"
       SERVICE_AUTH_TOKEN: "dev-service-token"
       ACADEMICS_GRPC_ADDR: "academics:9092"
+      ATTENDANCE_GRPC_ADDR: "attendance:9093"
     volumes:
       - .:/workspace
       - ./docker/jwt:/run/semaphore-jwt:ro

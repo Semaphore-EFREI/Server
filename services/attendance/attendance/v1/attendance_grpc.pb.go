@@ -19,7 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	AttendanceCommandService_CreateSignatureAttempt_FullMethodName = "/attendance.api.v1.AttendanceCommandService/CreateSignatureAttempt"
+	AttendanceCommandService_CreateSignatureAttempt_FullMethodName  = "/attendance.api.v1.AttendanceCommandService/CreateSignatureAttempt"
+	AttendanceCommandService_DeleteStudentSignatures_FullMethodName = "/attendance.api.v1.AttendanceCommandService/DeleteStudentSignatures"
 )
 
 // AttendanceCommandServiceClient is the client API for AttendanceCommandService service.
@@ -28,6 +29,8 @@ const (
 type AttendanceCommandServiceClient interface {
 	// CreateSignatureAttempt creates a new signature attempt for a student.
 	CreateSignatureAttempt(ctx context.Context, in *CreateSignatureAttemptRequest, opts ...grpc.CallOption) (*CreateSignatureAttemptResponse, error)
+	// DeleteStudentSignatures soft-deletes signatures for a student.
+	DeleteStudentSignatures(ctx context.Context, in *DeleteStudentSignaturesRequest, opts ...grpc.CallOption) (*DeleteStudentSignaturesResponse, error)
 }
 
 type attendanceCommandServiceClient struct {
@@ -47,12 +50,23 @@ func (c *attendanceCommandServiceClient) CreateSignatureAttempt(ctx context.Cont
 	return out, nil
 }
 
+func (c *attendanceCommandServiceClient) DeleteStudentSignatures(ctx context.Context, in *DeleteStudentSignaturesRequest, opts ...grpc.CallOption) (*DeleteStudentSignaturesResponse, error) {
+	out := new(DeleteStudentSignaturesResponse)
+	err := c.cc.Invoke(ctx, AttendanceCommandService_DeleteStudentSignatures_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AttendanceCommandServiceServer is the server API for AttendanceCommandService service.
 // All implementations must embed UnimplementedAttendanceCommandServiceServer
 // for forward compatibility
 type AttendanceCommandServiceServer interface {
 	// CreateSignatureAttempt creates a new signature attempt for a student.
 	CreateSignatureAttempt(context.Context, *CreateSignatureAttemptRequest) (*CreateSignatureAttemptResponse, error)
+	// DeleteStudentSignatures soft-deletes signatures for a student.
+	DeleteStudentSignatures(context.Context, *DeleteStudentSignaturesRequest) (*DeleteStudentSignaturesResponse, error)
 	mustEmbedUnimplementedAttendanceCommandServiceServer()
 }
 
@@ -62,6 +76,9 @@ type UnimplementedAttendanceCommandServiceServer struct {
 
 func (UnimplementedAttendanceCommandServiceServer) CreateSignatureAttempt(context.Context, *CreateSignatureAttemptRequest) (*CreateSignatureAttemptResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateSignatureAttempt not implemented")
+}
+func (UnimplementedAttendanceCommandServiceServer) DeleteStudentSignatures(context.Context, *DeleteStudentSignaturesRequest) (*DeleteStudentSignaturesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteStudentSignatures not implemented")
 }
 func (UnimplementedAttendanceCommandServiceServer) mustEmbedUnimplementedAttendanceCommandServiceServer() {
 }
@@ -95,6 +112,24 @@ func _AttendanceCommandService_CreateSignatureAttempt_Handler(srv interface{}, c
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AttendanceCommandService_DeleteStudentSignatures_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteStudentSignaturesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AttendanceCommandServiceServer).DeleteStudentSignatures(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AttendanceCommandService_DeleteStudentSignatures_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AttendanceCommandServiceServer).DeleteStudentSignatures(ctx, req.(*DeleteStudentSignaturesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AttendanceCommandService_ServiceDesc is the grpc.ServiceDesc for AttendanceCommandService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -105,6 +140,10 @@ var AttendanceCommandService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateSignatureAttempt",
 			Handler:    _AttendanceCommandService_CreateSignatureAttempt_Handler,
+		},
+		{
+			MethodName: "DeleteStudentSignatures",
+			Handler:    _AttendanceCommandService_DeleteStudentSignatures_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

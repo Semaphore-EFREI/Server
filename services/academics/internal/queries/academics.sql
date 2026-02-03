@@ -38,6 +38,14 @@ SET default_signature_closing_delay_minutes = $2,
 WHERE id = $1 AND deleted_at IS NULL
 RETURNING id, default_signature_closing_delay_minutes, teacher_can_modify_closing_delay, students_can_sign_before_teacher, enable_flash, disable_course_modification_from_ui, enable_nfc, created_at, updated_at, deleted_at;
 
+-- name: RemoveStudentFromGroups :one
+WITH removed AS (
+  DELETE FROM students_groups
+  WHERE student_id = $1
+  RETURNING 1
+)
+SELECT COUNT(*) AS removed_count FROM removed;
+
 -- name: CreateSchool :one
 INSERT INTO schools (id, name, preferences_id, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5)

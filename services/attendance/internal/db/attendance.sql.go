@@ -237,6 +237,69 @@ func (q *Queries) SoftDeleteSignature(ctx context.Context, arg SoftDeleteSignatu
 	return err
 }
 
+const listActiveStudentSignatureIDs = `-- name: ListActiveStudentSignatureIDs :many
+SELECT signature_id
+FROM student_signatures
+WHERE student_id = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) ListActiveStudentSignatureIDs(ctx context.Context, studentID pgtype.UUID) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, listActiveStudentSignatureIDs, studentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []pgtype.UUID
+	for rows.Next() {
+		var signatureID pgtype.UUID
+		if err := rows.Scan(&signatureID); err != nil {
+			return nil, err
+		}
+		items = append(items, signatureID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const softDeleteSignaturesByStudent = `-- name: SoftDeleteSignaturesByStudent :exec
+UPDATE signatures s
+SET deleted_at = $2,
+    updated_at = $2
+FROM student_signatures ss
+WHERE ss.student_id = $1
+  AND ss.signature_id = s.id
+  AND ss.deleted_at IS NULL
+  AND s.deleted_at IS NULL
+`
+
+type SoftDeleteSignaturesByStudentParams struct {
+	StudentID pgtype.UUID        `db:"student_id" json:"student_id"`
+	DeletedAt pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+func (q *Queries) SoftDeleteSignaturesByStudent(ctx context.Context, arg SoftDeleteSignaturesByStudentParams) error {
+	_, err := q.db.Exec(ctx, softDeleteSignaturesByStudent, arg.StudentID, arg.DeletedAt)
+	return err
+}
+
+const softDeleteStudentSignaturesByStudent = `-- name: SoftDeleteStudentSignaturesByStudent :exec
+UPDATE student_signatures
+SET deleted_at = $2
+WHERE student_id = $1 AND deleted_at IS NULL
+`
+
+type SoftDeleteStudentSignaturesByStudentParams struct {
+	StudentID pgtype.UUID        `db:"student_id" json:"student_id"`
+	DeletedAt pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+func (q *Queries) SoftDeleteStudentSignaturesByStudent(ctx context.Context, arg SoftDeleteStudentSignaturesByStudentParams) error {
+	_, err := q.db.Exec(ctx, softDeleteStudentSignaturesByStudent, arg.StudentID, arg.DeletedAt)
+	return err
+}
+
 const softDeleteStudentSignature = `-- name: SoftDeleteStudentSignature :exec
 UPDATE student_signatures
 SET deleted_at = $2

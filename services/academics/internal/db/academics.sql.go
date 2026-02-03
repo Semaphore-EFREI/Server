@@ -1687,3 +1687,19 @@ func (q *Queries) ValidateTeacherCourse(ctx context.Context, arg ValidateTeacher
 	err := row.Scan(&is_assigned)
 	return is_assigned, err
 }
+
+const removeStudentFromGroups = `-- name: RemoveStudentFromGroups :one
+WITH removed AS (
+  DELETE FROM students_groups
+  WHERE student_id = $1
+  RETURNING 1
+)
+SELECT COUNT(*) AS removed_count FROM removed
+`
+
+func (q *Queries) RemoveStudentFromGroups(ctx context.Context, studentID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, removeStudentFromGroups, studentID)
+	var removedCount int64
+	err := row.Scan(&removedCount)
+	return removedCount, err
+}

@@ -48,10 +48,20 @@ message CreateSignatureAttemptResponse {
   string message = 3;
 }
 
+message DeleteStudentSignaturesRequest {
+  string student_id = 1;
+}
+
+message DeleteStudentSignaturesResponse {
+  int64 deleted_count = 1;
+}
+
 // AttendanceCommandService handles signature creation and command-side actions.
 service AttendanceCommandService {
   // CreateSignatureAttempt creates a new signature attempt for a student.
   rpc CreateSignatureAttempt(CreateSignatureAttemptRequest) returns (CreateSignatureAttemptResponse);
+  // DeleteStudentSignatures soft-deletes signatures for a student.
+  rpc DeleteStudentSignatures(DeleteStudentSignaturesRequest) returns (DeleteStudentSignaturesResponse);
 }
 
 message StudentSignature {

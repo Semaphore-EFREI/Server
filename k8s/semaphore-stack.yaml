@@ -352,6 +352,8 @@ spec:
                   key: service-auth-token
             - name: ACADEMICS_GRPC_ADDR
               value: academics:9092
+            - name: ATTENDANCE_GRPC_ADDR
+              value: attendance:9093
             - name: GRPC_DIAL_TIMEOUT
               value: 5s
           readinessProbe:

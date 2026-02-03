@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	academicsv1 "semaphore/academics/academics/v1"
+	attendancev1 "semaphore/attendance/attendance/v1"
 	identityv1 "semaphore/auth-identity/identity/v1"
 	"semaphore/auth-identity/internal/config"
 	"semaphore/auth-identity/internal/db"
@@ -58,7 +59,30 @@ func main() {
 		}
 	}()
 
-	server, err := internalhttp.NewServer(cfg, store, academicsv1.NewAcademicsQueryServiceClient(academicsConn))
+	grpcCtx, cancel = context.WithTimeout(ctx, cfg.GRPCDialTimeout)
+	attendanceConn, err := grpc.DialContext(
+		grpcCtx,
+		cfg.AttendanceGRPCAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(serviceAuthUnaryClientInterceptor(cfg.ServiceAuthToken)),
+	)
+	cancel()
+	if err != nil {
+		log.Fatalf("attendance grpc dial failed: %v", err)
+	}
+	defer func() {
+		if err := attendanceConn.Close(); err != nil {
+			log.Printf("attendance grpc close error: %v", err)
+		}
+	}()
+
+	server, err := internalhttp.NewServer(
+		cfg,
+		store,
+		academicsv1.NewAcademicsQueryServiceClient(academicsConn),
+		academicsv1.NewAcademicsCommandServiceClient(academicsConn),
+		attendancev1.NewAttendanceCommandServiceClient(attendanceConn),
+	)
 	if err != nil {
 		log.Fatalf("server init failed: %v", err)
 	}

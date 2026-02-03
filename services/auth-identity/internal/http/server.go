@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	academicsv1 "semaphore/academics/academics/v1"
+	attendancev1 "semaphore/attendance/attendance/v1"
 	"semaphore/auth-identity/internal/auth"
 	"semaphore/auth-identity/internal/config"
 	"semaphore/auth-identity/internal/crypto"
@@ -30,9 +32,11 @@ type Server struct {
 	jwtPublicKey  *rsa.PublicKey
 	jwks          auth.JWKSet
 	academics     academicsv1.AcademicsQueryServiceClient
+	academicsCmd  academicsv1.AcademicsCommandServiceClient
+	attendanceCmd attendancev1.AttendanceCommandServiceClient
 }
 
-func NewServer(cfg config.Config, store *repository.Store, academics academicsv1.AcademicsQueryServiceClient) (*Server, error) {
+func NewServer(cfg config.Config, store *repository.Store, academics academicsv1.AcademicsQueryServiceClient, academicsCmd academicsv1.AcademicsCommandServiceClient, attendanceCmd attendancev1.AttendanceCommandServiceClient) (*Server, error) {
 	privateKey, err := auth.ParseRSAPrivateKey(cfg.JWTPrivateKey)
 	if err != nil {
 		return nil, err
@@ -52,6 +56,8 @@ func NewServer(cfg config.Config, store *repository.Store, academics academicsv1
 		jwtPublicKey:  publicKey,
 		jwks:          jwks,
 		academics:     academics,
+		academicsCmd:  academicsCmd,
+		attendanceCmd: attendanceCmd,
 	}, nil
 }
 
@@ -804,6 +810,10 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	isStudent := false
+	if role, err := s.store.GetRole(r.Context(), userID); err == nil && role.UserType == "student" {
+		isStudent = true
+	}
 	deleted, err := s.store.DeleteUser(r.Context(), userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error")
@@ -814,6 +824,9 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if isStudent {
+		s.cleanupStudent(r.Context(), userID)
+	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
@@ -1041,7 +1054,21 @@ func (s *Server) handleDeleteStudent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.cleanupStudent(r.Context(), studentID)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+func (s *Server) cleanupStudent(ctx context.Context, studentID string) {
+	if s.attendanceCmd != nil {
+		if _, err := s.attendanceCmd.DeleteStudentSignatures(ctx, &attendancev1.DeleteStudentSignaturesRequest{StudentId: studentID}); err != nil {
+			log.Printf("attendance cleanup failed for student %s: %v", studentID, err)
+		}
+	}
+	if s.academicsCmd != nil {
+		if _, err := s.academicsCmd.RemoveStudentFromGroups(ctx, &academicsv1.RemoveStudentFromGroupsRequest{StudentId: studentID}); err != nil {
+			log.Printf("academics cleanup failed for student %s: %v", studentID, err)
+		}
+	}
 }
 
 func (s *Server) handleGetStudentsBySchool(w http.ResponseWriter, r *http.Request) {

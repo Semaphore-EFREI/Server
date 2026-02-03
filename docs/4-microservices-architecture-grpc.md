@@ -205,6 +205,8 @@ service AcademicsQueryService {
 service AcademicsCommandService {
   rpc CloseExpiredCourses(CloseExpiredCoursesRequest)
     returns (CloseExpiredCoursesResponse);
+  rpc RemoveStudentFromGroups(RemoveStudentFromGroupsRequest)
+    returns (RemoveStudentFromGroupsResponse);
 }
 ```
 
@@ -213,6 +215,7 @@ service AcademicsCommandService {
 - `ValidateStudentCourse` should check student membership in **any** group assigned to the course.
 - These are **read-only** query endpoints (idempotent).
 - `CloseExpiredCourses` is a **command** endpoint used by attendance’s signature close job.
+- `RemoveStudentFromGroups` is a **command** endpoint used by auth-identity when deleting a student.
 
 ---
 
@@ -287,12 +290,15 @@ message CreateSignatureAttemptResponse {
 service AttendanceCommandService {
   rpc CreateSignatureAttempt(CreateSignatureAttemptRequest)
     returns (CreateSignatureAttemptResponse);
+  rpc DeleteStudentSignatures(DeleteStudentSignaturesRequest)
+    returns (DeleteStudentSignaturesResponse);
 }
 ```
 
 ### Notes
 - Attendance is the only service that creates `Signature` rows.
 - Beacon service performs cryptographic verification; attendance performs business validation.
+- `DeleteStudentSignatures` is used by auth-identity to soft-delete a student’s signatures.
 
 ---
 
