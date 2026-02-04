@@ -5924,7 +5924,7 @@
                             "students": {
                                 "type": "array",
                                 "items": {
-                                    "$ref": "#/components/schemas/Student"
+                                    "$ref": "#/components/schemas/StudentSummary"
                                 }
                             }
                         }

@@ -1914,6 +1914,28 @@ func (s *Server) handleGetStudentGroups(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	groupStudentIDs := map[string][]string{}
+	studentSummaries := map[string]userBatchSummary{}
+	if includeStudents {
+		allStudentIDs := []string{}
+		for _, group := range groups {
+			students, err := s.store.Queries.ListStudentIDsByStudentGroup(r.Context(), group.ID)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "server_error")
+				return
+			}
+			ids := uuidStringsFromPG(students)
+			groupStudentIDs[uuidString(group.ID)] = ids
+			allStudentIDs = append(allStudentIDs, ids...)
+		}
+		if len(allStudentIDs) > 0 {
+			summaries, err := s.listUserSummaries(r.Context(), claims, uniqueStrings(allStudentIDs))
+			if err == nil {
+				studentSummaries = summaries
+			}
+		}
+	}
+
 	resp := make([]any, 0, len(groups))
 	for _, group := range groups {
 		if !includeCourses && !includeStudents {
@@ -1935,12 +1957,7 @@ func (s *Server) handleGetStudentGroups(w http.ResponseWriter, r *http.Request) 
 			entry["courses"] = mapCourseResponses(courseEntriesFromListCoursesByStudentGroup(courses))
 		}
 		if includeStudents {
-			students, err := s.store.Queries.ListStudentIDsByStudentGroup(r.Context(), group.ID)
-			if err != nil {
-				writeError(w, http.StatusInternalServerError, "server_error")
-				return
-			}
-			entry["students"] = mapStudentRefs(students)
+			entry["students"] = mapStudentSummaries(groupStudentIDs[uuidString(group.ID)], studentSummaries)
 		}
 		resp = append(resp, entry)
 	}
@@ -2046,7 +2063,13 @@ func (s *Server) handleGetStudentGroup(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, "server_error")
 			return
 		}
-		entry["students"] = mapStudentRefs(students)
+		ids := uuidStringsFromPG(students)
+		summaries, err := s.listUserSummaries(r.Context(), claims, ids)
+		if err != nil {
+			entry["students"] = []studentSummary{}
+		} else {
+			entry["students"] = mapStudentSummaries(ids, summaries)
+		}
 	}
 	writeJSON(w, http.StatusOK, entry)
 }
@@ -2589,6 +2612,17 @@ func uniqueStrings(values []string) []string {
 		unique = append(unique, value)
 	}
 	return unique
+}
+
+func uuidStringsFromPG(ids []pgtype.UUID) []string {
+	if len(ids) == 0 {
+		return nil
+	}
+	values := make([]string, 0, len(ids))
+	for _, id := range ids {
+		values = append(values, uuidString(id))
+	}
+	return values
 }
 
 type beaconRequestError struct {
