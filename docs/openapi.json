@@ -5351,7 +5351,7 @@
             },
             "StudentSignatureRequest": {
                 "type": "object",
-                "description": "Signature étudiant (payload de création). Nécessite un challenge obtenu via `/signature/buzzlightyear` ou `/signature/nfcCode`.",
+                "description": "Signature étudiant (payload de création). Nécessite un challenge obtenu via `/signature/buzzlightyear` ou `/signature/nfcCode`. Seul `status` = `signed` est accepté (le serveur peut appliquer `late` selon la politique). L'image est requise quand `status` vaut `signed`.",
                 "required": ["date", "course", "status", "method", "student", "challenge"],
                 "properties": {
                     "date": {
@@ -5390,7 +5390,7 @@
             },
             "TeacherSignatureRequest": {
                 "type": "object",
-                "description": "Signature enseignant (payload de création)",
+                "description": "Signature enseignant (payload de création). Les enseignants peuvent définir `signed` uniquement pour eux-mêmes. Les méthodes `nfc`, `buzzLightyear`, `admin` et `web` ne sont pas autorisées pour eux. Les autres statuts sont réservés à l'enseignant ou à l'administration.",
                 "required": ["date", "course", "status", "method", "teacher"],
                 "properties": {
                     "date": {

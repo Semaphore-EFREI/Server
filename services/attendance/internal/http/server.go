@@ -356,9 +356,34 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_method")
 		return
 	}
-	if claims.UserType == "teacher" {
-		methodValue = db.SignatureMethodTeacher
-	} else if claims.UserType == "admin" {
+	switch claims.UserType {
+	case "student":
+		if statusValue != db.SignatureStatusSigned {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		if req.Image == nil || strings.TrimSpace(*req.Image) == "" {
+			writeError(w, http.StatusBadRequest, "missing_image")
+			return
+		}
+	case "teacher":
+		if statusValue == db.SignatureStatusSigned {
+			if req.Teacher != claims.UserID {
+				writeError(w, http.StatusForbidden, "forbidden")
+				return
+			}
+			if !methodAllowedForTeacherSelfSigned(methodValue) {
+				writeError(w, http.StatusForbidden, "forbidden")
+				return
+			}
+		} else {
+			methodValue = db.SignatureMethodTeacher
+		}
+	case "admin":
+		if statusValue == db.SignatureStatusSigned {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
 		methodValue = db.SignatureMethodAdmin
 	}
 
@@ -1696,6 +1721,15 @@ func normalizeMethod(value string) (db.SignatureMethod, error) {
 		return db.SignatureMethod(value), nil
 	default:
 		return "", errInvalid
+	}
+}
+
+func methodAllowedForTeacherSelfSigned(method db.SignatureMethod) bool {
+	switch method {
+	case db.SignatureMethodNfc, db.SignatureMethodBuzzLightyear, db.SignatureMethodAdmin, db.SignatureMethodWeb:
+		return false
+	default:
+		return method != ""
 	}
 }
 

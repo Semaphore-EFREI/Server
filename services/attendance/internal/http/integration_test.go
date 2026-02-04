@@ -154,6 +154,7 @@ func TestStudentSignatureRules(t *testing.T) {
 		"status":  "signed",
 		"method":  "beacon",
 		"student": studentID,
+		"image":   "dGVzdC1pbWFnZQ==",
 	})
 	if onTimeResp.Status != "signed" {
 		t.Fatalf("expected status signed, got %s", onTimeResp.Status)
@@ -166,6 +167,7 @@ func TestStudentSignatureRules(t *testing.T) {
 		"status":  "signed",
 		"method":  "beacon",
 		"student": studentID,
+		"image":   "dGVzdC1pbWFnZQ==",
 	})
 	if lateResp.Status != "late" {
 		t.Fatalf("expected status late, got %s", lateResp.Status)
@@ -266,6 +268,7 @@ func TestAdminSignatureOverrides(t *testing.T) {
 		"status":  "signed",
 		"method":  "beacon",
 		"student": studentID,
+		"image":   "dGVzdC1pbWFnZQ==",
 	})
 
 	patchBody := map[string]interface{}{
