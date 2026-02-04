@@ -774,7 +774,8 @@ func (s *Server) handlePostBuzzlightyear(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusBadRequest, "missing_course")
 		return
 	}
-	if _, err := uuid.Parse(req.CourseID); err != nil {
+	courseUUID, err := parseUUID(req.CourseID)
+	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_course")
 		return
 	}
@@ -811,6 +812,17 @@ func (s *Server) handlePostBuzzlightyear(w http.ResponseWriter, r *http.Request)
 	if !methodAllowedForStudent(db.SignatureMethod("buzzLightyear"), prefs) {
 		writeError(w, http.StatusForbidden, "method_not_allowed")
 		return
+	}
+	if !prefs.GetStudentsCanSignBeforeTeacher() {
+		present, err := s.store.Queries.HasTeacherPresence(r.Context(), courseUUID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "server_error")
+			return
+		}
+		if !present {
+			writeError(w, http.StatusForbidden, "teacher_not_present")
+			return
+		}
 	}
 
 	if s.beacon == nil {
@@ -934,7 +946,8 @@ func (s *Server) handlePostNfcCode(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "missing_course")
 		return
 	}
-	if _, err := uuid.Parse(req.CourseID); err != nil {
+	courseUUID, err := parseUUID(req.CourseID)
+	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_course")
 		return
 	}
@@ -960,6 +973,17 @@ func (s *Server) handlePostNfcCode(w http.ResponseWriter, r *http.Request) {
 	if !methodAllowedForStudent(db.SignatureMethod("nfc"), prefs) {
 		writeError(w, http.StatusForbidden, "method_not_allowed")
 		return
+	}
+	if !prefs.GetStudentsCanSignBeforeTeacher() {
+		present, err := s.store.Queries.HasTeacherPresence(r.Context(), courseUUID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "server_error")
+			return
+		}
+		if !present {
+			writeError(w, http.StatusForbidden, "teacher_not_present")
+			return
+		}
 	}
 
 	if s.beacon == nil {
