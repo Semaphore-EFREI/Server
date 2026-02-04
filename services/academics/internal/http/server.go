@@ -197,7 +197,7 @@ type createSchoolRequest struct {
 }
 
 func (s *Server) handleGetSchools(w http.ResponseWriter, r *http.Request) {
-	expand := r.URL.Query()["expand"]
+	expand := normalizeQueryValues(r.URL.Query()["expand"])
 	if len(expand) == 0 {
 		expand = []string{"preferences"}
 	}
@@ -295,7 +295,7 @@ func (s *Server) handleGetSchool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expand := r.URL.Query()["expand"]
+	expand := normalizeQueryValues(r.URL.Query()["expand"])
 	if len(expand) == 0 {
 		expand = []string{"preferences"}
 	}
@@ -482,7 +482,7 @@ func (s *Server) handleGetClassrooms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	include := r.URL.Query()["include"]
+	include := normalizeQueryValues(r.URL.Query()["include"])
 	includeBeacons := contains(include, "beacons")
 
 	authHeader := r.Header.Get("Authorization")
@@ -605,7 +605,7 @@ func (s *Server) handleGetClassroom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	include := r.URL.Query()["include"]
+	include := normalizeQueryValues(r.URL.Query()["include"])
 	includeBeacons := contains(include, "beacons")
 	if includeBeacons {
 		entry := mapClassroomBase(room)
@@ -760,7 +760,7 @@ func (s *Server) handleGetCourses(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	include := r.URL.Query()["include"]
+	include := normalizeQueryValues(r.URL.Query()["include"])
 	if len(include) == 0 {
 		include = []string{"classrooms", "signatures", "teachers", "students", "soloStudents", "studentGroups"}
 	}
@@ -1011,11 +1011,21 @@ func (s *Server) buildCourseEntry(ctx context.Context, claims *auth.Claims, cour
 		if includes.StudentGroups {
 			entry["studentGroups"] = mapStudentGroupResponses(groups)
 		}
+		var studentSummaries map[string]userBatchSummary
+		if includes.Students || includes.SoloStudents {
+			combined := uniqueStrings(append(students, soloStudents...))
+			summaries, err := s.listUserSummaries(ctx, claims, combined)
+			if err != nil {
+				studentSummaries = map[string]userBatchSummary{}
+			} else {
+				studentSummaries = summaries
+			}
+		}
 		if includes.Students {
-			entry["students"] = mapStudentRefStrings(students)
+			entry["students"] = mapStudentSummaries(students, studentSummaries)
 		}
 		if includes.SoloStudents {
-			entry["soloStudents"] = mapStudentRefStrings(soloStudents)
+			entry["soloStudents"] = mapStudentSummaries(soloStudents, studentSummaries)
 		}
 	}
 	return entry, nil
@@ -1374,7 +1384,7 @@ func (s *Server) handleGetCourse(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	include := r.URL.Query()["include"]
+	include := normalizeQueryValues(r.URL.Query()["include"])
 	if len(include) == 0 {
 		include = []string{"classrooms", "signatures", "teachers", "students", "soloStudents", "studentGroups"}
 	}
@@ -1891,7 +1901,7 @@ func (s *Server) handleGetStudentGroups(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	include := r.URL.Query()["include"]
+	include := normalizeQueryValues(r.URL.Query()["include"])
 	if len(include) == 0 {
 		include = []string{"courses"}
 	}
@@ -2006,7 +2016,7 @@ func (s *Server) handleGetStudentGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	include := r.URL.Query()["include"]
+	include := normalizeQueryValues(r.URL.Query()["include"])
 	if len(include) == 0 {
 		include = []string{"courses"}
 	}
@@ -2251,6 +2261,12 @@ type teacherSummary struct {
 	LastName  string `json:"lastName"`
 }
 
+type studentSummary struct {
+	ID        string `json:"id"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+}
+
 type classroomSummary struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
@@ -2318,10 +2334,18 @@ func mapTeacherSummaries(ids []string, summaries map[string]userBatchSummary) []
 	return resp
 }
 
-func mapStudentRefStrings(ids []string) []studentRef {
-	resp := make([]studentRef, 0, len(ids))
+func mapStudentSummaries(ids []string, summaries map[string]userBatchSummary) []studentSummary {
+	resp := make([]studentSummary, 0, len(ids))
 	for _, id := range ids {
-		resp = append(resp, studentRef{ID: id})
+		summary, ok := summaries[id]
+		if !ok {
+			continue
+		}
+		resp = append(resp, studentSummary{
+			ID:        summary.ID,
+			FirstName: summary.FirstName,
+			LastName:  summary.LastName,
+		})
 	}
 	return resp
 }
@@ -2524,6 +2548,47 @@ func contains(values []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func normalizeQueryValues(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(values))
+	normalized := make([]string, 0, len(values))
+	for _, value := range values {
+		for _, item := range strings.Split(value, ",") {
+			trimmed := strings.TrimSpace(item)
+			if trimmed == "" {
+				continue
+			}
+			if _, exists := seen[trimmed]; exists {
+				continue
+			}
+			seen[trimmed] = struct{}{}
+			normalized = append(normalized, trimmed)
+		}
+	}
+	return normalized
+}
+
+func uniqueStrings(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(values))
+	unique := make([]string, 0, len(values))
+	for _, value := range values {
+		if value == "" {
+			continue
+		}
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		unique = append(unique, value)
+	}
+	return unique
 }
 
 type beaconRequestError struct {

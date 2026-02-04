@@ -4933,14 +4933,14 @@
                                 "type": "array",
                                 "description": "Liste de tous les étudiants (qu'ils soient seuls ou dans un groupe)",
                                 "items": {
-                                    "$ref": "#/components/schemas/Student"
+                                    "$ref": "#/components/schemas/StudentSummary"
                                 }
                             },
                             "soloStudents": {
                                 "type": "array",
                                 "description": "Liste des étudiants assistants au cours et n'appartenant à aucun groupe",
                                 "items": {
-                                    "$ref": "#/components/schemas/Student"
+                                    "$ref": "#/components/schemas/StudentSummary"
                                 }
                             },
                             "studentGroups": {
@@ -4957,6 +4957,25 @@
             "TeacherSummary": {
                 "type": "object",
                 "description": "Résumé enseignant",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "31c14825-de80-43b5-88cc-89e21882a79d"
+                    },
+                    "firstName": {
+                        "type": "string",
+                        "example": "Marc"
+                    },
+                    "lastName": {
+                        "type": "string",
+                        "example": "DUPONT"
+                    }
+                }
+            },
+            "StudentSummary": {
+                "type": "object",
+                "description": "Résumé étudiant",
                 "properties": {
                     "id": {
                         "type": "string",

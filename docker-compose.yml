@@ -82,6 +82,7 @@ services:
       JWT_ISSUER: "semaphore-auth-identity"
       SERVICE_AUTH_TOKEN: "dev-service-token"
       ATTENDANCE_GRPC_ADDR: "attendance:9093"
+      IDENTITY_GRPC_ADDR: "auth-identity:9091"
       BEACON_GRPC_ADDR: "beacon:9094"
     volumes:
       - .:/workspace

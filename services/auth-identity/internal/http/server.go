@@ -967,7 +967,7 @@ func (s *Server) handleGetStudent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	studentNumber, _ := strconv.ParseInt(profile.StudentNumber, 10, 64)
-	include := r.URL.Query()["include"]
+	include := normalizeQueryValues(r.URL.Query()["include"])
 	includeGroups := contains(include, "groups")
 
 	var groups *[]string
@@ -1143,7 +1143,7 @@ func (s *Server) handleGetStudentsBySchool(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	include := r.URL.Query()["include"]
+	include := normalizeQueryValues(r.URL.Query()["include"])
 	includeGroups := contains(include, "groups")
 
 	var groupMap map[string][]string
@@ -1801,6 +1801,28 @@ func normalizeBatchIDs(raw []string) []string {
 		}
 	}
 	return ids
+}
+
+func normalizeQueryValues(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(values))
+	normalized := make([]string, 0, len(values))
+	for _, value := range values {
+		for _, item := range strings.Split(value, ",") {
+			trimmed := strings.TrimSpace(item)
+			if trimmed == "" {
+				continue
+			}
+			if _, exists := seen[trimmed]; exists {
+				continue
+			}
+			seen[trimmed] = struct{}{}
+			normalized = append(normalized, trimmed)
+		}
+	}
+	return normalized
 }
 
 func bearerToken(header string) string {
