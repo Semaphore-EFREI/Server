@@ -331,7 +331,7 @@ func (s *Server) handlePatchSchool(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "missing_school_id")
 		return
 	}
-	if claims != nil && claims.UserType == "admin" && claims.SchoolID != schoolID {
+	if claims != nil && claims.UserType == "admin" && !sameUUID(claims.SchoolID, schoolID) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -401,7 +401,7 @@ func (s *Server) handlePatchSchoolPreferences(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusBadRequest, "missing_school_id")
 		return
 	}
-	if claims != nil && claims.UserType == "admin" && claims.SchoolID != schoolID {
+	if claims != nil && claims.UserType == "admin" && !sameUUID(claims.SchoolID, schoolID) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -600,7 +600,7 @@ func (s *Server) handleGetClassroom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	claims := claimsFromContext(r.Context())
-	if claims != nil && claims.UserType != "dev" && claims.SchoolID != uuidString(room.SchoolID) {
+	if claims != nil && claims.UserType != "dev" && !sameUUID(claims.SchoolID, uuidString(room.SchoolID)) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -651,7 +651,7 @@ func (s *Server) handlePatchClassroom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	claims := claimsFromContext(r.Context())
-	if claims != nil && claims.UserType == "admin" && claims.SchoolID != uuidString(current.SchoolID) {
+	if claims != nil && claims.UserType == "admin" && !sameUUID(claims.SchoolID, uuidString(current.SchoolID)) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -687,7 +687,7 @@ func (s *Server) handleDeleteClassroom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	claims := claimsFromContext(r.Context())
-	if claims != nil && claims.UserType == "admin" && claims.SchoolID != uuidString(current.SchoolID) {
+	if claims != nil && claims.UserType == "admin" && !sameUUID(claims.SchoolID, uuidString(current.SchoolID)) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -1044,7 +1044,7 @@ func (s *Server) listCourseSignatures(ctx context.Context, claims *auth.Claims, 
 	items := make([]any, 0, len(resp.GetStudentSignatures())+len(resp.GetTeacherSignatures()))
 	if claims != nil && claims.UserType == "student" {
 		for _, sig := range resp.GetStudentSignatures() {
-			if sig.GetStudentId() != claims.UserID {
+			if !sameUUID(sig.GetStudentId(), claims.UserID) {
 				continue
 			}
 			items = append(items, mapStudentSignatureFromGRPC(sig))
@@ -1357,7 +1357,7 @@ func (s *Server) handleGetCourse(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "course_not_found")
 		return
 	}
-	if claims != nil && claims.UserType == "admin" && claims.SchoolID != uuidString(course.SchoolID) {
+	if claims != nil && claims.UserType == "admin" && !sameUUID(claims.SchoolID, uuidString(course.SchoolID)) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -1437,7 +1437,7 @@ func (s *Server) handlePatchCourse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	claims := claimsFromContext(r.Context())
-	if claims != nil && claims.UserType == "admin" && claims.SchoolID != uuidString(course.SchoolID) {
+	if claims != nil && claims.UserType == "admin" && !sameUUID(claims.SchoolID, uuidString(course.SchoolID)) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -1526,7 +1526,7 @@ func (s *Server) handleDeleteCourse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	claims := claimsFromContext(r.Context())
-	if claims != nil && claims.UserType == "admin" && claims.SchoolID != uuidString(course.SchoolID) {
+	if claims != nil && claims.UserType == "admin" && !sameUUID(claims.SchoolID, uuidString(course.SchoolID)) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -1557,7 +1557,7 @@ func (s *Server) handleAddCourseClassroom(w http.ResponseWriter, r *http.Request
 		return
 	}
 	claims := claimsFromContext(r.Context())
-	if claims != nil && claims.UserType == "admin" && claims.SchoolID != uuidString(course.SchoolID) {
+	if claims != nil && claims.UserType == "admin" && !sameUUID(claims.SchoolID, uuidString(course.SchoolID)) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -1592,7 +1592,7 @@ func (s *Server) handleRemoveCourseClassroom(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	claims := claimsFromContext(r.Context())
-	if claims != nil && claims.UserType == "admin" && claims.SchoolID != uuidString(course.SchoolID) {
+	if claims != nil && claims.UserType == "admin" && !sameUUID(claims.SchoolID, uuidString(course.SchoolID)) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -1628,7 +1628,7 @@ func (s *Server) handleAddCourseStudentGroups(w http.ResponseWriter, r *http.Req
 		return
 	}
 	claims := claimsFromContext(r.Context())
-	if claims != nil && claims.UserType == "admin" && claims.SchoolID != uuidString(course.SchoolID) {
+	if claims != nil && claims.UserType == "admin" && !sameUUID(claims.SchoolID, uuidString(course.SchoolID)) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -1665,7 +1665,7 @@ func (s *Server) handleRemoveCourseStudentGroup(w http.ResponseWriter, r *http.R
 		return
 	}
 	claims := claimsFromContext(r.Context())
-	if claims != nil && claims.UserType == "admin" && claims.SchoolID != uuidString(course.SchoolID) {
+	if claims != nil && claims.UserType == "admin" && !sameUUID(claims.SchoolID, uuidString(course.SchoolID)) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -1705,7 +1705,7 @@ func (s *Server) handleAddCourseStudents(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	claims := claimsFromContext(r.Context())
-	if claims != nil && claims.UserType == "admin" && claims.SchoolID != uuidString(course.SchoolID) {
+	if claims != nil && claims.UserType == "admin" && !sameUUID(claims.SchoolID, uuidString(course.SchoolID)) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -1748,7 +1748,7 @@ func (s *Server) handleRemoveCourseStudent(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	claims := claimsFromContext(r.Context())
-	if claims != nil && claims.UserType == "admin" && claims.SchoolID != uuidString(course.SchoolID) {
+	if claims != nil && claims.UserType == "admin" && !sameUUID(claims.SchoolID, uuidString(course.SchoolID)) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -1817,7 +1817,7 @@ func (s *Server) handleAddCourseTeacher(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	claims := claimsFromContext(r.Context())
-	if claims != nil && claims.UserType == "admin" && claims.SchoolID != uuidString(course.SchoolID) {
+	if claims != nil && claims.UserType == "admin" && !sameUUID(claims.SchoolID, uuidString(course.SchoolID)) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -1852,7 +1852,7 @@ func (s *Server) handleRemoveCourseTeacher(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	claims := claimsFromContext(r.Context())
-	if claims != nil && claims.UserType == "admin" && claims.SchoolID != uuidString(course.SchoolID) {
+	if claims != nil && claims.UserType == "admin" && !sameUUID(claims.SchoolID, uuidString(course.SchoolID)) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -2028,7 +2028,7 @@ func (s *Server) handleGetStudentGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	claims := claimsFromContext(r.Context())
-	if claims != nil && claims.UserType == "admin" && claims.SchoolID != uuidString(group.SchoolID) {
+	if claims != nil && claims.UserType == "admin" && !sameUUID(claims.SchoolID, uuidString(group.SchoolID)) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -2102,7 +2102,7 @@ func (s *Server) handlePatchStudentGroup(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	claims := claimsFromContext(r.Context())
-	if claims != nil && claims.UserType == "admin" && claims.SchoolID != uuidString(current.SchoolID) {
+	if claims != nil && claims.UserType == "admin" && !sameUUID(claims.SchoolID, uuidString(current.SchoolID)) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -2143,7 +2143,7 @@ func (s *Server) handleDeleteStudentGroup(w http.ResponseWriter, r *http.Request
 		return
 	}
 	claims := claimsFromContext(r.Context())
-	if claims != nil && claims.UserType == "admin" && claims.SchoolID != uuidString(current.SchoolID) {
+	if claims != nil && claims.UserType == "admin" && !sameUUID(claims.SchoolID, uuidString(current.SchoolID)) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -2644,6 +2644,23 @@ func pgUUIDFromString(id string) pgtype.UUID {
 		return pgtype.UUID{}
 	}
 	return pgtype.UUID{Bytes: parsed, Valid: true}
+}
+
+func sameUUID(left, right string) bool {
+	left = strings.TrimSpace(left)
+	right = strings.TrimSpace(right)
+	if left == "" || right == "" {
+		return false
+	}
+	leftUUID, err := uuid.Parse(left)
+	if err != nil {
+		return false
+	}
+	rightUUID, err := uuid.Parse(right)
+	if err != nil {
+		return false
+	}
+	return leftUUID == rightUUID
 }
 
 func parseUUID(id string) (pgtype.UUID, error) {

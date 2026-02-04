@@ -134,10 +134,13 @@ class DeviceSigner:
 
     def sign_headers(self, method, path, body_bytes, challenge=""):
         timestamp = int(time.time())
+        print(f"Signing request at timestamp: {timestamp}")
+        print(f"Request body bytes: {body_bytes}")
         body_hash = sha256_b64(body_bytes)
         message = device_signature_message(
             method, path, self.student_id, self.device_id, timestamp, body_hash, challenge
         )
+        print(f"Signing message:\n'{message}'\n")
         signature = self.private_key.sign(
             message.encode("utf-8"), ec.ECDSA(hashes.SHA256()))
         return {
@@ -515,6 +518,7 @@ def main():
             body={"device_identifier": signer.device_id,
                   "public_key": signer.public_key_pem()},
         )
+        print("public key pem:", signer.public_key_pem())
         signers.append(signer)
 
     teacher_sig = request_json(

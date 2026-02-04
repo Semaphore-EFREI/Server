@@ -136,7 +136,7 @@ func uuidString(id pgtype.UUID) string {
 }
 
 const (
-	totpStepSeconds = 5
+	totpStepSeconds = 30
 	totpDigits      = 6
 )
 

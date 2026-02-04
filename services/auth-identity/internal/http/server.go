@@ -391,7 +391,7 @@ func (s *Server) handleGetStudentDevice(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
-	if claims.UserType == "student" && claims.UserID != studentID {
+	if claims.UserType == "student" && !sameUUID(claims.UserID, studentID) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -429,7 +429,7 @@ func (s *Server) handlePutStudentDevice(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadRequest, "missing_student_id")
 		return
 	}
-	if claims.UserID != studentID {
+	if !sameUUID(claims.UserID, studentID) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -693,7 +693,7 @@ func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "missing_user_id")
 		return
 	}
-	if !isAdminOrDev(claims) && claims.UserID != userID {
+	if !isAdminOrDev(claims) && !sameUUID(claims.UserID, userID) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -784,7 +784,7 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	isPrivileged := isAdminOrDev(claims)
-	if !isPrivileged && claims.UserID != userID {
+	if !isPrivileged && !sameUUID(claims.UserID, userID) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -959,7 +959,7 @@ func (s *Server) handleGetStudent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "missing_student_id")
 		return
 	}
-	if claims.UserType == "student" && claims.UserID != studentID {
+	if claims.UserType == "student" && !sameUUID(claims.UserID, studentID) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -1261,7 +1261,7 @@ func (s *Server) handleGetTeacher(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
-	if claims.UserType == "teacher" && claims.UserID != teacherID {
+	if claims.UserType == "teacher" && !sameUUID(claims.UserID, teacherID) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -1862,6 +1862,23 @@ func isUniqueViolation(err error) bool {
 		return pgErr.Code == "23505"
 	}
 	return false
+}
+
+func sameUUID(left, right string) bool {
+	left = strings.TrimSpace(left)
+	right = strings.TrimSpace(right)
+	if left == "" || right == "" {
+		return false
+	}
+	leftUUID, err := uuid.Parse(left)
+	if err != nil {
+		return false
+	}
+	rightUUID, err := uuid.Parse(right)
+	if err != nil {
+		return false
+	}
+	return leftUUID == rightUUID
 }
 
 func (s *Server) fetchStudentGroups(ctx context.Context, studentIDs []string, schoolID string) (map[string][]string, error) {

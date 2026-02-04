@@ -127,14 +127,18 @@ func (s *Server) studentDeviceSignatureMiddleware(next http.Handler) http.Handle
 			writeError(w, http.StatusUnauthorized, "missing_token")
 			return
 		}
-		if claims.UserType != "student" {
-			next.ServeHTTP(w, r)
-			return
-		}
+	if claims.UserType != "student" {
+		next.ServeHTTP(w, r)
+		return
+	}
+	if s.cfg.DeviceChallengeBypass {
+		next.ServeHTTP(w, r)
+		return
+	}
 
-		deviceID := strings.TrimSpace(r.Header.Get("X-Device-ID"))
-		if deviceID == "" {
-			writeError(w, http.StatusForbidden, "device_not_allowed")
+	deviceID := strings.TrimSpace(r.Header.Get("X-Device-ID"))
+	if deviceID == "" {
+		writeError(w, http.StatusForbidden, "device_not_allowed")
 			return
 		}
 
@@ -280,7 +284,7 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 		if req.Student == "" {
 			req.Student = claims.UserID
 		}
-		if req.Student != claims.UserID || req.Teacher != "" {
+		if !sameUUID(req.Student, claims.UserID) || req.Teacher != "" {
 			writeError(w, http.StatusForbidden, "forbidden")
 			return
 		}
@@ -292,7 +296,7 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 		if req.Teacher == "" {
 			req.Teacher = claims.UserID
 		}
-		if req.Teacher != claims.UserID {
+		if !sameUUID(req.Teacher, claims.UserID) {
 			writeError(w, http.StatusForbidden, "forbidden")
 			return
 		}
@@ -368,7 +372,7 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 		}
 	case "teacher":
 		if statusValue == db.SignatureStatusSigned {
-			if req.Teacher != claims.UserID {
+			if !sameUUID(req.Teacher, claims.UserID) {
 				writeError(w, http.StatusForbidden, "forbidden")
 				return
 			}
@@ -409,7 +413,7 @@ func (s *Server) handleCreateSignature(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if requiresChallengeForMethod(methodValue) {
+		if requiresChallengeForMethod(methodValue) && !s.cfg.DeviceChallengeBypass {
 			if strings.TrimSpace(req.Challenge) == "" {
 				writeError(w, http.StatusForbidden, "challenge_missing")
 				return
@@ -1213,7 +1217,7 @@ func (s *Server) handleListSignatures(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusForbidden, "forbidden")
 			return
 		}
-		if studentID != "" && studentID != claims.UserID {
+		if studentID != "" && !sameUUID(studentID, claims.UserID) {
 			writeError(w, http.StatusForbidden, "forbidden")
 			return
 		}
@@ -1259,7 +1263,7 @@ func (s *Server) handleListSignatures(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusForbidden, "forbidden")
 			return
 		}
-		if teacherID != "" && teacherID != claims.UserID {
+		if teacherID != "" && !sameUUID(teacherID, claims.UserID) {
 			writeError(w, http.StatusForbidden, "forbidden")
 			return
 		}
@@ -1463,7 +1467,7 @@ type patchError struct {
 
 func (s *Server) applyStudentSignaturePatch(ctx context.Context, claims *auth.Claims, sig db.GetStudentSignatureRow, req patchSignatureRequest) *patchError {
 	if claims.UserType == "student" {
-		if claims.UserID != uuidString(sig.StudentID) {
+		if !sameUUID(claims.UserID, uuidString(sig.StudentID)) {
 			return &patchError{status: http.StatusForbidden, code: "forbidden"}
 		}
 		if sig.Status == db.SignatureStatusPresent {
@@ -1566,7 +1570,7 @@ func (s *Server) applyStudentSignaturePatch(ctx context.Context, claims *auth.Cl
 
 func (s *Server) applyTeacherSignaturePatch(ctx context.Context, claims *auth.Claims, sig db.GetTeacherSignatureRow, req patchSignatureRequest) *patchError {
 	if claims.UserType == "teacher" {
-		if claims.UserID != uuidString(sig.TeacherID) {
+		if !sameUUID(claims.UserID, uuidString(sig.TeacherID)) {
 			return &patchError{status: http.StatusForbidden, code: "forbidden"}
 		}
 		statusValue := sig.Status
@@ -1629,7 +1633,7 @@ func (s *Server) canAccessStudentSignature(ctx context.Context, claims *auth.Cla
 		return true
 	}
 	if claims.UserType == "student" {
-		return claims.UserID == uuidString(studentID)
+		return sameUUID(claims.UserID, uuidString(studentID))
 	}
 	if claims.UserType == "teacher" {
 		allowed, err := s.academics.ValidateTeacherCourse(ctx, &academicsv1.ValidateTeacherCourseRequest{
@@ -1646,7 +1650,7 @@ func (s *Server) canAccessTeacherSignature(ctx context.Context, claims *auth.Cla
 		return true
 	}
 	if claims.UserType == "teacher" {
-		return claims.UserID == uuidString(teacherID)
+		return sameUUID(claims.UserID, uuidString(teacherID))
 	}
 	if claims.UserType == "student" {
 		return false
@@ -1779,6 +1783,9 @@ func validateTiming(course *academicsv1.Course, signedAt time.Time) (string, str
 // Identity
 
 func (s *Server) validateStudentDevice(ctx context.Context, studentID, deviceID string) bool {
+	if s.cfg.DeviceChallengeBypass {
+		return true
+	}
 	if studentID == "" || deviceID == "" {
 		return false
 	}
@@ -2022,6 +2029,23 @@ func writeJSON(w http.ResponseWriter, status int, payload interface{}) {
 
 func writeError(w http.ResponseWriter, status int, code string) {
 	writeJSON(w, status, map[string]string{"error": code})
+}
+
+func sameUUID(left, right string) bool {
+	left = strings.TrimSpace(left)
+	right = strings.TrimSpace(right)
+	if left == "" || right == "" {
+		return false
+	}
+	leftUUID, err := uuid.Parse(left)
+	if err != nil {
+		return false
+	}
+	rightUUID, err := uuid.Parse(right)
+	if err != nil {
+		return false
+	}
+	return leftUUID == rightUUID
 }
 
 func parseUUID(id string) (pgtype.UUID, error) {
