@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	academicsv1 "semaphore/academics/academics/v1"
@@ -495,6 +496,9 @@ func (s *Server) registerDevice(ctx context.Context, studentID, deviceIdentifier
 		Active:           true,
 	}
 	if err := s.store.CreateDevice(ctx, device); err != nil {
+		if isUniqueViolation(err) {
+			return deviceRegistrationResult{}, "device_identifier_exists", nil
+		}
 		return deviceRegistrationResult{}, "", err
 	}
 
@@ -1850,6 +1854,14 @@ func writeJSON(w http.ResponseWriter, status int, payload interface{}) {
 
 func writeError(w http.ResponseWriter, status int, code string) {
 	writeJSON(w, status, map[string]string{"error": code})
+}
+
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505"
+	}
+	return false
 }
 
 func (s *Server) fetchStudentGroups(ctx context.Context, studentIDs []string, schoolID string) (map[string][]string, error) {
