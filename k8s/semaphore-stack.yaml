@@ -709,6 +709,8 @@ spec:
                 secretKeyRef:
                   name: redis-credentials
                   key: redis-password
+            - name: DEVICE_CHALLENGE_BYPASS
+              value: "true"
             - name: NFC_DEBUG_ENABLED
               value: "true"
             - name: SIGNATURE_CLOSE_JOB_ENABLED
